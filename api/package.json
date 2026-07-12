@@ -8,13 +8,20 @@
     "migrate": "bun run src/scripts/migrate.ts",
     "seed": "bun run src/scripts/seed.ts",
     "ingest:housing": "bun run src/scripts/ingest-housing.ts",
-    "ingest:gis": "bun run src/scripts/ingest-gis.ts"
+    "ingest:poi": "bun run src/scripts/ingest-poi.ts",
+    "ingest:gis": "bun run src/scripts/ingest-gis.ts",
+    "geocode": "bun run src/scripts/geocode-housing.ts"
   },
   "dependencies": {
-    "@dive2026/shared": "workspace:*"
+    "@dive2026/shared": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1"
   },
   "peerDependencies": {
     "typescript": "^5"

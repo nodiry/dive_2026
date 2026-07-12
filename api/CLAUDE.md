@@ -11,7 +11,7 @@ Default to using Bun instead of Node.js.
 
 ## APIs
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
+- Project decision: use `express` for the HTTP layer (see `index.ts`) instead of the usual `Bun.serve()` recommendation — team went with the familiar/popular choice. Everything else below still applies.
 - `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
 - `Bun.redis` for Redis. Don't use `ioredis`.
 - `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.

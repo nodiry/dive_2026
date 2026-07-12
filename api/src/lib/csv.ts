@@ -1,9 +1,13 @@
 /**
- * BMC's sample CSVs are EUC-KR encoded, not UTF-8 (verified against the raw
- * bytes — `Bun.file(...).text()` mangles them). Always read via `readCsv`,
- * never `.text()` directly, or Korean fields come out as replacement chars.
+ * BMC's sample CSVs are EUC-KR encoded; the 소상공인시장진흥공단 POI dataset is
+ * UTF-8 (its own read-me notes they switched away from EUC-KR because it was
+ * corrupting business names). Always read via `readCsv`, never `.text()`
+ * directly, or one of the two will come out mangled.
  */
-const decoder = new TextDecoder("euc-kr" as never);
+const decoders = {
+  "euc-kr": new TextDecoder("euc-kr" as never),
+  "utf-8": new TextDecoder("utf-8"),
+};
 
 function parseRows(text: string): string[][] {
   const rows: string[][] = [];
@@ -46,9 +50,12 @@ function parseRows(text: string): string[][] {
   return rows.filter((r) => !(r.length === 1 && r[0] === ""));
 }
 
-export async function readCsv(path: string | URL): Promise<Record<string, string>[]> {
+export async function readCsv(
+  path: string | URL,
+  encoding: keyof typeof decoders = "euc-kr",
+): Promise<Record<string, string>[]> {
   const bytes = await Bun.file(path).bytes();
-  const text = decoder.decode(bytes);
+  const text = decoders[encoding].decode(bytes);
   const [header, ...body] = parseRows(text);
   if (!header) return [];
   return body.map((r) => Object.fromEntries(header.map((h, i) => [h.trim(), (r[i] ?? "").trim()])));

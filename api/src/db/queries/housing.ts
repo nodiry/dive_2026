@@ -1,7 +1,7 @@
 import type { HousingSearchQuery, HousingSummary } from "@dive2026/shared";
 import { sql } from "../client";
 
-function toHousingSummary(r: Record<string, unknown>): HousingSummary {
+export function toHousingSummary(r: Record<string, unknown>): HousingSummary {
   return {
     id: Number(r.id),
     type: r.type as HousingSummary["type"],

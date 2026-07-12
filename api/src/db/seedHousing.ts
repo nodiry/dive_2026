@@ -17,8 +17,9 @@ import {
   elevatorFromLabel,
   stripDongSuffix,
 } from "../lib/csv";
+import { SAMPLES_DIR } from "../lib/paths";
 
-const DATA_DIR = new URL("../../../docs/부산도시공사 샘플데이터 및 참고자료(공고)/", import.meta.url);
+const DATA_DIR = new URL("housing/", SAMPLES_DIR);
 const file = (name: string) => new URL(name, DATA_DIR);
 
 const HOUSING_TYPE_MAP: Record<string, string> = {
@@ -57,7 +58,7 @@ async function findProjectIdByAddress(type: string, address: string): Promise<nu
 
 /** Covers 통합공공임대/재개발임대/행복주택 — the one file that lists all three. */
 async function ingestCombinedHousingInfo() {
-  const rows = await readCsv(file("행복, 통합, 재개발 주택정보(샘플)_수영구, 기장군.csv"));
+  const rows = await readCsv(file("combined_units.csv"));
   console.log(`combined housing info: ${rows.length} rows`);
   const projectIds = new Map<string, number>();
 
@@ -89,14 +90,14 @@ async function ingestCombinedHousingInfo() {
 
 /** 매입임대 has no project-name field in the unit file — borrow it from the price file's 주택명, keyed by address. */
 async function ingestPurchasedHousing() {
-  const priceRows = await readCsv(file("매입임대 보증금_임대료(샘플)_수영구.csv"));
+  const priceRows = await readCsv(file("purchased_price.csv"));
   const nameByAddress = new Map<string, string>();
   for (const row of priceRows) {
     const address = stripDongSuffix(row["주소"] ?? "");
     if (!nameByAddress.has(address)) nameByAddress.set(address, row["주택명"] ?? address);
   }
 
-  const unitRows = await readCsv(file("매입임대 주택정보(샘플)_수영구.csv"));
+  const unitRows = await readCsv(file("purchased_units.csv"));
   console.log(`purchased housing info: ${unitRows.length} rows`);
   const projectIds = new Map<string, number>();
 
@@ -160,17 +161,17 @@ export async function ingestHousing(): Promise<void> {
   await ingestCombinedHousingInfo();
   await ingestPurchasedHousing();
   await ingestPriceFile({
-    file: "재개발임대 보증금_임대료(샘플)_수영구.csv",
+    file: "redevelopment_price.csv",
     type: "redevelopment",
     segment: (row) => ({ protectionClass: row["보호구분명"] }),
   });
   await ingestPriceFile({
-    file: "통합공공임대 보증금_임대료(샘플)_기장군.csv",
+    file: "integrated_price.csv",
     type: "integrated",
     segment: (row) => ({ incomeBracket: row["소득구간"], householdSize: toNumber(row["가구인원수"]) }),
   });
   await ingestPriceFile({
-    file: "행복주택 표준보증금 및 임대료(샘플)_기장군.csv",
+    file: "happy_price.csv",
     type: "happy",
     segment: (row) => ({ supplyClass: row["공급계층명"] }),
   });

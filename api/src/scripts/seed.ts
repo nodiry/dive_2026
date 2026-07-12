@@ -1,10 +1,13 @@
 import { sql } from "../db/client";
 import { runMigrations } from "../db/migrate";
+import { ingestGis } from "../db/seedGis";
 import { ingestHousing } from "../db/seedHousing";
+import { ingestPoi } from "../db/seedPoi";
+import { requireSamplesDir } from "../lib/paths";
 
+await requireSamplesDir();
 await runMigrations();
 await ingestHousing();
-console.log(
-  "GIS layers (commercial_poi etc.) are still empty — run `bun run ingest:gis` once Sundosoft's SHP samples are sourced (see ingest-gis.ts).",
-);
+await ingestPoi();
+await ingestGis();
 await sql.close();

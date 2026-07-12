@@ -1,0 +1,9 @@
+1. 부산시 행정구역도 : https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?dsId=30603
+
+2. 소상공인시장진흥공단  상가정보 : https://www.data.go.kr/data/15083033/fileData.do
+
+3. 인구격자 데이터 : https://sgis.mods.go.kr/view/pss/openDataIntrcn
+
+4. 용도지역지구도 : https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=NA&dsId=24
+
+5. 행안부 도로명주소 건물 : https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=MK&dsId=30056

@@ -1,0 +1,17 @@
+{
+  "name": "dive2026",
+  "private": true,
+  "workspaces": [
+    "api",
+    "client",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "bun --cwd api run dev",
+    "dev:client": "bun --cwd client run dev",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "migrate": "bun --cwd api run migrate",
+    "seed": "bun --cwd api run seed"
+  }
+}

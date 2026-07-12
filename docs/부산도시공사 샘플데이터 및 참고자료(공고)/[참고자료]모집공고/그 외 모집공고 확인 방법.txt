@@ -1,0 +1,2 @@
+아래 url로 접속하여 원하는 공고 검색 가능
+https://www.bmc.busan.kr/board/list2.do?boardId=BBS_0000004&menuCd=DOM_000000101001003000&contentsSid=29&cpath=

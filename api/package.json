@@ -1,0 +1,22 @@
+{
+  "name": "api",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot ./index.ts",
+    "migrate": "bun run src/scripts/migrate.ts",
+    "seed": "bun run src/scripts/seed.ts",
+    "ingest:housing": "bun run src/scripts/ingest-housing.ts",
+    "ingest:gis": "bun run src/scripts/ingest-gis.ts"
+  },
+  "dependencies": {
+    "@dive2026/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

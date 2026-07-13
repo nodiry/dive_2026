@@ -16,5 +16,43 @@ services:
       timeout: 3s
       retries: 10
 
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./api/.env
+    environment:
+      # container-network DB address — overrides the host-oriented value in api/.env
+      DATABASE_URL: postgres://dive:dive@db:5432/dive2026
+      SAMPLES_DIR: /samples
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api/app:/app/app
+      - ./samples:/samples:ro
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    env_file:
+      - ./client/.env
+    environment:
+      # the browser (on the host) calls this, not another container — localhost:3000 is correct
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client/src:/repo/client/src
+      - ./packages/shared/src:/repo/packages/shared/src
+
 volumes:
   dive_pg_data:

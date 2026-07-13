@@ -1,8 +1,10 @@
 # Data model — source data → Postgres
 
-Read this before touching anything under `api/src/db/` or its migrations. The
-raw files are genuinely confusing — this doc is the result of actually loading
-them and fixing what broke.
+Read this before touching anything under `api/app/db*`, `api/app/scripts/`,
+or the migrations. The raw files are genuinely confusing — this doc is the
+result of actually loading them and fixing what broke. (Backend is Python/
+FastAPI now, not the original Bun/Express/TypeScript — see PLAN.md §4. The
+data gotchas below are unchanged either way; only the file paths moved.)
 
 **Where the data lives:** `samples/` at the repo root — gitignored (it's
 ~560MB), distributed as a separate zip via Google Drive. See root `README.md`
@@ -20,10 +22,10 @@ samples/
 
 ### Gotcha #1: encoding
 
-All 6 CSVs are **EUC-KR encoded, not UTF-8**. `Bun.file(...).text()` will
-silently mangle every Korean field into `�` replacement characters — always
-read them via `api/src/lib/csv.ts#readCsv`, which decodes with
-`new TextDecoder("euc-kr")` by default.
+All 6 CSVs are **EUC-KR encoded, not UTF-8**. Reading them with the wrong
+encoding silently mangles every Korean field into replacement characters —
+always read them via `api/app/lib/csv_utils.py#read_csv`, which defaults to
+`encoding="euc-kr"`.
 
 ### Gotcha #2: purchased-housing addresses don't match between its two files
 
@@ -35,10 +37,12 @@ unit file:  부산광역시 수영구 수영로606번길 100(광안동,명성갤
 price file: 부산광역시 수영구 수영로606번길 100
 ```
 
-`stripDongSuffix()` in `csv.ts` strips the trailing `(...)` before either file
-is used as a join key. Some of these addresses also contain a literal comma
-*inside* the quoted CSV field — that's a normal quoted-CSV case handled by the
-parser in `csv.ts`, not a bug.
+`strip_dong_suffix()` in `csv_utils.py` strips the trailing `(...)` before
+either file is used as a join key. Some of these addresses also contain a
+literal comma *inside* the quoted CSV field — Python's `csv` module handles
+RFC4180 quoting (embedded commas in quoted fields) natively, so this is a
+non-issue in the Python port; it required a hand-rolled parser in the
+original TS version.
 
 ### The 4 housing types → one schema
 
@@ -90,20 +94,20 @@ nullable columns:
 
 Source: 소상공인시장진흥공단's 상가(상권)정보 dataset, Busan slice, 2026.03 cut
 (data.go.kr — this is what's behind Sundosoft's "상가-건물 융합정보"). Loaded via
-`api/src/db/seedPoi.ts`. **155,103 rows, every one with valid coordinates
-already — no geocoding needed for this file.**
+`api/app/scripts/seed_poi.py`. **155,103 rows, every one with valid
+coordinates already — no geocoding needed for this file.**
 
 - **Encoding: UTF-8**, not EUC-KR — the opposite of the BMC CSVs. The file's own
   read-me (`poi/README.txt`) explains why: an older EUC-KR extract was
-  corrupting business names, so this cut switched to UTF-8. `readCsv()` takes
+  corrupting business names, so this cut switched to UTF-8. `read_csv()` takes
   an explicit `encoding` param (`"euc-kr"` default, pass `"utf-8"` for this
   file) — don't assume one encoding for every source file in this project.
 - **`category`** = `상권업종대분류명` (major category). The OT deck's slide
   implied an 8-category scheme (D/F/L/N/O/P/Q/R) — **that's stale.** The real
   2026 data uses 10 categories: 소매, 부동산, 음식, 시설관리·임대, 보건의료, 교육,
   숙박, 예술·스포츠, 수리·개인, 과학·기술 (mapped to `PoiCategory` in
-  `packages/shared/src/schemas.ts`). Verify category taxonomies against real
-  data before hardcoding a schema.
+  `packages/shared/src/schemas.ts` and mirrored in `api/app/models.py`).
+  Verify category taxonomies against real data before hardcoding a schema.
 - **`category_name`** = `상권업종소분류명` (minor category, 247 distinct values)
   — deliberately the finest granularity, because "카페", "헬스장", and "편의점"
   all exist as their own 소분류 values — the exact vocabulary the deck's example
@@ -114,18 +118,19 @@ already — no geocoding needed for this file.**
   other 17 provinces were deleted after confirming Busan-only coverage is all
   this project needs (that was the single biggest contributor to the original
   ~2GB raw download).
-- Bulk-inserted in batches of 2,000 rows (raw parameterized `INSERT ... VALUES`
-  with `ST_SetSRID(ST_MakePoint(lng, lat), 4326)`), not the `sql(array)` helper
-  — that helper can't express the computed-geometry column.
+- Bulk-inserted via `asyncpg`'s `executemany()` in batches of 2,000 rows
+  against a fixed parameterized `INSERT ... VALUES (..., ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography)`
+  query — much simpler than the original TS version's hand-built multi-row
+  `VALUES` string, since `executemany` handles batching natively.
 - `address` prefers `도로명주소`, falling back to `지번주소` if blank.
 - `district` = `시군구명` (matches `housing_project.source_district`'s format).
 
 ## Part 3 — GIS shapefiles (`samples/gis/`)
 
-Loaded via `api/src/db/seedGis.ts`, which shells out to `ogr2ogr` (GDAL) —
-**never hand-parse `.shp` in JS.** Uses an argv-array spawn
-(`Bun.spawnSync([...])`), not `Bun.$` — Bun's shell tag mis-escapes Korean/
-paren/comma filenames; argv arrays sidestep that entirely (`api/src/lib/gis.ts`).
+Loaded via `api/app/scripts/seed_gis.py`, which shells out to `ogr2ogr`
+(GDAL) — **never hand-parse `.shp` in code.** Uses `subprocess.run()` with an
+argv list (not `shell=True`), so Korean/paren/comma filenames never need
+shell-escaping (`api/app/lib/gis.py`).
 
 | Folder | Source | Table | Rows | Status |
 |---|---|---|---|---|
@@ -187,11 +192,14 @@ real data — don't do this as the primary geocoding strategy:**
   locations, so blindly taking any one of them risks placing a housing project
   at the wrong building entirely, which is worse than leaving it ungeocoded.
 
-**Verdict: real geocoding still requires the Kakao/VWorld geocoding API**
-(address string → lat/lng), not this shapefile. `building` is still loaded
-because building footprints are legitimate reference data (map rendering,
-potential future road-name+building-number matching if a road-code lookup
-table is ever sourced), just not a geocoding shortcut today.
+**Verdict: real geocoding requires the Kakao geocoding API** (address string →
+lat/lng), not this shapefile — **and that's what's actually running now.**
+`api/app/lib/geocode.py` + `docker compose exec api python -m
+app.scripts.geocode_housing` successfully geocoded all 41 `housing_project`
+rows via the Kakao Local API. `building` is still loaded because building
+footprints are legitimate reference data (map rendering, potential future
+road-name+building-number matching if a road-code lookup table is ever
+sourced), just not what actually solved geocoding.
 
 ## Part 4 — population grid (`samples/population_grid_UNPLACEABLE/`) — blocked
 
@@ -214,6 +222,6 @@ Neither is in hand right now. **This data cannot be placed on a map or joined
 to anything spatially until the boundary file is sourced.** Don't attempt a
 guessed coordinate mapping — a silently-wrong grid placement is worse than an
 honestly-empty `industry_population_grid` table. If you get the boundary file
-later, `api/src/db/seedGis.ts` is the place to add the ingestion — the
+later, `api/app/scripts/seed_gis.py` is the place to add the ingestion — the
 `industry_population_grid` table (jsonb `industry_mix` + `population_density`
 per polygon) is already migrated and waiting, just empty.

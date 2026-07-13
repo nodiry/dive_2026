@@ -2,16 +2,16 @@
   "name": "dive2026",
   "private": true,
   "workspaces": [
-    "api",
     "client",
     "packages/*"
   ],
   "scripts": {
-    "dev:api": "bun --cwd api run dev",
+    "onboard": "bash scripts/onboard.sh",
     "dev:client": "bun --cwd client run dev",
-    "db:up": "docker compose up -d db",
-    "db:down": "docker compose down",
-    "migrate": "bun --cwd api run migrate",
-    "seed": "bun --cwd api run seed"
+    "up": "docker compose up --build",
+    "down": "docker compose down",
+    "migrate": "docker compose exec api python -m app.scripts.migrate",
+    "seed": "docker compose exec api python -m app.scripts.seed",
+    "geocode": "docker compose exec api python -m app.scripts.geocode_housing"
   }
 }

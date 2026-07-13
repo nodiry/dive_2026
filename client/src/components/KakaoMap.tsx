@@ -20,7 +20,8 @@ function loadKakaoSdk(): Promise<void> {
       return;
     }
     const script = document.createElement("script");
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false`;
+    script.src =
+      `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false&libraries=services`;
     script.async = true;
     script.onload = () => window.kakao.maps.load(() => resolve());
     script.onerror = () => reject(new Error("Kakao Maps SDK failed to load"));

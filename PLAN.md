@@ -84,32 +84,58 @@ layer are in `docs/DATA_MODEL.md`.
 
 | Concern | Decision | Why |
 |---|---|---|
-| Language | TypeScript everywhere | your call, and both scaffolds already match |
-| Backend runtime | Bun + **Express** (`Bun.sql` for Postgres) | team decision — popular/familiar choice over `Bun.serve()`; `api/CLAUDE.md` updated to stop contradicting this |
+| Backend language | **Python + FastAPI + asyncpg** (was Bun + Express + TypeScript) | team decision, mid-project pivot — see below |
+| Frontend language | TypeScript | unchanged |
+| Deployment | **Docker for everything** (db + api + client, one `docker-compose.yml`) | team decision — reproducible for teammates, no host-Python/Bun-version drift |
 | Database | **PostgreSQL + PostGIS** (Docker) | you have real spatial data (SHP) and need `ST_DWithin`/KNN for "housing near matching cafés" — this is the one call to get right early |
-| SHP ingestion | `ogr2ogr` (GDAL, installed) straight into PostGIS | far more reliable than parsing `.shp` in JS |
-| Geocoding | Kakao/VWorld geocoding API | BMC's address field is a road-name string with no lat/lng — you must geocode before anything spatial works |
-| Frontend | Vite + React 19 + TS (already scaffolded) + Tailwind | fast to onboard 2 more devs, no CSS bikeshedding |
+| SHP ingestion | `ogr2ogr` (GDAL, installed in the api Docker image) straight into PostGIS | far more reliable than parsing `.shp` in code |
+| Geocoding | Kakao geocoding API | BMC's address field is a road-name string with no lat/lng — you must geocode before anything spatial works. **Live and verified** — see §7. |
+| Frontend | Vite + React 19 + TS + Tailwind | fast to onboard 2 more devs, no CSS bikeshedding |
 | Map | Kakao Maps JS SDK | best Korean address/POI support, free tier fine |
-| Shared contracts | `packages/shared` with Zod schemas | single source of truth for API request/response so 3 people don't drift |
+| API contracts | `packages/shared` Zod schemas (frontend) mirrored by hand in `api/app/models.py` (Pydantic) | no longer literally shared code across the language boundary — keep both in sync manually when either changes |
 | Data fetching | TanStack Query | standard, low-ceremony |
+
+### Why the switch from Bun/Express to Python/FastAPI
+
+Team decision, not a technical failure of the TS stack (it was fully working —
+condition search, recommendation scoring, all ingestion — before the switch).
+The full TS implementation was ported faithfully: same SQL, same migrations
+(the `.sql` files didn't need to change at all — migrations are plain SQL,
+language-agnostic), same field-mapping gotchas, same API contract (routes,
+JSON shapes, camelCase over the wire). `docs/DATA_MODEL.md` still applies
+unchanged — it documents the *data*, not the language that loads it.
+
+One real bug surfaced during the port and is worth knowing about:
+**asyncpg is strict about parameter types** — it rejects a Python string for
+a `date`/`timestamp`-typed column parameter (`postgres.js`/Bun.sql coerced
+this automatically; asyncpg does not). Every date/timestamp value now goes
+through `datetime.date`/`datetime.datetime` objects before hitting the DB —
+see `api/app/lib/csv_utils.py`.
 
 ### Repo hygiene — ✅ done
 - Single monorepo, `api`/`client`/`packages/shared` bun workspaces, `git init`
   at root. `client`'s old orphan `.git` (empty, zero commits) is gone.
-- `.env.example` at root (`DATABASE_URL`, `KAKAO_MAP_KEY`, `KAKAO_REST_API_KEY`)
-  — never commit real keys. Note the two Kakao keys are **not interchangeable**
-  (JS key for the browser map SDK, REST key for server-side geocoding).
+- `api/.env.example` (`DATABASE_URL`, `PORT`, `KAKAO_REST_API_KEY`) and
+  `client/.env.example` (`VITE_API_URL`, `VITE_KAKAO_MAP_KEY`) — never commit
+  the real `.env` files (both gitignored). Note the two Kakao keys are **not
+  interchangeable** (JS key for the browser map SDK, REST key for server-side
+  geocoding).
 - `docker-compose.yml` with `postgis/postgis`, mapped to **port 5433** (not
   5432 — see §4 architecture table).
-- `samples/` (the ~560MB raw data) is **not in git** — gitignored, distributed
-  as a zip via Google Drive, dropped into the repo root by hand. Every
-  ingestion script fails fast with an actionable message if it's missing
-  (`api/src/lib/paths.ts#requireSamplesDir`).
-- `bun run seed` — one command that loads *everything* in `samples/` (housing,
-  POI, admin boundary, zoning, buildings) into local Postgres from a clean
-  clone, in ~80 seconds. This is the single highest-leverage thing for
-  onboarding a new teammate.
+- `samples.zip` (~98MB) **is committed to git** — small enough after trimming
+  non-Busan data (§3) that there's no reason to distribute it separately
+  anymore. The unzipped `samples/` form (~560MB) stays gitignored and is
+  regenerated from the zip. Every ingestion script fails fast with an
+  actionable message if `samples/` is missing
+  (`api/app/lib/paths.py#require_samples_dir`).
+- **`bun run onboard`** (→ `scripts/onboard.sh`) — the entire onboarding flow
+  in one command: creates `.env` files from `.example` if missing, unzips
+  `samples.zip` if not already unzipped, builds+starts all 3 Docker
+  containers, migrates, seeds. Verified idempotent (safe to re-run) and
+  verified against a simulated fresh clone (env files and samples/ removed,
+  DB volume wiped) — actually ran it, not just wrote it. This is the single
+  highest-leverage thing for onboarding a new teammate: `git clone`,
+  `bun install`, `bun run onboard`, done.
 
 ## 5. Data model — ✅ implemented and verified against real data
 
@@ -149,19 +175,20 @@ size for 통합공공임대, supply class for 행복주택, protection class for
 재개발임대, rank+unit-name for 매입임대). Full mapping, plus every gotcha found
 while ingesting (EUC-KR encoding, 매입임대's address format mismatch, CRS
 reprojection per layer, the bad zoning file) are in **`docs/DATA_MODEL.md`** —
-read that before touching any schema or `seed*.ts` file.
+read that before touching any schema or `app/scripts/seed_*.py` file.
 
-## 6. API surface — ✅ v1 built and verified live
+## 6. API surface — ✅ v1 built and verified live (Python/FastAPI)
 
 - `GET /api/housing?depositMax=&builtAfter=&roomCount=&district=&type=` — condition-based search (example 2 in the deck)
 - `GET /api/housing/:id` — detail lookup
-- `POST /api/recommendations/lifestyle` — body: `{ preferences: [{categoryName, weight}], district?, depositMax?, radiusMeters? }` → ranked housing with per-category score breakdown (example 1). Tested live with temporarily-backfilled coordinates (reverted afterward) — ranking, filters, and empty-result edge cases all correct. Returns `[]` today only because no housing is geocoded yet, not because the logic is wrong.
+- `POST /api/recommendations/lifestyle` — body: `{ preferences: [{categoryName, weight}], district?, depositMax?, radiusMeters? }` → ranked housing with per-category score breakdown (example 1). **Verified live with real geocoded data** — correctly ranks a housing project with 75 cafés within 500m (closest 11m) above sparser candidates.
+- `GET /api/poi/categories` — powers the frontend's category picker with real `category_name` values.
 
 Dropped from the original plan: `GET /api/areas/:code/stats` (dashboard/
 creativity nice-to-have) — not built, not blocking anything, revisit if there's
 spare time later.
 
-## 7. Recommendation logic — ✅ implemented as planned, blocked only on geocoding
+## 7. Recommendation logic — ✅ implemented, verified live, geocoding is done
 
 1. Hard filters first (deposit ceiling, district; room count/built-year on the
    condition-search endpoint) — plain SQL `WHERE`/`HAVING`.
@@ -177,25 +204,26 @@ spare time later.
    UI/UX and 정책 활용 가능성 rubric lines directly, since a black-box score is
    neither trustworthy nor demoable.
 
-**The only remaining gap is geocoding, not the scoring logic.**
-`housing_project.geom` is `NULL` for every row — `api/src/lib/geocode.ts`
-(Kakao Local API client) and `bun run geocode` (batch script, skips
-already-geocoded rows) are built and ready, just need a live
-`KAKAO_REST_API_KEY`. The moment that key exists and `bun run geocode` runs
-once, the recommendation endpoint starts returning real results with zero
-other code changes.
+**Geocoding is live.** All 41 `housing_project` rows were successfully
+geocoded via `api/app/lib/geocode.py` (Kakao Local API) +
+`docker compose exec api python -m app.scripts.geocode_housing`. The
+recommendation endpoint now returns real, ranked, non-empty results. The one
+remaining gap is unrelated to the backend: the frontend map doesn't render
+yet because the Kakao **JS** key's allowed domain isn't registered in the
+Kakao console (see README.md Quick start) — a one-time account setting, not
+a code or data problem.
 
 Optional differentiator (창의성, if time allows): blend in
 `industry_population_grid` to characterize a neighborhood's "vibe" — currently
 blocked (§3, link #3), revisit only if the boundary geometry gets sourced.
 
-## 8. Frontend screens (v1)
+## 8. Frontend screens — ✅ v1 built and verified in a real browser
 
-1. Preference intake (lifestyle checklist + budget + district) — the taste quiz
-2. Recommendation results — ranked cards + map, each with its score breakdown
-3. Condition-based search — classic filter form, reuses the same result view
-4. Housing detail — unit specs, deposit/rent, nearby amenities list, mini-map
-5. (nice-to-have) Compare / save favorites
+1. ✅ Home — mode picker (취향으로 찾기 / 조건으로 찾기), signature "neighborhood tag strip" hero
+2. ✅ Recommend — preference intake (real category picker from `/api/poi/categories`, weight sliders, budget/district/radius) + ranked results with per-category match breakdown
+3. ✅ Search — condition-based filter form, same result-card component as Recommend
+4. ✅ Detail — unit specs, deposit/rent, map, nearby-amenities placeholder
+5. ⏳ (nice-to-have, not built) Compare / save favorites
 
 ## 9. Timeline
 
@@ -206,17 +234,19 @@ blocked (§3, link #3), revisit only if the boundary geometry gets sourced.
 - [x] `git init` at root, bun workspaces (`api`, `client`, `packages/shared`) + Docker Compose + `.env.example`
 
 ### Phase 1 — solo week (7/12–~7/19)
-- [x] PostGIS running locally via Docker — **note: mapped to port 5433, not 5432**, since many dev machines already have a native Postgres bound to 5432 that silently wins over `localhost:5432`
+- [x] Full stack containerized — `docker-compose.yml` runs db + api + client, no host dependencies beyond Docker itself
+- [x] Backend rewritten Bun/Express/TS → Python/FastAPI/asyncpg (team decision, mid-week pivot) — same SQL, same migrations, same API contract, faithfully ported (§4)
 - [x] Ingestion scripts: all 6 BMC sample CSVs → `housing_project`/`housing_unit`/`housing_price`, verified end-to-end (2,527 units / 676 price rows loaded, 0 unmatched)
 - [x] Commercial POI ingestion: 155,103 real Busan businesses (data.go.kr 상가정보) → `commercial_poi`, spatial radius query verified using the GIST index
 - [x] `ogr2ogr` → PostGIS for admin boundary (192 rows), zoning (3,307 rows), and buildings (379,711 rows) — all verified with real Busan coordinates. `industry_population_grid` stays empty — genuinely blocked, not just unsourced (docs/DATA_MODEL.md Part 4)
-- [x] Geocoding **infrastructure** built (Kakao Local API client + `bun run geocode` batch script, tested for its error path) — but blocked on getting a live `KAKAO_REST_API_KEY`. Tested name-matching against the building layer as a free alternative; only ~7% unambiguous match rate, not usable as the real strategy (docs/DATA_MODEL.md Part 3)
-- [x] `bun run seed` working end-to-end from clean clone — loads housing + POI + all 3 usable GIS layers in ~80s, from a 98MB zip dropped into the repo root
-- [x] API v1: condition search (`GET /api/housing`, `GET /api/housing/:id`) — verified live against seeded data, on Express
-- [x] API v1: lifestyle recommendation endpoint — built, scoring verified live (temporarily-backfilled test coordinates, reverted after). Returns `[]` today only because no housing is geocoded yet
-- [ ] Frontend skeleton: routing, map component wired to Kakao SDK, preference intake screen, results list rendering real API data — **next up, nothing else blocks starting this**
-- [x] `docs/DATA_MODEL.md` + root `README.md` written — covers every gotcha found across housing CSVs, POI data, and all 3 GIS layers
-- [ ] Split remaining work into clearly scoped modules for 2 incoming teammates (e.g. Person A: frontend map/preference screens; Person B: frontend detail/results screens; you: geocoding once the key lands, integration, demo data, API hardening)
+- [x] **Geocoding is live** — all 41 `housing_project` rows successfully geocoded via the Kakao REST API key. Name-matching against the building layer was tried first as a free alternative; only ~7% unambiguous match rate, rejected as unreliable (docs/DATA_MODEL.md Part 3) — the real Kakao geocoding path is what's actually running now.
+- [x] Full seed pipeline working end-to-end from a clean Docker volume — migrate + housing + POI + all 3 usable GIS layers in ~80s
+- [x] API v1: condition search + detail lookup — verified live, on FastAPI
+- [x] API v1: lifestyle recommendation endpoint — **verified live with real ranked results** (not just architecturally ready)
+- [x] Frontend: all 4 pages built and verified in a real browser against the live Dockerized backend with real geocoded data
+- [x] `docs/DATA_MODEL.md` + root `README.md` written — covers every gotcha found across housing CSVs, POI data, all 3 GIS layers, and the TS→Python port
+- [ ] **Kakao JS key domain registration** — map doesn't render yet, needs `http://localhost:5173` added in the Kakao console (README.md Quick start has the exact steps). Last item blocking a fully working demo.
+- [ ] Split remaining work into clearly scoped modules for 2 incoming teammates (e.g. Person A: map polish + compare/favorites; Person B: UI polish + pitch deck; you: integration, demo data, edge cases)
 
 ### Phase 2 — team of 3 (~7/19–7/24)
 - [ ] Feature-complete UI/UX pass, both flows working smoothly
@@ -230,13 +260,16 @@ blocked (§3, link #3), revisit only if the boundary geometry gets sourced.
 
 ## 10. Open risks
 
-- **Geocoding is now the single blocking dependency** for demoing the
-  lifestyle recommendation flow with real results — everything else it needs
-  (POI data, scoring logic, API endpoint) is done and verified. Get the Kakao
-  REST key early; don't let this slip to the week of the event.
+- **Kakao JS key domain registration** is the only thing standing between
+  "backend fully works" and "demo looks fully working" — get this done well
+  before the event, it's a 2-minute console setting once someone remembers to
+  do it (see README.md).
 - Geocoding volume/rate limits once full city-wide data lands — cache
-  aggressively (skip already-geocoded rows, which `bun run geocode` already
-  does), geocode incrementally.
+  aggressively (skip already-geocoded rows, which `geocode_housing.py`
+  already does), geocode incrementally.
+- Mid-project language switch (TS→Python) means the two incoming teammates
+  need to ramp on Python/FastAPI/asyncpg instead of the TS stack they might
+  have expected — flag this early so it's not a surprise on day one.
 - `industry_population_grid` may simply stay empty for the whole project —
   the "vibe" differentiator (§7) is a nice-to-have, not load-bearing, so this
   isn't a critical risk, just a lost creativity opportunity if never resolved.

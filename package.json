@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "onboard": "bash scripts/onboard.sh",
-    "dev:client": "bun --cwd client run dev",
+    "client": "docker compose up client",
     "up": "docker compose up --build",
     "down": "docker compose down",
     "migrate": "docker compose exec api python -m app.scripts.migrate",

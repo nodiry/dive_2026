@@ -47,11 +47,17 @@ done
 step "seeding the database (housing + POI + GIS layers, ~80s)"
 docker compose exec -T api python -m app.scripts.seed
 
+step "geocoding housing addresses (needs KAKAO_REST_API_KEY in api/.env)"
+if grep -qE '^KAKAO_REST_API_KEY=.+' api/.env 2>/dev/null; then
+  docker compose exec -T api python -m app.scripts.geocode_housing
+else
+  echo "no KAKAO_REST_API_KEY set in api/.env — skipping."
+  echo "the app still works (search/detail/recommend), but the map and"
+  echo "lifestyle recommendations need geocoded coordinates. Add both Kakao"
+  echo "keys (api/.env + client/.env, see README.md), then run: bun run geocode"
+fi
+
 echo
-echo "done."
+echo "voila. everything is up and seeded:"
 echo "  api:    http://localhost:3000"
 echo "  client: http://localhost:5173"
-echo
-echo "Map and live geocoding need Kakao keys in api/.env and client/.env —"
-echo "see README.md. Once added: docker compose up -d --build, then"
-echo "docker compose exec api python -m app.scripts.geocode_housing"

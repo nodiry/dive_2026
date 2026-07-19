@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "../lib/i18n/localeContext";
 
 declare global {
   interface Window {
@@ -48,6 +49,7 @@ interface KakaoMapProps {
  * not the exception.
  */
 export function KakaoMap({ markers, className = "" }: KakaoMapProps) {
+  const { t } = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const validMarkers = markers.filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng));
@@ -83,9 +85,9 @@ export function KakaoMap({ markers, className = "" }: KakaoMapProps) {
     </div>
   );
 
-  if (!KAKAO_KEY) return placeholder("지도를 표시할 수 없습니다", "Kakao Maps API 키가 아직 설정되지 않았어요.");
-  if (validMarkers.length === 0) return placeholder("위치 정보 없음", "이 주택은 아직 지오코딩되지 않았어요.");
-  if (status === "error") return placeholder("지도를 불러오지 못했습니다", "잠시 후 다시 시도해주세요.");
+  if (!KAKAO_KEY) return placeholder(t.map.noKeyTitle, t.map.noKeyDetail);
+  if (validMarkers.length === 0) return placeholder(t.map.noCoordsTitle, t.map.noCoordsDetail);
+  if (status === "error") return placeholder(t.map.errorTitle, t.map.errorDetail);
 
   return <div ref={containerRef} className={`rounded-2xl ${className}`} />;
 }

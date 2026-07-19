@@ -2,11 +2,13 @@ import { useState } from "react";
 import { HousingCard } from "../components/HousingCard";
 import { KakaoMap } from "../components/KakaoMap";
 import { TagStrip } from "../components/TagStrip";
+import { useLocale } from "../lib/i18n/localeContext";
 import { useLifestyleRecommendation, usePoiCategories } from "../lib/queries";
 
 const RADIUS_OPTIONS = [300, 500, 1000];
 
 export function Recommend() {
+  const { t } = useLocale();
   const { data: categories, isLoading: categoriesLoading } = usePoiCategories();
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [district, setDistrict] = useState("");
@@ -36,12 +38,12 @@ export function Recommend() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12">
-      <h1 className="text-3xl font-extrabold text-marine">취향으로 찾기</h1>
-      <p className="mt-2 text-slate">자주 가는 곳을 골라주시면, 가까운 순서로 임대주택을 추천해드려요.</p>
+      <h1 className="text-3xl font-extrabold text-marine">{t.recommend.title}</h1>
+      <p className="mt-2 text-slate">{t.recommend.subtitle}</p>
 
       <section className="mt-8 rounded-2xl border border-slate-light/30 bg-white/60 p-6">
-        <h2 className="font-medium text-marine">자주 이용하는 곳을 선택하세요</h2>
-        {categoriesLoading && <p className="mt-3 text-sm text-slate">불러오는 중...</p>}
+        <h2 className="font-medium text-marine">{t.recommend.chooseHeading}</h2>
+        {categoriesLoading && <p className="mt-3 text-sm text-slate">{t.recommend.loadingCategories}</p>}
         <div className="mt-3 flex flex-wrap gap-2">
           {categories?.map((c) => (
             <button
@@ -61,7 +63,7 @@ export function Recommend() {
 
         {selected.length > 0 && (
           <div className="mt-6 flex flex-col gap-3 border-t border-slate-light/30 pt-4">
-            <p className="text-sm font-medium text-marine">얼마나 중요한가요?</p>
+            <p className="text-sm font-medium text-marine">{t.recommend.importanceHeading}</p>
             {selected.map((categoryName) => (
               <label key={categoryName} className="flex items-center gap-3 text-sm">
                 <span className="w-28 shrink-0 text-marine">{categoryName}</span>
@@ -82,28 +84,28 @@ export function Recommend() {
 
         <div className="mt-6 grid gap-4 border-t border-slate-light/30 pt-4 sm:grid-cols-3">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-marine">지역 (선택)</span>
+            <span className="font-medium text-marine">{t.recommend.districtLabel}</span>
             <input
               type="text"
-              placeholder="예: 수영구"
+              placeholder={t.recommend.districtPlaceholder}
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
               className="rounded-lg border border-slate-light/50 bg-white px-3 py-2"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-marine">보증금 상한 (만원, 선택)</span>
+            <span className="font-medium text-marine">{t.recommend.depositMaxLabel}</span>
             <input
               type="number"
               min={0}
-              placeholder="예: 3000"
+              placeholder={t.recommend.depositMaxPlaceholder}
               value={depositMaxManwon}
               onChange={(e) => setDepositMaxManwon(e.target.value)}
               className="rounded-lg border border-slate-light/50 bg-white px-3 py-2 font-mono"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-marine">반경</span>
+            <span className="font-medium text-marine">{t.recommend.radiusLabel}</span>
             <select
               value={radiusMeters}
               onChange={(e) => setRadiusMeters(Number(e.target.value))}
@@ -111,7 +113,7 @@ export function Recommend() {
             >
               {RADIUS_OPTIONS.map((r) => (
                 <option key={r} value={r}>
-                  {r}m 이내
+                  {t.units.radiusOption(r)}
                 </option>
               ))}
             </select>
@@ -124,19 +126,14 @@ export function Recommend() {
           onClick={handleSubmit}
           className="mt-6 w-full rounded-lg bg-terracotta px-6 py-3 font-medium text-white transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {recommend.isPending ? "찾는 중..." : "추천받기"}
+          {recommend.isPending ? t.recommend.submitting : t.recommend.submit}
         </button>
       </section>
 
-      {recommend.isError && (
-        <p className="mt-6 text-terracotta-dark">추천을 불러오지 못했습니다. 다시 시도해주세요.</p>
-      )}
+      {recommend.isError && <p className="mt-6 text-terracotta-dark">{t.recommend.error}</p>}
 
       {recommend.isSuccess && recommend.data.length === 0 && (
-        <p className="mt-6 text-slate">
-          조건에 맞는 결과가 없어요. 아직 위치 정보가 등록된 임대주택이 없을 수 있어요 — 지오코딩이 완료되면
-          결과가 채워집니다.
-        </p>
+        <p className="mt-6 text-slate">{t.recommend.emptyResult}</p>
       )}
 
       {recommend.isSuccess && recommend.data.length > 0 && (
@@ -148,11 +145,14 @@ export function Recommend() {
                   <TagStrip
                     tags={result.matches.map((m) => ({
                       label: m.categoryName,
-                      sublabel: m.count > 0 ? `${m.count}곳 · ${Math.round(m.nearestMeters ?? 0)}m` : "없음",
+                      sublabel:
+                        m.count > 0 ? t.units.matchCount(m.count, Math.round(m.nearestMeters ?? 0)) : t.units.matchNone,
                       muted: m.count === 0,
                     }))}
                   />
-                  <span className="shrink-0 font-mono text-sm text-slate">점수 {result.score.toFixed(1)}</span>
+                  <span className="shrink-0 font-mono text-sm text-slate">
+                    {t.recommend.scoreLabel} {result.score.toFixed(1)}
+                  </span>
                 </div>
               </HousingCard>
             ))}

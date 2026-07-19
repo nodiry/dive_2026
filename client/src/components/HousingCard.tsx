@@ -1,14 +1,8 @@
 import type { HousingSummary } from "@dive2026/shared";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { useLocale } from "../lib/i18n/localeContext";
 import { formatWon } from "../lib/format";
-
-const TYPE_LABEL: Record<HousingSummary["type"], string> = {
-  purchased: "매입임대",
-  redevelopment: "재개발임대",
-  integrated: "통합공공임대",
-  happy: "행복주택",
-};
 
 interface HousingCardProps {
   housing: HousingSummary;
@@ -17,6 +11,8 @@ interface HousingCardProps {
 }
 
 export function HousingCard({ housing, children }: HousingCardProps) {
+  const { t } = useLocale();
+
   return (
     <Link
       to={`/housing/${housing.id}`}
@@ -25,14 +21,18 @@ export function HousingCard({ housing, children }: HousingCardProps) {
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <span className="inline-block rounded-full bg-marine/10 px-2.5 py-0.5 text-xs font-medium text-marine">
-            {TYPE_LABEL[housing.type]}
+            {t.housingType[housing.type]}
           </span>
           <h3 className="mt-2 truncate text-lg font-bold text-marine">{housing.projectName}</h3>
           <p className="truncate text-sm text-slate">{housing.address}</p>
         </div>
         <div className="shrink-0 text-right font-mono text-sm">
-          <div className="text-marine">보증금 {formatWon(housing.minDeposit)}</div>
-          <div className="text-slate">월세 {formatWon(housing.minRent)}</div>
+          <div className="text-marine">
+            {t.housingCard.deposit} {formatWon(housing.minDeposit)}
+          </div>
+          <div className="text-slate">
+            {t.housingCard.rent} {formatWon(housing.minRent)}
+          </div>
         </div>
       </div>
       {children}

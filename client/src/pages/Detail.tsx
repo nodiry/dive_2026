@@ -45,7 +45,12 @@ export function Detail() {
 
       <div className="mt-8">
         <h2 className="mb-3 font-medium text-marine">{t.detail.locationHeading}</h2>
-        <KakaoMap className="aspect-video w-full" markers={[{ lat: housing.lat ?? NaN, lng: housing.lng ?? NaN }]} />
+        <KakaoMap
+          className="aspect-video w-full rounded-2xl"
+          markers={[
+            { kind: "housing", id: housing.id, lat: housing.lat ?? NaN, lng: housing.lng ?? NaN, label: housing.projectName },
+          ]}
+        />
       </div>
 
       <div className="mt-8 rounded-2xl border border-dashed border-slate-light/50 bg-mist-dim p-6 text-center text-sm text-slate">

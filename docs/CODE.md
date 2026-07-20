@@ -42,27 +42,39 @@ client/
   Dockerfile                 # oven/bun — build context is the repo root (needs packages/shared)
   .env.example                # VITE_API_URL, VITE_KAKAO_MAP_KEY
   src/
-    main.tsx                  # app entry — wraps App in LocaleProvider + QueryClientProvider + BrowserRouter
-    App.tsx                    # route table
+    main.tsx                  # app entry — wraps App in LocaleProvider + SavedHousingProvider + QueryClientProvider + BrowserRouter
+    App.tsx                    # route table: "/" -> Explore (fullscreen, owns its own shell), PageShell wraps /about and /housing/:id
     index.css                  # Tailwind v4 @theme tokens + Pretendard import + base layer
     pages/
-      Home.tsx                  # mode picker (취향으로 찾기 / 조건으로 찾기), hero tag strip
-      Recommend.tsx              # lifestyle preference intake + ranked results
-      Search.tsx                 # condition-based filter form + results
+      Explore.tsx                # unified map screen — owns all top-level state, both criteria and preference modes, saved/찜 panel
+      About.tsx                   # static page: problem statement, BMC/Sundosoft blurbs
       Detail.tsx                  # unit specs, deposit/rent, map, nearby-amenities
     components/
-      Layout.tsx                  # nav shell, locale switcher
-      HousingCard.tsx              # shared result-card (used by Search and Recommend)
-      TagStrip.tsx                  # signature "neighborhood tag" motif — hero on Home, match breakdown on results
-      KakaoMap.tsx                  # loads Kakao SDK from VITE_KAKAO_MAP_KEY; graceful placeholder if unset/no coords/load error
+      PageShell.tsx                # centered-column nav shell for non-map pages (About, Detail)
+      LanguageSwitcher.tsx          # ko/en <select>, shared by PageShell and ExploreNavbar
+      HousingCard.tsx               # shared result-card; onSelect/saved/onToggleSave props are optional (used across Explore + Detail-adjacent flows)
+      TagStrip.tsx                   # signature "neighborhood tag" motif — hero on Explore's empty state, match breakdown on preference-mode results
+      KakaoMap.tsx                   # persistent map instance (mount-once, incremental marker/trail redraw); background mode for fullscreen usage
+      explore/
+        MapShell.tsx                  # fullscreen layout: KakaoMap as background layer + pointer-events-none overlay wrapper for floating panels
+        ExploreNavbar.tsx              # floating top bar: wordmark, ModeToggle, active mode's filter bar, submit, saved/about/language
+        ModeToggle.tsx                  # 조건/취향 two-state segmented control
+        CriteriaFilterBar.tsx            # condensed deposit/district/roomCount/builtAfter/type inputs
+        PreferenceCategoryBar.tsx         # icon row: 카페/편의점/헬스장/약국/주유소 + grouped 음식점, multi-select
+        ResultsListPanel.tsx              # floating left scrollable panel shell — reused for both search results and the saved/찜 list
     lib/
       api.ts                       # typed fetch client, validates responses against @dive2026/shared
       queries.ts                    # TanStack Query hooks
       format.ts                     # display formatters (e.g. formatWon)
+      filters.ts                    # CriteriaFilters type + toHousingSearchQuery()
+      poiIcons.ts                    # PoiIconKey <-> real category_name mapping, map-pin color palette, aggregateMatchesByIcon()
       i18n/
         translations.ts              # ko/en string tables + Translations type
         context.tsx                   # LocaleProvider (reads/writes localStorage, sets document.lang)
         localeContext.ts               # LocaleContext + useLocale() hook
+      savedHousing/
+        context.tsx                   # SavedHousingProvider (찜 list, localStorage-only, no backend/auth)
+        savedHousingContext.ts         # SavedHousingContext + useSavedHousing() hook
 
 packages/shared/
   src/schemas.ts             # Zod contracts the frontend validates API responses against
@@ -98,7 +110,9 @@ README.md                    # entry point — quick start + doc map
   ```
   Returns `[]` until housing is geocoded (`bun run geocode`) — that's
   correct behavior, not a bug. Each result includes a per-category match
-  breakdown (count + nearest distance), not just a final score.
+  breakdown (count + nearest distance, plus the top 5 nearest individual
+  `pois` — name/lat/lng/distance, for map pins and the animated trail), not
+  just a final score.
 - `GET /api/poi/categories` — distinct `category_name` values with counts,
   powers the frontend's category picker. Deliberately not hardcoded —
   see `docs/DATA_MODEL.md` Part 2 for why the real taxonomy differs from

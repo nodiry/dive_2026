@@ -5,17 +5,20 @@ import { BrowserRouter } from "react-router";
 import App from "./App.tsx";
 import "./index.css";
 import { LocaleProvider } from "./lib/i18n/context";
+import { SavedHousingProvider } from "./lib/savedHousing/context";
 
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LocaleProvider>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </QueryClientProvider>
+      <SavedHousingProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </QueryClientProvider>
+      </SavedHousingProvider>
     </LocaleProvider>
   </StrictMode>,
 );

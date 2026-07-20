@@ -1,17 +1,15 @@
 import { Route, Routes } from "react-router";
-import { Layout } from "./components/Layout";
+import { PageShell } from "./components/PageShell";
+import { About } from "./pages/About";
 import { Detail } from "./pages/Detail";
-import { Home } from "./pages/Home";
-import { Recommend } from "./pages/Recommend";
-import { Search } from "./pages/Search";
+import { Explore } from "./pages/Explore";
 
 export default function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="search" element={<Search />} />
-        <Route path="recommend" element={<Recommend />} />
+      <Route path="/" element={<Explore />} />
+      <Route element={<PageShell />}>
+        <Route path="about" element={<About />} />
         <Route path="housing/:id" element={<Detail />} />
       </Route>
     </Routes>

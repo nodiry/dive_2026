@@ -70,10 +70,21 @@ export const LifestyleRecommendationRequest = z.object({
 });
 export type LifestyleRecommendationRequest = z.infer<typeof LifestyleRecommendationRequest>;
 
+/** An individual matched place, for plotting pins/trails on the map — not just the aggregate count/distance. */
+export const MatchedPoiPoint = z.object({
+  name: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  distanceMeters: z.number(),
+});
+export type MatchedPoiPoint = z.infer<typeof MatchedPoiPoint>;
+
 export const MatchedPoi = z.object({
   categoryName: z.string(),
   count: z.number(),
   nearestMeters: z.number().nullable(),
+  /** Top-N nearest matched places within the radius (capped server-side), for map pins/trails. */
+  pois: z.array(MatchedPoiPoint),
 });
 export type MatchedPoi = z.infer<typeof MatchedPoi>;
 

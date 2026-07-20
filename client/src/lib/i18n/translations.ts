@@ -3,27 +3,16 @@ export type Locale = "ko" | "en";
 export interface Translations {
   languageLabel: string;
   nav: {
-    recommend: string;
-    search: string;
+    backToExplore: string;
+    savedLabel: string;
+    aboutLabel: string;
   };
   footer: string;
-  home: {
-    eyebrow: string;
-    titleLine1: string;
-    titleLine2: string;
-    subtitle: string;
-    recommendEyebrow: string;
-    recommendTitle: string;
-    recommendBody: string;
-    recommendCta: string;
-    searchEyebrow: string;
-    searchTitle: string;
-    searchBody: string;
-    searchCta: string;
-  };
-  search: {
-    title: string;
-    subtitle: string;
+  explore: {
+    heroEyebrow: string;
+    heroTitle: string;
+    modeCriteria: string;
+    modePreference: string;
     depositMaxLabel: string;
     depositMaxPlaceholder: string;
     builtAfterLabel: string;
@@ -34,28 +23,43 @@ export interface Translations {
     districtAll: string;
     typeLabel: string;
     typeAll: string;
-    submit: string;
-    prompt: string;
-    loading: string;
-    error: string;
-    empty: string;
-  };
-  recommend: {
-    title: string;
-    subtitle: string;
-    chooseHeading: string;
-    loadingCategories: string;
-    importanceHeading: string;
-    districtLabel: string;
-    districtPlaceholder: string;
-    depositMaxLabel: string;
-    depositMaxPlaceholder: string;
     radiusLabel: string;
     submit: string;
     submitting: string;
+    loading: string;
     error: string;
+    empty: string;
     emptyResult: string;
+    prompt: string;
     scoreLabel: string;
+    detailLink: string;
+  };
+  poiCategoryLabels: {
+    cafe: string;
+    convenienceStore: string;
+    gym: string;
+    pharmacy: string;
+    gasStation: string;
+    food: string;
+  };
+  saved: {
+    title: string;
+    empty: string;
+    saveLabel: string;
+    unsaveLabel: string;
+    viewSaved: string;
+    viewResults: string;
+  };
+  about: {
+    title: string;
+    intro: string;
+    problemHeading: string;
+    problemBody: string;
+    partnersHeading: string;
+    bmcName: string;
+    bmcBlurb: string;
+    sundosoftName: string;
+    sundosoftBlurb: string;
   };
   detail: {
     loading: string;
@@ -136,31 +140,17 @@ const districtsEn: Record<string, string> = {
 export const ko: Translations = {
   languageLabel: "언어",
   nav: {
-    recommend: "취향으로 찾기",
-    search: "조건으로 찾기",
+    backToExplore: "동네탐색",
+    savedLabel: "찜 목록",
+    aboutLabel: "서비스 소개",
   },
   footer: "DIVE 2026 · 부산도시공사 × 선도소프트 · 상권·취향 기반 공공임대주택 추천 서비스",
-  home: {
-    eyebrow: "부산광역시 공공임대주택",
-    titleLine1: "동네를 먼저 보고,",
-    titleLine2: "집을 고르세요.",
-    subtitle:
-      "보증금과 평수만으로는 알 수 없는 것들 — 자주 가는 카페, 다니는 헬스장, 가까운 편의점까지 고려한 공공임대주택 추천 서비스예요.",
-    recommendEyebrow: "취향 기반",
-    recommendTitle: "취향으로 찾기",
-    recommendBody:
-      '"자주 가는 카페, 헬스장, 편의점이 가까운 임대주택 어디야?" — 좋아하는 상권을 고르면 가까운 순서로 추천해드려요.',
-    recommendCta: "취향 입력하기 →",
-    searchEyebrow: "조건 기반",
-    searchTitle: "조건으로 찾기",
-    searchBody:
-      '"5년 이내 신축, 보증금 3천만원 미만" — 원하는 조건을 정확히 입력해서 바로 필터링된 목록을 받아보세요.',
-    searchCta: "조건 입력하기 →",
-  },
-  search: {
-    title: "조건으로 찾기",
-    subtitle: "보증금, 건축연도, 방수, 지역으로 원하는 임대주택을 바로 필터링하세요.",
-    depositMaxLabel: "보증금 상한 (만원)",
+  explore: {
+    heroEyebrow: "부산광역시 공공임대주택",
+    heroTitle: "동네를 먼저 보고, 집을 고르세요.",
+    modeCriteria: "조건으로 찾기",
+    modePreference: "취향으로 찾기",
+    depositMaxLabel: "보증금 상한(만원)",
     depositMaxPlaceholder: "예: 3000",
     builtAfterLabel: "건축연도 이후",
     builtAfterPlaceholder: "예: 2020",
@@ -168,31 +158,47 @@ export const ko: Translations = {
     roomCountPlaceholder: "예: 2",
     districtLabel: "지역",
     districtAll: "전체",
-    typeLabel: "주택 유형",
+    typeLabel: "유형",
     typeAll: "전체",
+    radiusLabel: "반경",
     submit: "검색",
-    prompt: "조건을 입력하고 검색을 눌러주세요.",
+    submitting: "찾는 중...",
     loading: "검색 중...",
     error: "검색에 실패했습니다. 다시 시도해주세요.",
     empty: "조건에 맞는 임대주택이 없어요. 조건을 조금 넓혀보세요.",
-  },
-  recommend: {
-    title: "취향으로 찾기",
-    subtitle: "자주 가는 곳을 골라주시면, 가까운 순서로 임대주택을 추천해드려요.",
-    chooseHeading: "자주 이용하는 곳을 선택하세요",
-    loadingCategories: "불러오는 중...",
-    importanceHeading: "얼마나 중요한가요?",
-    districtLabel: "지역 (선택)",
-    districtPlaceholder: "예: 수영구",
-    depositMaxLabel: "보증금 상한 (만원, 선택)",
-    depositMaxPlaceholder: "예: 3000",
-    radiusLabel: "반경",
-    submit: "추천받기",
-    submitting: "찾는 중...",
-    error: "추천을 불러오지 못했습니다. 다시 시도해주세요.",
-    emptyResult:
-      "조건에 맞는 결과가 없어요. 아직 위치 정보가 등록된 임대주택이 없을 수 있어요 — 지오코딩이 완료되면 결과가 채워집니다.",
+    emptyResult: "조건에 맞는 결과가 없어요. 아직 위치 정보가 등록된 임대주택이 없을 수 있어요.",
+    prompt: "지도를 움직이며 살펴보거나, 조건·취향을 입력해 검색해보세요.",
     scoreLabel: "점수",
+    detailLink: "상세보기 →",
+  },
+  poiCategoryLabels: {
+    cafe: "카페",
+    convenienceStore: "편의점",
+    gym: "헬스장",
+    pharmacy: "약국",
+    gasStation: "주유소",
+    food: "음식점",
+  },
+  saved: {
+    title: "찜 목록",
+    empty: "아직 찜한 임대주택이 없어요. 마음에 드는 곳을 찜해보세요.",
+    saveLabel: "찜하기",
+    unsaveLabel: "찜 해제",
+    viewSaved: "찜 목록",
+    viewResults: "검색 결과",
+  },
+  about: {
+    title: "서비스 소개",
+    intro:
+      "동네탐색은 부산광역시 인구 감소와 공공임대주택 입주 포기율 약 50%라는 문제에서 출발했습니다. 면적과 보증금만으로는 알 수 없는 동네의 상권과 생활 인프라를 먼저 보여드려요.",
+    problemHeading: "왜 만들었나요",
+    problemBody:
+      "공급자 중심의 단순 조건(면적, 보증금) 공고만으로는 시민이 실제로 살고 싶은 동네인지 알기 어렵습니다. 주변 카페·헬스장·편의점 같은 생활 인프라를 확인하려면 공고를 일일이 따로 검색해야 했죠. 동네탐색은 취향과 조건을 함께 고려해 상권이 형성된 임대주택을 추천합니다.",
+    partnersHeading: "함께한 기관",
+    bmcName: "부산도시공사 (BMC)",
+    bmcBlurb: "주거복지·도시개발 지방공기업. 공공임대주택 데이터와 시민 주거 수요 파악 채널을 제공했습니다.",
+    sundosoftName: "㈜선도소프트",
+    sundosoftBlurb: "GIS·데이터 분석 전문기업. 상권·인구 융합 데이터와 공간 분석 노하우를 제공했습니다.",
   },
   detail: {
     loading: "불러오는 중...",
@@ -237,30 +243,16 @@ export const ko: Translations = {
 export const en: Translations = {
   languageLabel: "Language",
   nav: {
-    recommend: "Search by Preference",
-    search: "Search by Criteria",
+    backToExplore: "Dongne Tamsaek",
+    savedLabel: "Saved",
+    aboutLabel: "About",
   },
   footer: "DIVE 2026 · Busan Metropolitan City (BMC) × Sundosoft · Commercial-district & preference-based public rental housing recommendation service",
-  home: {
-    eyebrow: "Busan Metropolitan City Public Rental Housing",
-    titleLine1: "See the neighborhood first,",
-    titleLine2: "then choose your home.",
-    subtitle:
-      "Things deposit and floor size alone can't tell you — the café you visit, the gym you go to, the convenience store nearby. We factor all of it into public housing recommendations.",
-    recommendEyebrow: "Preference-based",
-    recommendTitle: "Search by Preference",
-    recommendBody:
-      "\"Where's a rental unit close to the cafés, gyms, and convenience stores I actually use?\" — Pick the places you love, and we'll rank homes by proximity.",
-    recommendCta: "Enter your preferences →",
-    searchEyebrow: "Criteria-based",
-    searchTitle: "Search by Criteria",
-    searchBody:
-      '"Built within 5 years, deposit under 30 million won" — enter exact conditions and get a filtered list instantly.',
-    searchCta: "Enter your criteria →",
-  },
-  search: {
-    title: "Search by Criteria",
-    subtitle: "Filter rental housing instantly by deposit, build year, room count, and district.",
+  explore: {
+    heroEyebrow: "Busan Metropolitan City Public Rental Housing",
+    heroTitle: "See the neighborhood first, then choose your home.",
+    modeCriteria: "Search by Criteria",
+    modePreference: "Search by Preference",
     depositMaxLabel: "Max deposit (10k KRW)",
     depositMaxPlaceholder: "e.g. 3000",
     builtAfterLabel: "Built after",
@@ -269,31 +261,48 @@ export const en: Translations = {
     roomCountPlaceholder: "e.g. 2",
     districtLabel: "District",
     districtAll: "All",
-    typeLabel: "Housing type",
+    typeLabel: "Type",
     typeAll: "All",
+    radiusLabel: "Radius",
     submit: "Search",
-    prompt: "Enter your criteria and press search.",
+    submitting: "Finding...",
     loading: "Searching...",
     error: "Search failed. Please try again.",
     empty: "No housing matches these criteria. Try broadening your search.",
-  },
-  recommend: {
-    title: "Search by Preference",
-    subtitle: "Pick the places you visit often, and we'll recommend housing ranked by proximity.",
-    chooseHeading: "Select the places you use often",
-    loadingCategories: "Loading...",
-    importanceHeading: "How important is each one?",
-    districtLabel: "District (optional)",
-    districtPlaceholder: "e.g. Suyeong-gu",
-    depositMaxLabel: "Max deposit (10k KRW, optional)",
-    depositMaxPlaceholder: "e.g. 3000",
-    radiusLabel: "Radius",
-    submit: "Get recommendations",
-    submitting: "Finding...",
-    error: "Couldn't load recommendations. Please try again.",
-    emptyResult:
-      "No results match yet. There may be no geocoded housing in range — results will populate once geocoding completes.",
+    emptyResult: "No results match yet. There may be no geocoded housing in range.",
+    prompt: "Pan the map to explore, or enter criteria or preferences to search.",
     scoreLabel: "Score",
+    detailLink: "View details →",
+  },
+  poiCategoryLabels: {
+    cafe: "Cafés",
+    convenienceStore: "Convenience stores",
+    gym: "Gyms",
+    pharmacy: "Pharmacies",
+    gasStation: "Gas stations",
+    food: "Restaurants",
+  },
+  saved: {
+    title: "Saved",
+    empty: "No saved housing yet — save places you like to see them here.",
+    saveLabel: "Save",
+    unsaveLabel: "Unsave",
+    viewSaved: "Saved",
+    viewResults: "Results",
+  },
+  about: {
+    title: "About",
+    intro:
+      "Dongne Tamsaek started from Busan's shrinking population and the ~50% decline rate for public housing lottery winners. We show the surrounding neighborhood — not just deposit and floor size — first.",
+    problemHeading: "Why we built this",
+    problemBody:
+      "Supply-side notices (size, deposit) alone don't tell citizens whether a listing is actually a neighborhood they'd want to live in. Checking nearby cafés, gyms, or convenience stores meant searching separately for every listing. Dongne Tamsaek recommends housing by combining hard conditions with real commercial-district context.",
+    partnersHeading: "Partners",
+    bmcName: "Busan Metropolitan City (BMC)",
+    bmcBlurb:
+      "A public housing and urban development corporation. Provided public rental housing data and a citizen housing-demand channel.",
+    sundosoftName: "Sundosoft Co., Ltd.",
+    sundosoftBlurb: "A GIS and data analytics company. Provided fused commercial-district/population data and spatial analysis expertise.",
   },
   detail: {
     loading: "Loading...",

@@ -14,6 +14,8 @@ conditions) against real Busan housing and commercial data.
 - **`docs/TECHNICAL.md`** — architecture decisions, stack, Docker layout,
   data model, recommendation algorithm, known gotchas.
 - **`docs/CODE.md`** — repo file map, API reference, script reference.
+- **`docs/DESIGN.md`** — palette, type, the signature `TagStrip` motif,
+  layout patterns. Read before adding or restyling any UI.
 - **`docs/DATA_MODEL.md`** — field-by-field mapping from raw source files
   (CSV/SHP) to the database schema. Read before touching ingestion/schema
   code.

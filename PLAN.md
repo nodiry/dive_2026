@@ -46,7 +46,21 @@ original TS stack, so it's not a day-one surprise.
       `DATA_MODEL.md` + this plan + root `README.md`
 
 ### Phase 2 — team of 3 (~7/19–7/24)
-- [ ] Feature-complete UI/UX pass, both flows working smoothly
+- [x] Fullscreen-map redesign: `Home`/`Search`/`Recommend` merged into one
+      `Explore` screen, map fills the viewport, navbar/results float on top
+      (Google/Kakao-Maps-desktop style) — see `docs/CODE.md` and
+      `docs/DESIGN.md` for the new component structure
+- [x] 조건/취향 mode toggle in the navbar, condensed filter bar per mode
+- [x] Preference mode: real-category icon bar (카페/편의점/헬스장/약국/주유소
+      + grouped 음식점), individual matched-POI pins on the map, animated
+      trail from a selected house to its nearest match per category
+      (straight line + moving dot — no routing API, see `docs/TECHNICAL.md`)
+- [x] Backend: `POST /api/recommendations/lifestyle` now returns individual
+      `pois` (name/lat/lng/distance, top 5 per category) alongside the
+      existing aggregate count/nearest, for the map pins/trail
+- [x] 찜 (save) list — localStorage-only, no backend/auth, `Heart` toggle on
+      every result card, dedicated panel in the navbar
+- [x] About page — problem statement, BMC/Sundosoft blurbs
 - [ ] Verify ETL abstraction can point at the full city-wide dataset without
       code changes (only re-run ingestion against new files)
 - [ ] Seed a realistic demo dataset for rehearsal (don't wait for event day

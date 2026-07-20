@@ -1,6 +1,8 @@
 from app.db import get_pool
-from app.models import LifestyleRecommendationRequest, LifestyleRecommendationResult, MatchedPoi
+from app.models import LifestyleRecommendationRequest, LifestyleRecommendationResult, MatchedPoi, MatchedPoiPoint
 from app.queries.housing import BASE_SELECT, to_housing_summary
+
+POIS_PER_CATEGORY = 5
 
 """
 Lifestyle-based recommendation (deck example 1: "카페, 헬스장, 편의점 가까운
@@ -62,27 +64,65 @@ async def recommend_lifestyle(req: LifestyleRecommendationRequest) -> list[Lifes
         req.radius_meters,
     )
 
+    # Individual nearest POI points per (project, category), capped, for map pins/trails —
+    # additive alongside the aggregate query above rather than restructuring it.
+    poi_point_rows = await pool.fetch(
+        """
+        SELECT project_id, category_name, biz_name, lat, lng, dist
+        FROM (
+            SELECT p.id AS project_id, poi.category_name, poi.biz_name,
+                   ST_Y(poi.geom::geometry) AS lat, ST_X(poi.geom::geometry) AS lng,
+                   ST_Distance(p.geom, poi.geom) AS dist,
+                   ROW_NUMBER() OVER (PARTITION BY p.id, poi.category_name ORDER BY ST_Distance(p.geom, poi.geom)) AS rn
+            FROM housing_project p
+            JOIN commercial_poi poi ON poi.category_name = ANY($1::text[])
+            WHERE p.id = ANY($2::int[])
+              AND ST_DWithin(p.geom, poi.geom, $3)
+        ) ranked
+        WHERE rn <= $4
+        """,
+        category_names,
+        ids,
+        req.radius_meters,
+        POIS_PER_CATEGORY,
+    )
+
     matches_by_project: dict[int, dict[str, tuple[int, float]]] = {}
     for row in match_rows:
         forProject = matches_by_project.setdefault(row["project_id"], {})
         forProject[row["category_name"]] = (row["poi_count"], float(row["nearest_meters"]))
 
+    pois_by_project: dict[int, dict[str, list[MatchedPoiPoint]]] = {}
+    for row in poi_point_rows:
+        forProject = pois_by_project.setdefault(row["project_id"], {})
+        forProject.setdefault(row["category_name"], []).append(
+            MatchedPoiPoint(name=row["biz_name"], lat=row["lat"], lng=row["lng"], distance_meters=float(row["dist"]))
+        )
+
     results: list[LifestyleRecommendationResult] = []
     for c in candidates:
         housing = to_housing_summary(c)
         for_project = matches_by_project.get(housing.id, {})
+        pois_for_project = pois_by_project.get(housing.id, {})
         score = 0.0
         matches: list[MatchedPoi] = []
         for category_name in category_names:
             hit = for_project.get(category_name)
             if not hit:
-                matches.append(MatchedPoi(category_name=category_name, count=0, nearest_meters=None))
+                matches.append(MatchedPoi(category_name=category_name, count=0, nearest_meters=None, pois=[]))
                 continue
             count, nearest_meters = hit
             weight = weight_by_category.get(category_name, 0)
             closeness = max(0.0, 1 - nearest_meters / req.radius_meters)
             score += weight * count * closeness
-            matches.append(MatchedPoi(category_name=category_name, count=count, nearest_meters=nearest_meters))
+            matches.append(
+                MatchedPoi(
+                    category_name=category_name,
+                    count=count,
+                    nearest_meters=nearest_meters,
+                    pois=pois_for_project.get(category_name, []),
+                )
+            )
         results.append(LifestyleRecommendationResult(housing=housing, score=score, matches=matches))
 
     results.sort(key=lambda r: r.score, reverse=True)

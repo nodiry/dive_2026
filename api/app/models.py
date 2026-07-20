@@ -68,10 +68,18 @@ class LifestyleRecommendationRequest(ApiModel):
     radius_meters: float = 500
 
 
+class MatchedPoiPoint(ApiModel):
+    name: str
+    lat: float
+    lng: float
+    distance_meters: float
+
+
 class MatchedPoi(ApiModel):
     category_name: str
     count: int
     nearest_meters: float | None
+    pois: list[MatchedPoiPoint]
 
 
 class LifestyleRecommendationResult(ApiModel):

@@ -60,7 +60,7 @@
   },
   "saved": {
     "title": "Saved",
-    "empty": "No saved housing yet — save places you like to see them here.",
+    "empty": "No saved housing yet. Save places you like to see them here.",
     "saveLabel": "Save",
     "unsaveLabel": "Unsave",
     "viewSaved": "Saved",
@@ -68,7 +68,7 @@
   },
   "about": {
     "title": "About",
-    "intro": "Dongne Tamsaek started from Busan's shrinking population and the ~50% decline rate for public housing lottery winners. We show the surrounding neighborhood — not just deposit and floor size — first.",
+    "intro": "Dongne Tamsaek started from Busan's shrinking population and the ~50% decline rate for public housing lottery winners. We show the surrounding neighborhood first, not just deposit and floor size.",
     "problemHeading": "Why we built this",
     "problemBody": "Supply-side notices (size, deposit) alone don't tell citizens whether a listing is actually a neighborhood they'd want to live in. Checking nearby cafés, gyms, or convenience stores meant searching separately for every listing. Dongne Tamsaek recommends housing by combining hard conditions with real commercial-district context.",
     "partnersHeading": "Partners",

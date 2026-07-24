@@ -1,14 +1,14 @@
 # Data model — source data → Postgres
 
-Read this before touching anything under `api/app/db*`, `api/app/scripts/`,
-or the migrations. The raw files are genuinely confusing — this doc is the
-result of actually loading them and fixing what broke. (Backend is Python/
-FastAPI now, not the original Bun/Express/TypeScript — see PLAN.md §4. The
-data gotchas below are unchanged either way; only the file paths moved.)
+Read this before touching anything under `api/scripts/` or the alembic
+migrations. The raw files are genuinely confusing — this doc is the
+result of actually loading them and fixing what broke. (The backend has been ported twice — Bun/TS to Python/asyncpg to
+SQLModel/alembic. The data gotchas below survived all of it; only file
+paths moved.)
 
 **Where the data lives:** `samples/` at the repo root — gitignored (it's
-~560MB), distributed as a separate zip via Google Drive. See root `README.md`
-for the drop-in/seed instructions. Every path below is relative to `samples/`.
+~560MB unzipped). `samples.zip` (~98MB) is committed to the repo and
+`just onboard` unzips it automatically. Every path below is relative to `samples/`.
 
 ```
 samples/
@@ -24,7 +24,7 @@ samples/
 
 All 6 CSVs are **EUC-KR encoded, not UTF-8**. Reading them with the wrong
 encoding silently mangles every Korean field into replacement characters —
-always read them via `api/app/lib/csv_utils.py#read_csv`, which defaults to
+always read them via `api/scripts/lib/csv_utils.py#read_csv`, which defaults to
 `encoding="euc-kr"`.
 
 ### Gotcha #2: purchased-housing addresses don't match between its two files
@@ -94,7 +94,7 @@ nullable columns:
 
 Source: 소상공인시장진흥공단's 상가(상권)정보 dataset, Busan slice, 2026.03 cut
 (data.go.kr — this is what's behind Sundosoft's "상가-건물 융합정보"). Loaded via
-`api/app/scripts/seed_poi.py`. **155,103 rows, every one with valid
+`api/scripts/seed_poi.py`. **155,103 rows, every one with valid
 coordinates already — no geocoding needed for this file.**
 
 - **Encoding: UTF-8**, not EUC-KR — the opposite of the BMC CSVs. The file's own
@@ -102,11 +102,12 @@ coordinates already — no geocoding needed for this file.**
   corrupting business names, so this cut switched to UTF-8. `read_csv()` takes
   an explicit `encoding` param (`"euc-kr"` default, pass `"utf-8"` for this
   file) — don't assume one encoding for every source file in this project.
-- **`category`** = `상권업종대분류명` (major category). The OT deck's slide
+- **`category`** = `상권업종대분류명` (major category), stored as its English
+  slug (`retail`/`food`/... — `MAJOR_CATEGORY_MAP` in `seed_poi.py`). The OT deck's slide
   implied an 8-category scheme (D/F/L/N/O/P/Q/R) — **that's stale.** The real
   2026 data uses 10 categories: 소매, 부동산, 음식, 시설관리·임대, 보건의료, 교육,
   숙박, 예술·스포츠, 수리·개인, 과학·기술 (mapped to `PoiCategory` in
-  `packages/shared/src/schemas.ts` and mirrored in `api/app/models.py`).
+  `packages/shared/src/schemas.ts`).
   Verify category taxonomies against real data before hardcoding a schema.
 - **`category_name`** = `상권업종소분류명` (minor category, 247 distinct values)
   — deliberately the finest granularity, because "카페", "헬스장", and "편의점"
@@ -127,10 +128,10 @@ coordinates already — no geocoding needed for this file.**
 
 ## Part 3 — GIS shapefiles (`samples/gis/`)
 
-Loaded via `api/app/scripts/seed_gis.py`, which shells out to `ogr2ogr`
+Loaded via `api/scripts/seed_gis.py`, which shells out to `ogr2ogr`
 (GDAL) — **never hand-parse `.shp` in code.** Uses `subprocess.run()` with an
 argv list (not `shell=True`), so Korean/paren/comma filenames never need
-shell-escaping (`api/app/lib/gis.py`).
+shell-escaping (`api/scripts/lib/gis.py`).
 
 | Folder | Source | Table | Rows | Status |
 |---|---|---|---|---|
@@ -194,8 +195,7 @@ real data — don't do this as the primary geocoding strategy:**
 
 **Verdict: real geocoding requires the Kakao geocoding API** (address string →
 lat/lng), not this shapefile — **and that's what's actually running now.**
-`api/app/lib/geocode.py` + `docker compose exec api python -m
-app.scripts.geocode_housing` successfully geocoded all 41 `housing_project`
+`api/scripts/lib/geocode.py` + `just geocode` (host-run) successfully geocoded all 41 `housing_project`
 rows via the Kakao Local API. `building` is still loaded because building
 footprints are legitimate reference data (map rendering, potential future
 road-name+building-number matching if a road-code lookup table is ever
@@ -222,6 +222,6 @@ Neither is in hand right now. **This data cannot be placed on a map or joined
 to anything spatially until the boundary file is sourced.** Don't attempt a
 guessed coordinate mapping — a silently-wrong grid placement is worse than an
 honestly-empty `industry_population_grid` table. If you get the boundary file
-later, `api/app/scripts/seed_gis.py` is the place to add the ingestion — the
+later, `api/scripts/seed_gis.py` is the place to add the ingestion — the
 `industry_population_grid` table (jsonb `industry_mix` + `population_density`
 per polygon) is already migrated and waiting, just empty.

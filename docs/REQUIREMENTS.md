@@ -114,8 +114,14 @@ feel like a form — not on ML sophistication for its own sake.
       (commercial POI, admin boundaries, zoning — see `docs/TECHNICAL.md`)
 - [x] Map / spatial visualization of results
 - [x] Web app, multi-page
-- [ ] Differentiator beyond the two example flows (창의성 rubric line) —
-      candidate: population/industry-mix "neighborhood vibe" scoring, currently
-      blocked on missing grid geometry, see `docs/DATA_MODEL.md` Part 4
+- [x] Differentiator beyond the two example flows (창의성 rubric line) —
+      shipped: persona presets mapped to BMC's real 공급계층, live weight
+      sliders with animated re-ranking, and the neighborhood profile
+      (POI density + zoning mix, `GET /api/housing/:id/neighborhood`).
+      The population/industry "vibe" scoring stays blocked on missing grid
+      geometry, see `docs/DATA_MODEL.md` Part 4
 - [ ] Policy-deployability angle for the pitch (정책 활용 가능성) — frame in
       the final presentation, not just in code
+- [ ] Compare view for saved (찜) homes — planned, not started
+- [ ] AI prompt-to-filters (the navbar search pill is reserved for it) —
+      pending team decision on rule-based vs LLM

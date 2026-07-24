@@ -10,12 +10,14 @@ conditions) against real Busan housing and commercial data.
 - **`docs/REQUIREMENTS.md`** — what to build: problem statement, the two
   required user flows, provided data, judging rubric, feature checklist.
   Start here if you're new.
-- **`PLAN.md`** — timeline, team roles, open risks.
+- **`docs/PLAN.md`** — timeline, team roles, open risks.
 - **`docs/TECHNICAL.md`** — architecture decisions, stack, Docker layout,
   data model, recommendation algorithm, known gotchas.
 - **`docs/CODE.md`** — repo file map, API reference, script reference.
-- **`docs/DESIGN.md`** — palette, type, the signature `TagStrip` motif,
-  layout patterns. Read before adding or restyling any UI.
+- **`docs/STYLE_GUIDE.md`** — the UI rulebook: palette, type, radii,
+  component recipes. Read before adding or restyling any UI.
+- **`docs/DESIGN.md`** — the original design brief (palette rationale, the
+  `TagStrip` motif); superseded on specifics by STYLE_GUIDE.md.
 - **`docs/DATA_MODEL.md`** — field-by-field mapping from raw source files
   (CSV/SHP) to the database schema. Read before touching ingestion/schema
   code.
@@ -95,17 +97,23 @@ needed. To regenerate it after adding more sample data:
 `zip -r -X samples.zip samples -x samples/'*.DS_Store'` from the repo root,
 then re-commit.
 
-## Current state (see `PLAN.md` for what's next)
+## Current state (see `docs/PLAN.md` for what's next)
 
-- ✅ Full stack running in Docker (db + api + client), one-command
-  onboarding verified end-to-end from a genuinely fresh clone.
-- ✅ Real data: housing CSVs, commercial POI (155,103 rows), admin
-  boundaries (192), zoning (3,307), buildings (379,711).
-- ✅ Geocoding is live and runs automatically as part of onboarding once
-  Kakao keys are present — the lifestyle recommendation endpoint returns
-  real, ranked results.
-- ✅ Frontend — all 4 pages built, Korean/English language toggle, map
-  verified rendering real Kakao tiles in a real browser.
-- ⏳ `industry_population_grid` (sgis) — genuinely blocked: the population
-  CSVs have no boundary geometry to place them with (see
-  `docs/DATA_MODEL.md` Part 4).
+- Both mandatory flows live and fully interactive: condition search and
+  lifestyle recommendation, filtering live with no search buttons.
+- Explore screen: clustered price-bubble pins (cluster click filters the
+  list), viewport-synced right list panel, floating filter panel, persona
+  presets, per-category weight sliders with live re-ranking, search-radius
+  circle on selection.
+- Detail page: stat tiles, static locator map, and the neighborhood
+  profile (POI density + zoning mix via PostGIS) — the feature that makes
+  the Sundosoft zoning layer load-bearing.
+- Real data seeded: housing CSVs, 155,103 commercial POIs, admin
+  boundaries (192), zoning (3,307), buildings (379,711); housing geocoded
+  via Kakao.
+- Backend on SQLModel + alembic + uv with a domain-driven layout; frontend
+  on zustand + TanStack Query + react-i18next + motion, ko/en throughout.
+- Blocked: `industry_population_grid` (sgis) — the population CSVs ship no
+  boundary geometry (see `docs/DATA_MODEL.md` Part 4).
+- Pending: compare view, AI prompt-to-filters (the navbar search pill is
+  reserved for it), event-day city-wide dataset swap.

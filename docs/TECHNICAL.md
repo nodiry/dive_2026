@@ -3,168 +3,152 @@
 Architecture, stack decisions, data model, and the recommendation algorithm.
 For what to *build* see `docs/REQUIREMENTS.md`; for where code actually lives
 see `docs/CODE.md`; for raw-file-level ingestion gotchas see
-`docs/DATA_MODEL.md`.
+`docs/DATA_MODEL.md`; for UI rules see `docs/STYLE_GUIDE.md`.
 
 ## Stack
 
 | Concern | Decision | Why |
 |---|---|---|
-| Backend | Python + FastAPI + asyncpg | see "Why the switch" below |
-| Frontend | Vite + React 19 + TS + Tailwind v4 + React Router + TanStack Query | fast to onboard new devs, no CSS bikeshedding |
-| Database | PostgreSQL + PostGIS (Docker) | real spatial data (SHP) needs `ST_DWithin`/KNN for "housing near matching cafés" |
-| Deployment | Docker for everything (db + api + client, one `docker-compose.yml`) | reproducible for teammates, no host Python/Bun-version drift |
-| SHP ingestion | `ogr2ogr` (GDAL, in the api image) straight into PostGIS | far more reliable than parsing `.shp` in application code |
+| Backend | Python + FastAPI + SQLModel (async sessions) | domain-driven layout (housing/poi/recommendation/gis), mirrors the team's SHOES-PLATFORM conventions |
+| Migrations | alembic autogenerate | geoalchemy2-aware `env.py`; PostGIS/tiger internals excluded from diffs |
+| Python deps | uv (`pyproject.toml` + `uv.lock`) | pinned, fast, one lockfile |
+| ETL scripts | plain asyncpg (`api/scripts/`, host-run) | bulk `executemany` loading; an ORM buys nothing here |
+| Frontend | Vite + React 19 + TS + Tailwind v4 | fast to onboard, no CSS bikeshedding |
+| Client state | zustand (`useExploreStore`, `useSavedHousingStore`, `useToastStore`) | server state stays in TanStack Query; the two never overlap |
+| Server state | TanStack Query (+ axios client with zod validation) | caching/refetch lifecycle for free |
+| i18n | react-i18next, JSON catalogs in `constants/i18n/` | ko default, en toggle, LanguageDetector persistence |
+| Animation | motion (`MotionConfig reducedMotion='user'`) | list reordering springs, panel entrances, respects OS setting |
+| Database | PostgreSQL + PostGIS (`imresamu/postgis:16-3.4`) | native arm64 image — the official `postgis/postgis` is amd64-only and runs under slow emulation on Apple Silicon |
+| SHP ingestion | `ogr2ogr` (GDAL, host-installed) | far more reliable than parsing `.shp` in application code |
 | Geocoding | Kakao Local API (REST key) | BMC's address field is a road-name string with no lat/lng |
-| Map | Kakao Maps JS SDK (JS key) | best Korean address/POI support, free tier fine |
-| API contracts | `packages/shared` Zod schemas (frontend) mirrored by hand in `api/app/models.py` (Pydantic) | no longer literally shared code across the language boundary — keep both in sync manually when either changes |
+| Map | Kakao Maps JS SDK (JS key) | best Korean address/POI support |
+| Task running | just (root justfile + api/justfile) | one verb set everywhere; root package.json is workspaces-only |
+| API contracts | `packages/shared` zod schemas, hand-mirrored in `api/src/*/schemas.py` (pydantic, camelCase aliases) | keep both in sync manually when either changes |
 
-### Why the switch from Bun/Express to Python/FastAPI
+### History: two backend ports
 
-Team decision, not a technical failure of the TS stack (it was fully working
-— condition search, recommendation scoring, all ingestion — before the
-switch). The full TS implementation was ported faithfully: same SQL, same
-migrations (the `.sql` files didn't need to change at all — migrations are
-plain SQL, language-agnostic), same field-mapping gotchas, same API contract
-(routes, JSON shapes, camelCase over the wire).
+The backend was originally Bun/Express/TS, then ported to Python/FastAPI
+with raw asyncpg queries, then restructured to SQLModel async sessions in a
+domain-driven `src/` layout (SHOES-PLATFORM conventions). The plain-SQL
+migrations were replaced by alembic at the same time; the old
+`app/`-layout docs and `bun run` script aliases are gone. The ETL scripts
+deliberately stayed on raw asyncpg.
 
-One real bug surfaced during the port: **asyncpg is strict about parameter
-types** — it rejects a Python string for a `date`/`timestamp`-typed column
-parameter (`postgres.js`/Bun.sql coerced this automatically; asyncpg does
-not). Every date/timestamp value goes through real `datetime.date`/
-`datetime.datetime` objects before hitting the DB — see
-`api/app/lib/csv_utils.py`.
+### SQLModel typing rules (ty)
+
+- `sqlmodel.select()` is typed for at most 4 entities; use
+  `sqlalchemy.select` for wider projections (only the recommendation
+  window query needs it).
+- Wrap model attributes in `col()` for `.in_()/.is_()/.is_not()` and inside
+  `func.*` — SQLModel fields are plain annotations, not `Mapped[]`, so the
+  checker otherwise sees `int | None` instead of a column expression.
+- Don't switch `session.execute` to `session.exec` for subquery selects —
+  `exec` scalar-collapses single-entity selects and would silently drop
+  columns (there's one deliberate `# ty: ignore[deprecated]` for this).
 
 ## Docker layout
 
-Three services, one `docker-compose.yml` at the repo root:
+Compose at the repo root, services:
 
-- **db** — `postgis/postgis:16-3.4`, host port **5433** (not 5432 — many dev
-  machines already have a native Postgres on 5432, which would otherwise
-  silently win over `localhost:5432` connections). Containers talk to each
-  other via the service name `db` on the internal Docker network.
-- **api** — `python:3.12-slim` + `gdal-bin`, port 3000, hot-reloads via a
-  bind-mounted `api/app` volume.
-- **client** — `oven/bun:1`, port 5173, build context is the *repo root*
-  (needs `packages/shared` as a bun workspace member), hot-reloads via
-  bind-mounted `client/src` + `packages/shared/src`.
+- **db** — `imresamu/postgis:16-3.4` (arm64-native), host port **5433**
+  (many dev machines have a native Postgres on 5432).
+- **api** — `python:3.13-slim` + uv, port 3000, `pull_policy: build` (every
+  `up` rebuilds; layer cache makes no-change rebuilds ~instant),
+  `src/` bind-mounted with uvicorn `--reload`. The image contains **only**
+  runtime code: no GDAL, no alembic, no scripts — migrations and seeding
+  run from the host.
+- **client** — behind the `full` profile (`docker compose --profile full up`)
+  because day-to-day frontend work runs on the host
+  (`just client` → Vite on :5173, the Kakao-whitelisted port).
 
-## Onboarding automation
+`.dockerignore` files keep contexts small (the repo root one exists because
+the client image builds from root for the bun workspace).
 
-`bun run onboard` → `scripts/onboard.sh` does the entire flow in one
-command, and is safe to re-run (idempotent) at any point:
+## Onboarding
 
-1. Create `api/.env` / `client/.env` from `.env.example` if missing (never
-   overwrites an existing one — your real keys survive re-runs).
-2. Unzip `samples.zip` → `samples/` if not already unzipped.
-3. `docker compose up -d --build` (db + api + client).
-4. Wait for the api container, then run migrations — wrapped in a retry
-   loop because Postgres's own init sequence briefly restarts even after
-   `pg_isready`/compose `service_healthy` reports ready (temp startup for
-   initdb scripts → shutdown → real startup); a connection attempt landing
-   in that gap gets `ECONNREFUSED` otherwise.
-5. Seed the database (housing + POI + GIS layers).
-6. **Geocode housing addresses** — only if `api/.env` has a non-empty
-   `KAKAO_REST_API_KEY`. On a genuinely fresh clone (no keys yet) this step
-   prints instructions and exits cleanly instead of failing; once you add
-   real keys and re-run `bun run onboard`, this step runs for real.
+`just onboard` → `scripts/onboard.sh`, idempotent:
 
-This was verified against an actual simulated fresh clone (deleted both
-`.env` files, deleted `samples/`, wiped the DB volume with
-`docker compose down -v`) — both with and without Kakao keys present — not
-just written and assumed to work.
+1. Fail-fast host prereq checks: **docker, bun, uv, just, GDAL** (`brew
+   install just gdal` covers the last two on macOS).
+2. `api/.env` / `client/.env` created from examples if missing.
+3. `samples.zip` unzipped to `samples/` if needed.
+4. `bun install` (workspaces) + `uv sync` (api venv).
+5. `docker compose up -d` (db + api), then host-side
+   `alembic upgrade head` in a retry loop (Postgres's init briefly
+   restarts after first reporting healthy).
+6. Host-side seed (housing + POI + GIS), then geocoding if
+   `KAKAO_REST_API_KEY` is set (skips with instructions otherwise).
 
-`housing_project` rows are upserted (`ON CONFLICT`) during seeding, so
-re-seeding never wipes an already-geocoded `geom` column. `housing_unit`,
-`housing_price`, and `commercial_poi` are `TRUNCATE`d before each re-insert
-so re-running the seed never silently duplicates rows.
+`DATABASE_URL` must use the `postgresql+asyncpg://` dialect — host `.env`
+points at `localhost:5433`, compose overrides with `db:5432` for the
+container. `ENVIRONMENT=local` enables `/docs`.
 
 ## Data model
 
 ```
-housing_project
-  id, type ('happy'|'integrated'|'redevelopment'|'purchased'), project_name,
-  address, geom geography(Point) [NULL until geocoded], built_date,
-  total_units, source_district
-
-housing_unit
-  id, project_id -> housing_project, dong, ho, room_count,
-  area_m2, has_elevator, parking_spots
-
-housing_price
-  id, project_id, unit_type, deposit, rent, registered_at,
-  segment jsonb  -- shape varies per housing type, see docs/DATA_MODEL.md
-
-commercial_poi        -- 155,103 rows (data.go.kr 상가정보)
-  id, geom geography(Point), category, category_name, biz_name, address, district
-
-admin_boundary        -- 192 rows (vworld 행정구역도)
-  id, emd_code, emd_name, sgg_code, geom geography(MultiPolygon)
-
-commercial_zone       -- 3,307 rows (vworld 용도지역지구)
-  id, zone_type, geom geography(MultiPolygon)   -- only ~500 rows have non-null zone_type, rest are history entries
-
-building              -- 379,711 rows (vworld 도로명주소 건물) -- reference only, not a geocoding shortcut
-  id, buld_name, emd_code, geom geography(MultiPolygon)
-
-industry_population_grid   -- still empty, genuinely blocked (docs/DATA_MODEL.md Part 4)
-  id, geom geography(Polygon), industry_mix jsonb, population_density
+housing_project   id, type ('purchased'|'redevelopment'|'integrated'|'happy'),
+                  project_name, address, geom geography(Point) [NULL until geocoded],
+                  built_date, total_units, source_district
+housing_unit      project_id FK, dong, ho, room_count, area_m2, has_elevator, parking_spots
+housing_price     project_id FK, unit_type, deposit, rent, registered_at,
+                  segment jsonb (shape varies per housing type, see docs/DATA_MODEL.md)
+commercial_poi    155,103 rows; category = ENGLISH SLUG of 상권업종대분류명
+                  ('retail'/'food'/... mapped at ingest), category_name = Korean
+                  소분류 ("카페"...), biz_name, address, district, geom
+admin_boundary    192 rows (vworld 행정구역도)
+commercial_zone   3,307 rows; only ~500 have non-null zone_type — filter on it
+building          379,711 rows, reference only
+industry_population_grid  still empty, blocked (docs/DATA_MODEL.md Part 4)
 ```
 
-`segment` is jsonb rather than fixed columns because each housing type
-segments price by a genuinely different dimension (income bracket + household
-size for 통합공공임대, supply class for 행복주택, protection class for
-재개발임대, rank + unit-name for 매입임대). Full field-by-field mapping and
-every ingestion gotcha (encoding, CRS, address-format mismatches, the bad
-zoning file) is in `docs/DATA_MODEL.md`.
+Tables are defined as SQLModel models (`api/src/*/models.py`) with
+geoalchemy2 `Geography` columns; alembic autogenerate reproduces the index
+names via the naming convention in `src/models.py`. Table models inherit
+`SQLModel` directly (not the timestamped `Base`) because seeds insert via
+raw SQL.
 
 ## Recommendation algorithm
 
-1. Hard filters first (deposit ceiling, district; room count/built-year on
-   the condition-search endpoint) — plain SQL `WHERE`/`HAVING`.
-2. For remaining candidates, per-category proximity via PostGIS
-   `ST_DWithin` against `commercial_poi`, matched on `category_name` (e.g.
-   "카페", "헬스장", "편의점" — see `docs/DATA_MODEL.md` Part 2 on why
-   `category_name`, not the broader `category`, is the right granularity).
-3. Score per category = `weight × matched_count × closeness`, where
-   closeness is 1 at distance 0 and 0 at the radius edge — rewards both
-   quantity and proximity, stays explainable.
-4. Response includes the full per-category breakdown (count + nearest
-   distance for every requested category, including zero-match ones) —
-   a black-box score is neither trustworthy nor demoable, and this directly
-   serves the 서비스 완성도 / 정책 활용 가능성 rubric lines.
+1. Hard filters (deposit ceiling via `IN (grouped-min subquery)`, district)
+   on `housing_project`, candidates capped at 200.
+2. Per-category proximity via `ST_DWithin` against `commercial_poi`,
+   matched on `category_name` (fine granularity — "카페"/"헬스장"/"편의점").
+3. Score per category = `weight × matched_count × closeness` (closeness 1
+   at distance 0, 0 at the radius edge). Explainable on purpose.
+4. Response includes the full per-category breakdown plus the top-5 nearest
+   POIs per category for map pins/trails.
 
-Verified live with real geocoded data: a housing project with 75 cafés
-within 500m (closest 11m) correctly outranks sparser candidates.
+The frontend runs this **live**: there is no search button anywhere.
+Criteria fields debounce into an always-on query; preference weights/radius
+changes re-run the mutation after 450ms.
+
+### Neighborhood profile (phase 4)
+
+`GET /api/housing/:id/neighborhood` returns POI counts by major category
+(`ST_DWithin` group) and the zoning mix: each 용도지역's share of the radius
+area via `ST_Buffer` + `ST_Intersection` + `ST_Area` over
+`commercial_zone`. This is what makes the zoning layer load-bearing.
 
 ## Known gotchas / debugging notes
 
-- **asyncpg date/timestamp strictness** — see "Why the switch" above.
-- **Postgres init-restart race** — see "Onboarding automation" above.
-- **Kakao map `ERR_BLOCKED_BY_ORB`** — if the map shows a "couldn't load"
-  placeholder, the JS key's allowed domain isn't registered: Kakao
-  Developers console → app → 플랫폼 설정 → Web 플랫폼 → 사이트 도메인, add
-  `http://localhost:5173`. Kakao returns HTTP 401 to browser-origin requests
-  from unregistered domains, which Chromium then blocks as
-  `ERR_BLOCKED_BY_ORB` — a console setting, not a code bug.
-- **Two Kakao keys, not interchangeable** — `KAKAO_REST_API_KEY` (`api/.env`)
-  is for server-side geocoding; `VITE_KAKAO_MAP_KEY` (`client/.env`) is the
-  browser JS-SDK key. Both come from the same Kakao app, at
-  https://developers.kakao.com/console/app.
-- **Secrets hygiene** — `.env` files are gitignored and must never be
-  committed; `.env.example` files must only ever contain placeholder/blank
-  values. A real key was accidentally committed to `client/.env.example`
-  once during this project (commit `3b2f9b9`) — if you ever find a real
-  secret in a committed file, rotate it immediately in the relevant
-  console; editing the file afterward does not undo the exposure once it's
-  been pushed.
-- **Tailwind v4 `@import` ordering warning** — `client/src/index.css` logs a
-  harmless PostCSS warning about `@import` ordering (Tailwind's own
-  `@import "tailwindcss"` expands inline to a large block, which trips a
-  strict "no other statements before @import" check for the following
-  Pretendard font import). The font still loads fine in the browser; this
-  is a build-time notice only, not a runtime bug.
-- **`client/node_modules` stale copies** — "Invalid hook call"/"multiple
-  copies of React" errors when running things outside Docker mean a
-  workspace package's `node_modules` has a stale non-symlinked copy. Always
-  run `bun install` from the repo root, never inside an individual
-  workspace package.
+- **asyncpg date/timestamp strictness** — scripts must pass real
+  `datetime.date/datetime` objects, not strings (`api/scripts/lib/csv_utils.py`).
+- **Postgres init-restart race** — see Onboarding above.
+- **Kakao map `ERR_BLOCKED_BY_ORB`** — the JS key's allowed domain isn't
+  registered: Kakao console → 플랫폼 설정 → Web → add `http://localhost:5173`.
+- **Two Kakao keys, not interchangeable** — REST key in `api/.env`
+  (geocoding), JS key in `client/.env` (map SDK).
+- **alembic + geoalchemy2** — geoalchemy2 auto-creates spatial GiST indexes
+  during `create_table`; autogenerated revisions must not also emit
+  `create_index` for `idx_*_geom` (env.py filters them, plus an
+  `include_name` whitelist so PostGIS/tiger internals never enter diffs).
+- **Kakao SDK has no maxBounds** — the Busan pan clamp is a
+  `center_changed` listener + `setMaxLevel`; the Detail page instead uses
+  `staticView` (dragging/zooming disabled).
+- **`docker compose up` needs no `--build`** — `pull_policy: build` handles
+  it. If a ghcr.io pull is denied, a stale login is being sent:
+  `docker logout ghcr.io`.
+- **Secrets hygiene** — `.env` files are gitignored; `.env.example` files
+  hold placeholders only. If a real key lands in a commit, rotate it.
+- **`client/node_modules` stale copies** — always `bun install` from the
+  repo root, never inside a workspace package.

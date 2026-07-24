@@ -73,7 +73,7 @@ defensible data pipeline.
 ## Where the scaffold already stands
 
 Working end-to-end (Docker: PostGIS + FastAPI + React/Vite, one-command
-`bun run onboard`):
+`just onboard`):
 
 - Both required flows implemented — condition search
   (`GET /api/housing`) and lifestyle recommendation
@@ -85,7 +85,14 @@ Working end-to-end (Docker: PostGIS + FastAPI + React/Vite, one-command
   with match-explanation tags, saved (찜) list, detail/about pages, ko/en
   toggle.
 
-Still open (see `PLAN.md`): verify ETL against the event-day city-wide
-dataset, rehearse a demo dataset, a differentiator beyond the two required
-flows (population/industry "neighborhood vibe" scoring — blocked on missing
-grid geometry), and the pitch deck framed against the rubric.
+Since this summary was written the project has moved substantially: the
+backend was restructured onto SQLModel + alembic + uv (domain-driven
+layout), the frontend was fully redesigned (clustered price pins,
+viewport-synced list panel, floating live filters, personas, weight
+sliders, neighborhood profile on the detail page), and task running moved
+to justfiles. See `README.md` "Current state" and `docs/CODE.md` for the
+present shape.
+
+Still open (see `docs/PLAN.md`): the event-day city-wide dataset swap,
+demo rehearsal, the compare view, the AI prompt-to-filters feature, and
+the pitch deck framed against the rubric.

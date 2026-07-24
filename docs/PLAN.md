@@ -36,9 +36,10 @@ original TS stack, so it's not a day-one surprise.
 - [x] All ingestion scripts (housing, POI, GIS layers) verified end-to-end
 - [x] Geocoding live via Kakao REST API
 - [x] API v1: condition search, detail lookup, lifestyle recommendation, POI categories
-- [x] Frontend: all 4 pages built and verified in a real browser
+- [x] Frontend built and verified in a real browser (Explore/Detail/About;
+      fully redesigned since — see docs/STYLE_GUIDE.md)
 - [x] Korean/English language toggle (`client/src/lib/i18n/`)
-- [x] One-command onboarding (`bun run onboard`) — verified against an
+- [x] One-command onboarding (now `just onboard`) — verified against an
       actual simulated fresh clone (deleted `.env` files, deleted
       `samples/`, wiped the DB volume), including automatic geocoding once
       Kakao keys are present

@@ -210,7 +210,9 @@ implementation for similar data:
 ## Language & text style
 
 - Korean first, English via the i18n toggle — every visible string exists
-  in both locales (`lib/i18n/translations.ts`), nothing hardcoded.
+  in both locales (`constants/i18n/*Translation.json`), nothing hardcoded.
+- No em dashes in user-facing copy — restructure into separate sentences
+  or use a comma instead.
 - Numbers: format money with `formatWon` (만원-style), distances as `32m`
   / `1.2km`, always in mono.
 

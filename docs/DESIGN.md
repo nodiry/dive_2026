@@ -1,9 +1,12 @@
-# Design System
+# Design System (original brief)
 
-Codifies decisions already made in `client/src/index.css` and the shared
-components, so UI additions stay consistent instead of drifting. Not a
-design process doc — just the reference for "what does this project already
-look like."
+> **Superseded on specifics by `docs/STYLE_GUIDE.md`** — that file is the
+> living UI rulebook and reflects the current implementation (top chip
+> navbar, floating filter panel, right list panel, clustered price pins,
+> custom Select, toasts). This document keeps the original design intent:
+> palette rationale, typography rules, and the `TagStrip` motif, which all
+> still hold. File paths below may be stale (styles now live in
+> `client/src/styles/index.css`; the saved list is a zustand store).
 
 ## Palette
 

@@ -7,7 +7,7 @@ WORKDIR /repo
 COPY package.json bun.lock ./
 COPY client/package.json client/package.json
 COPY packages/shared/package.json packages/shared/package.json
-RUN bun install
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
 COPY packages/shared/ packages/shared/
 COPY client/ client/

@@ -1,0 +1,37 @@
+default:
+	@just --list
+
+install:
+	uv sync --all-groups
+
+dev port="":
+    uv run uvicorn src.main:app --reload --host 0.0.0.0 {{ if port == "" { "" } else { "--port " + port } }}
+
+format:
+	uv run ruff format src scripts
+
+lint:
+	uv run ruff check --fix src scripts
+
+typecheck:
+	uv run ty check
+
+test:
+	uv run pytest
+
+check: format lint typecheck test
+
+migration message:
+	uv run alembic revision --autogenerate -m "{{message}}"
+
+migrate:
+	uv run alembic upgrade head
+
+downgrade:
+	uv run alembic downgrade -1
+
+seed:
+	uv run python -m scripts.seed
+
+geocode:
+	uv run python -m scripts.geocode_housing

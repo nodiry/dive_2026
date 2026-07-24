@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# The whole onboarding flow for a new teammate: git clone, bun install,
-# bun run onboard. That's it — this script does the rest.
+# The whole onboarding flow for a new teammate: git clone, just onboard.
+# That's it — this script does the rest.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 step() { echo; echo "==> $1"; }
+
+step "checking host prerequisites"
+command -v docker >/dev/null || { echo "docker is required: https://docs.docker.com/get-docker/" >&2; exit 1; }
+command -v bun >/dev/null || { echo "bun is required: https://bun.sh" >&2; exit 1; }
+command -v uv >/dev/null || { echo "uv is required: https://docs.astral.sh/uv/" >&2; exit 1; }
+command -v just >/dev/null || { echo "just is required: brew install just" >&2; exit 1; }
+command -v ogr2ogr >/dev/null || { echo "GDAL is required for seeding: brew install gdal" >&2; exit 1; }
 
 step "checking env files"
 [ -f api/.env ] || { cp api/.env.example api/.env; echo "created api/.env (add KAKAO_REST_API_KEY when you have it)"; }
@@ -21,21 +28,19 @@ else
   exit 1
 fi
 
+step "installing dependencies (bun workspaces + api venv)"
+bun install
+(cd api && uv sync --all-groups)
+
 step "starting docker services (db, api, client)"
-docker compose up -d --build
+docker compose up -d
 
-step "waiting for the api container to be ready"
-for i in $(seq 1 30); do
-  docker compose exec -T api true >/dev/null 2>&1 && break
-  sleep 2
-done
-
-step "running migrations"
+step "waiting for the database to accept connections"
 # Postgres's own init sequence briefly restarts even after pg_isready reports
 # healthy (temp startup for initdb scripts -> shutdown -> real startup) —
 # a connection attempt landing in that gap gets ECONNREFUSED. Retry.
 for i in $(seq 1 10); do
-  docker compose exec -T api python -m app.scripts.migrate && break
+  (cd api && just migrate) && break
   echo "migration attempt $i failed, retrying in 3s..."
   sleep 3
   if [ "$i" -eq 10 ]; then
@@ -44,17 +49,17 @@ for i in $(seq 1 10); do
   fi
 done
 
-step "seeding the database (housing + POI + GIS layers, ~80s)"
-docker compose exec -T api python -m app.scripts.seed
+step "seeding the database (housing + POI + GIS layers)"
+(cd api && just seed)
 
 step "geocoding housing addresses (needs KAKAO_REST_API_KEY in api/.env)"
 if grep -qE '^KAKAO_REST_API_KEY=.+' api/.env 2>/dev/null; then
-  docker compose exec -T api python -m app.scripts.geocode_housing
+  (cd api && just geocode)
 else
   echo "no KAKAO_REST_API_KEY set in api/.env — skipping."
   echo "the app still works (search/detail/recommend), but the map and"
   echo "lifestyle recommendations need geocoded coordinates. Add both Kakao"
-  echo "keys (api/.env + client/.env, see README.md), then run: bun run geocode"
+  echo "keys (api/.env + client/.env, see README.md), then run: just geocode"
 fi
 
 echo

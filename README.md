@@ -20,33 +20,36 @@ conditions) against real Busan housing and commercial data.
   (CSV/SHP) to the database schema. Read before touching ingestion/schema
   code.
 
-## Quick start — 3 steps
+## Quick start — 2 steps
 
 ```bash
 git clone <this repo>
-bun install
-bun run onboard
+just onboard
 ```
 
-That's it. `bun run onboard` (→ `scripts/onboard.sh`) does everything:
+That's it. `just onboard` (→ `scripts/onboard.sh`) does everything:
 
-1. Creates `api/.env` / `client/.env` from their `.env.example` files if
+1. Checks host prerequisites and fails fast with install hints if any are
+   missing.
+2. Creates `api/.env` / `client/.env` from their `.env.example` files if
    missing (never overwrites an existing one).
-2. Unzips `samples.zip` → `samples/` if not already unzipped.
-3. Builds and starts `db` + `api` + `client` in Docker.
-4. Runs migrations and seeds the database (~80s).
-5. **Geocodes housing addresses**, if a `KAKAO_REST_API_KEY` is present in
+3. Unzips `samples.zip` → `samples/` if not already unzipped.
+4. Installs dependencies (`bun install` workspaces + `uv sync` for the api).
+5. Builds and starts `db` + `api` + `client` in Docker.
+6. Runs alembic migrations and seeds the database from the host.
+7. **Geocodes housing addresses**, if a `KAKAO_REST_API_KEY` is present in
    `api/.env`. On a truly fresh clone (no keys yet) this step just prints
    instructions instead of failing — everything else still works without
    it (search, condition filters, detail pages). Once you add real Kakao
-   keys, just re-run `bun run onboard` and geocoding runs automatically.
+   keys, just re-run `just onboard` and geocoding runs automatically.
 
-Safe to re-run any time — every step is idempotent. This has been verified
-against an actual simulated fresh clone (deleted `.env` files, deleted
-`samples/`, wiped the Docker volume), not just written and assumed to work.
+Safe to re-run any time — every step is idempotent.
 
-Requires Docker (that's it — GDAL, Python, Postgres all run inside
-containers; you only need Bun on your host to run the onboarding script).
+Host prerequisites: **Docker, Bun, uv, just, GDAL** (`brew install just gdal`
+covers the last two on macOS). Migrations and seeding run on the host
+against the dockerized Postgres, which is why uv and GDAL are needed
+locally. Run `just` with no arguments (here or in `api/`) to list every
+available task.
 
 Then:
 
@@ -56,7 +59,7 @@ Then:
 Verify:
 
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:3000/health
 curl "http://localhost:3000/api/housing?depositMax=30000000&builtAfter=2015"
 ```
 
@@ -68,12 +71,12 @@ keys from the same app, not interchangeable:**
 - `KAKAO_REST_API_KEY` (`api/.env`) — server-side geocoding calls.
 - `VITE_KAKAO_MAP_KEY` (`client/.env`) — browser JS-SDK key.
 
-Add them to the `.env` files `bun run onboard` created, then re-run
-`bun run onboard` (it'll rebuild and geocode) — or manually:
+Add them to the `.env` files `just onboard` created, then re-run
+`just onboard` (it'll rebuild and geocode) — or manually:
 
 ```bash
-docker compose up -d --build
-bun run geocode
+just up
+just geocode
 ```
 
 **If the map shows "지도를 표시할 수 없습니다" even with a key set:** the JS key

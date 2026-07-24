@@ -4,14 +4,5 @@
   "workspaces": [
     "client",
     "packages/*"
-  ],
-  "scripts": {
-    "onboard": "bash scripts/onboard.sh",
-    "client": "docker compose up client",
-    "up": "docker compose up --build",
-    "down": "docker compose down",
-    "migrate": "docker compose exec api python -m app.scripts.migrate",
-    "seed": "docker compose exec api python -m app.scripts.seed",
-    "geocode": "docker compose exec api python -m app.scripts.geocode_housing"
-  }
+  ]
 }

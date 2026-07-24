@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgis/postgis:16-3.4
+    image: imresamu/postgis:16-3.4
     restart: unless-stopped
     environment:
       POSTGRES_USER: dive
@@ -19,6 +19,7 @@ services:
   api:
     build:
       context: ./api
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       db:
@@ -27,19 +28,17 @@ services:
       - ./api/.env
     environment:
       # container-network DB address — overrides the host-oriented value in api/.env
-      DATABASE_URL: postgres://dive:dive@db:5432/dive2026
-      SAMPLES_DIR: /samples
-      PORT: "3000"
+      DATABASE_URL: postgresql+asyncpg://dive:dive@db:5432/dive2026
     ports:
       - "3000:3000"
     volumes:
-      - ./api/app:/app/app
-      - ./samples:/samples:ro
+      - ./api/src:/src/src
 
   client:
     build:
       context: .
       dockerfile: client/Dockerfile
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       - api

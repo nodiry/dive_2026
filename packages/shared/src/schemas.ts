@@ -101,3 +101,30 @@ export const PoiCategorySummary = z.object({
   count: z.number(),
 });
 export type PoiCategorySummary = z.infer<typeof PoiCategorySummary>;
+
+/** POI count within the profile radius, by 상권업종대분류명 (Korean label as stored). */
+export const NeighborhoodCategory = z.object({
+  category: z.string(),
+  count: z.number(),
+});
+export type NeighborhoodCategory = z.infer<typeof NeighborhoodCategory>;
+
+/** A zoning designation's share of the profile radius area (0..1). */
+export const NeighborhoodZone = z.object({
+  zoneType: z.string(),
+  share: z.number(),
+});
+export type NeighborhoodZone = z.infer<typeof NeighborhoodZone>;
+
+/**
+ * The neighborhood profile around one housing project — POI density by
+ * category plus the zoning mix, both computed within radiusMeters via
+ * PostGIS. See /api/housing/:id/neighborhood.
+ */
+export const NeighborhoodProfile = z.object({
+  radiusMeters: z.number(),
+  poiTotal: z.number(),
+  categories: z.array(NeighborhoodCategory),
+  zones: z.array(NeighborhoodZone),
+});
+export type NeighborhoodProfile = z.infer<typeof NeighborhoodProfile>;

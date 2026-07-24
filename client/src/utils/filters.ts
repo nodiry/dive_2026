@@ -1,4 +1,4 @@
-import type { HousingSearchQuery, HousingType } from "@dive2026/shared";
+import type { HousingSearchQuery, HousingType } from '@dive2026/shared';
 
 export interface CriteriaFilters {
   depositMaxManwon: string;
@@ -9,14 +9,19 @@ export interface CriteriaFilters {
 }
 
 export const EMPTY_CRITERIA_FILTERS: CriteriaFilters = {
-  depositMaxManwon: "",
-  builtAfter: "",
-  roomCount: "",
-  district: "",
-  type: "",
+  depositMaxManwon: '',
+  builtAfter: '',
+  roomCount: '',
+  district: '',
+  type: '',
 };
 
-export const HOUSING_TYPE_VALUES: HousingType[] = ["purchased", "redevelopment", "integrated", "happy"];
+export const HOUSING_TYPE_VALUES: HousingType[] = [
+  'purchased',
+  'redevelopment',
+  'integrated',
+  'happy',
+];
 
 export function toHousingSearchQuery(filters: CriteriaFilters): HousingSearchQuery {
   return {

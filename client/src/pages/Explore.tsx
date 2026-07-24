@@ -1,100 +1,137 @@
-import type { LifestylePreference } from "@dive2026/shared";
-import { useState } from "react";
-import { ExploreNavbar } from "../components/explore/ExploreNavbar";
-import { MapShell } from "../components/explore/MapShell";
-import type { ExploreMode } from "../components/explore/ModeToggle";
-import { ResultsListPanel } from "../components/explore/ResultsListPanel";
-import { HousingCard } from "../components/HousingCard";
-import type { HousingMarker, MapMarker, MapTrail, PoiMarker } from "../components/KakaoMap";
-import { TagStrip } from "../components/TagStrip";
-import { EMPTY_CRITERIA_FILTERS, toHousingSearchQuery, type CriteriaFilters } from "../lib/filters";
-import { useLocale } from "../lib/i18n/localeContext";
-import { aggregateMatchesByIcon, POI_ICON_CATEGORY_NAMES, poiColorForCategoryName, type PoiIconKey } from "../lib/poiIcons";
-import { useHousingDetail, useHousingSearch, useLifestyleRecommendation, usePoiCategories } from "../lib/queries";
-import { useSavedHousing } from "../lib/savedHousing/savedHousingContext";
+import type { HousingSummary, LifestylePreference } from '@dive2026/shared';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { ExploreNavbar } from '@components/explore/ExploreNavbar';
+import { FilterPanel } from '@components/explore/FilterPanel';
+import { ListItem, ListMessage, ListPanel, ListSkeleton } from '@components/explore/ListPanel';
+import { MapShell } from '@components/explore/MapShell';
+import { HousingCard } from '@components/HousingCard';
+import type {
+  HousingMarker,
+  MapBounds,
+  MapCircle,
+  MapFocus,
+  MapMarker,
+  MapTrail,
+  PoiMarker,
+} from '@components/KakaoMap';
+import { TagStrip } from '@components/TagStrip';
+import {
+  aggregateMatchesByIcon,
+  POI_ICON_CATEGORY_NAMES,
+  POI_ICON_KEYS,
+  poiColorForCategoryName,
+} from '@constants/poi';
+import { useDebouncedValue } from '@hooks/useDebouncedValue';
+import { useHousingDetail, useHousingSearch } from '@hooks/useHousing';
+import { useLifestyleRecommendation } from '@hooks/useRecommendation';
+import { useExploreStore } from '@stores/useExploreStore';
+import { useSavedHousingStore } from '@stores/useSavedHousingStore';
+import { toHousingSearchQuery } from '@utils/filters';
+import { formatWon } from '@utils/money';
 
-function SavedHousingCard({
-  id,
-  onSelect,
-  onHover,
-  onUnhover,
-}: {
-  id: number;
-  onSelect: () => void;
-  onHover: () => void;
-  onUnhover: () => void;
-}) {
-  const { data } = useHousingDetail(id);
-  const { isSaved, toggleSaved } = useSavedHousing();
-  if (!data) return null;
+function aggregateTags(
+  matches: { categoryName: string; count: number; nearestMeters: number | null }[],
+  t: TFunction,
+) {
+  return aggregateMatchesByIcon(matches).map((m) => ({
+    label: t(`poiCategoryLabels.${m.key}`),
+    sublabel:
+      m.count > 0
+        ? t('units.matchCount', { count: m.count, meters: Math.round(m.nearestMeters ?? 0) })
+        : t('units.matchNone'),
+    muted: m.count === 0,
+  }));
+}
+
+function ScoreBar({ score, maxScore }: { score: number; maxScore: number }) {
+  const ratio = maxScore > 0 ? Math.max(score / maxScore, 0.04) : 0;
   return (
-    <div onMouseEnter={onHover} onMouseLeave={onUnhover}>
-      <HousingCard housing={data} onSelect={onSelect} saved={isSaved(data.id)} onToggleSave={() => toggleSaved(data.id)} />
+    <div className='mt-2.5 flex items-center gap-2'>
+      <div className='h-1 flex-1 rounded-full bg-mist-dim'>
+        <div
+          className='h-1 rounded-full bg-terracotta transition-[width] duration-300'
+          style={{ width: `${Math.round(ratio * 100)}%` }}
+        />
+      </div>
+      <span className='shrink-0 font-mono text-xs text-slate'>{score.toFixed(1)}</span>
     </div>
   );
 }
 
+function RankBadge({ rank }: { rank: number }) {
+  return (
+    <span
+      className={`absolute -top-2 -left-2 z-10 flex size-6 items-center justify-center rounded-full font-mono text-xs font-bold shadow ${
+        rank === 1 ? 'bg-gold text-white' : 'bg-marine text-mist'
+      }`}
+    >
+      {rank}
+    </span>
+  );
+}
+
+function SavedListCard({
+  id,
+  onSelect,
+  selected,
+}: {
+  id: number;
+  onSelect: () => void;
+  selected: boolean;
+}) {
+  const { data } = useHousingDetail(id);
+  const isSaved = useSavedHousingStore((s) => s.isSaved);
+  const toggleSaved = useSavedHousingStore((s) => s.toggleSaved);
+  if (!data) return null;
+  return (
+    <HousingCard
+      housing={data}
+      onSelect={onSelect}
+      selected={selected}
+      saved={isSaved(data.id)}
+      onToggleSave={() => toggleSaved(data.id)}
+    />
+  );
+}
+
 export function Explore() {
-  const { t } = useLocale();
-  const { isSaved, toggleSaved, savedIds } = useSavedHousing();
+  const { t } = useTranslation();
+  const savedIds = useSavedHousingStore((s) => s.savedIds);
+  const isSaved = useSavedHousingStore((s) => s.isSaved);
+  const toggleSaved = useSavedHousingStore((s) => s.toggleSaved);
 
-  const [mode, setMode] = useState<ExploreMode>("criteria");
-  const [panelView, setPanelView] = useState<"results" | "saved">("results");
-  const [filters, setFilters] = useState<CriteriaFilters>(EMPTY_CRITERIA_FILTERS);
-  const [hasSearchedCriteria, setHasSearchedCriteria] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<Set<PoiIconKey>>(new Set());
-  const [radiusMeters, setRadiusMeters] = useState(500);
-  const [selectedHousingId, setSelectedHousingId] = useState<number | null>(null);
-  const [hoveredHousingId, setHoveredHousingId] = useState<number | null>(null);
-  const [hasEverSearched, setHasEverSearched] = useState(false);
+  const mode = useExploreStore((s) => s.mode);
+  const panelView = useExploreStore((s) => s.panelView);
+  const filters = useExploreStore((s) => s.filters);
+  const weights = useExploreStore((s) => s.weights);
+  const radiusMeters = useExploreStore((s) => s.radiusMeters);
+  const selectedHousingId = useExploreStore((s) => s.selectedHousingId);
+  const hoveredHousingId = useExploreStore((s) => s.hoveredHousingId);
+  const toggleSelectedHousing = useExploreStore((s) => s.toggleSelectedHousing);
+  const clearSelectedHousing = useExploreStore((s) => s.clearSelectedHousing);
+  const setHoveredHousing = useExploreStore((s) => s.setHoveredHousing);
 
-  const criteriaQuery = useHousingSearch(toHousingSearchQuery(filters), mode === "criteria" && hasSearchedCriteria);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [clusterIds, setClusterIds] = useState<number[] | null>(null);
+
+  // Everything filters live: no search button anywhere. Criteria fields are
+  // debounced into an always-on query; preference weights auto-run below.
+  const debouncedFilters = useDebouncedValue(filters, 350);
+  const criteriaQuery = useHousingSearch(toHousingSearchQuery(debouncedFilters), true);
   const recommend = useLifestyleRecommendation();
-  const { data: categories } = usePoiCategories();
 
-  // Derived directly from the result set (not a separate effect+setState) — changes only
-  // when the actual set of result ids changes, i.e. a fresh search, never on hover alone.
-  const fitKey =
-    mode === "criteria"
-      ? criteriaQuery.data?.map((h) => h.id).join(",")
-      : recommend.data?.map((r) => r.housing.id).join(",");
+  const selectedCount = POI_ICON_KEYS.filter((key) => weights[key] !== undefined).length;
 
-  function toggleCategory(key: PoiIconKey) {
-    setSelectedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  function handleModeChange(next: ExploreMode) {
-    setMode(next);
-    setSelectedHousingId(null);
-    setHoveredHousingId(null);
-    setPanelView("results");
-  }
-
-  function handleSelect(id: number) {
-    setSelectedHousingId((prev) => (prev === id ? null : id));
-  }
-
-  function handleMarkerClick(marker: MapMarker) {
-    if (marker.kind === "housing") handleSelect(marker.id);
-  }
-
-  function handleSubmit() {
-    setSelectedHousingId(null);
-    setPanelView("results");
-    setHasEverSearched(true);
-    if (mode === "criteria") {
-      setHasSearchedCriteria(true);
-      if (hasSearchedCriteria) criteriaQuery.refetch();
-      return;
-    }
+  function submitPreference() {
     const preferences: LifestylePreference[] = [];
-    for (const key of selectedCategories) {
-      for (const categoryName of POI_ICON_CATEGORY_NAMES[key]) preferences.push({ categoryName, weight: 1 });
+    for (const key of POI_ICON_KEYS) {
+      const weight = weights[key];
+      if (weight === undefined) continue;
+      for (const categoryName of POI_ICON_CATEGORY_NAMES[key]) {
+        preferences.push({ categoryName, weight });
+      }
     }
     if (preferences.length === 0) return;
     recommend.mutate({
@@ -105,41 +142,91 @@ export function Explore() {
     });
   }
 
-  const selectedPreferenceResult =
-    mode === "preference" ? recommend.data?.find((r) => r.housing.id === selectedHousingId) : undefined;
+  const liveKey = JSON.stringify([
+    weights,
+    radiusMeters,
+    debouncedFilters.district,
+    debouncedFilters.depositMaxManwon,
+  ]);
+  const recommendReset = recommend.reset;
+  useEffect(() => {
+    if (mode !== 'preference') return;
+    if (selectedCount === 0) {
+      recommendReset();
+      return;
+    }
+    const timer = setTimeout(submitPreference, 450);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, selectedCount, liveKey, recommendReset]);
 
-  const housingMarkers: HousingMarker[] =
-    mode === "criteria"
-      ? (criteriaQuery.data ?? []).map((h) => ({
-          kind: "housing",
-          id: h.id,
-          lat: h.lat ?? NaN,
-          lng: h.lng ?? NaN,
-          label: h.projectName,
-          selected: h.id === selectedHousingId || h.id === hoveredHousingId,
-        }))
-      : (recommend.data ?? []).map((r) => ({
-          kind: "housing",
-          id: r.housing.id,
-          lat: r.housing.lat ?? NaN,
-          lng: r.housing.lng ?? NaN,
-          label: r.housing.projectName,
-          selected: r.housing.id === selectedHousingId || r.housing.id === hoveredHousingId,
-        }));
+  const baseHousing = criteriaQuery.data ?? [];
+  const showingRecommendation = mode === 'preference' && (recommend.data?.length ?? 0) > 0;
+
+  const results = showingRecommendation ? (recommend.data ?? []) : null;
+  const visibleHousing: HousingSummary[] = results ? results.map((r) => r.housing) : baseHousing;
+
+  const fitKey = visibleHousing
+    .map((h) => h.id)
+    .sort((a, b) => a - b)
+    .join(',');
+
+  // A fresh result set invalidates any cluster selection — reset during
+  // render (the sanctioned adjust-state-on-change pattern, not an effect).
+  const [prevFitKey, setPrevFitKey] = useState(fitKey);
+  if (prevFitKey !== fitKey) {
+    setPrevFitKey(fitKey);
+    setClusterIds(null);
+  }
+
+  const selectedPreferenceResult = results?.find((r) => r.housing.id === selectedHousingId);
+  const selectedHousing = visibleHousing.find((h) => h.id === selectedHousingId);
+
+  function inViewport(h: HousingSummary): boolean {
+    if (h.lat == null || h.lng == null) return true;
+    if (!mapBounds) return true;
+    return (
+      h.lat >= mapBounds.swLat &&
+      h.lat <= mapBounds.neLat &&
+      h.lng >= mapBounds.swLng &&
+      h.lng <= mapBounds.neLng
+    );
+  }
+
+  function inCluster(h: HousingSummary): boolean {
+    return clusterIds === null || clusterIds.includes(h.id);
+  }
+
+  const rankById = new Map<number, number>();
+  results?.forEach((r, i) => {
+    if (i < 3) rankById.set(r.housing.id, i + 1);
+  });
+
+  const listResults = results?.filter((r) => inViewport(r.housing) && inCluster(r.housing));
+  const listHousing = results ? null : baseHousing.filter((h) => inViewport(h) && inCluster(h));
+
+  const housingMarkers: HousingMarker[] = visibleHousing.map((h) => ({
+    kind: 'housing',
+    id: h.id,
+    lat: h.lat ?? NaN,
+    lng: h.lng ?? NaN,
+    label: h.projectName,
+    priceLabel: formatWon(h.minDeposit),
+    rank: rankById.get(h.id),
+    selected: h.id === selectedHousingId || h.id === hoveredHousingId,
+  }));
 
   const poiMarkers: PoiMarker[] = selectedPreferenceResult
     ? selectedPreferenceResult.matches.flatMap((m) =>
-        m.pois.map(
-          (p, i): PoiMarker => ({
-            kind: "poi",
-            id: `${m.categoryName}-${i}-${p.lat}-${p.lng}`,
-            lat: p.lat,
-            lng: p.lng,
-            label: p.name,
-            categoryName: m.categoryName,
-            color: poiColorForCategoryName(m.categoryName),
-          }),
-        ),
+        m.pois.map((p, i): PoiMarker => ({
+          kind: 'poi',
+          id: `${m.categoryName}-${i}-${p.lat}-${p.lng}`,
+          lat: p.lat,
+          lng: p.lng,
+          label: p.name,
+          categoryName: m.categoryName,
+          color: poiColorForCategoryName(m.categoryName),
+        })),
       )
     : [];
 
@@ -157,120 +244,207 @@ export function Explore() {
         }))
     : [];
 
+  const circle: MapCircle | null =
+    selectedPreferenceResult &&
+    selectedPreferenceResult.housing.lat != null &&
+    selectedPreferenceResult.housing.lng != null
+      ? {
+          lat: selectedPreferenceResult.housing.lat,
+          lng: selectedPreferenceResult.housing.lng,
+          radiusMeters,
+        }
+      : null;
+
+  const focus: MapFocus | null =
+    selectedHousing && selectedHousing.lat != null && selectedHousing.lng != null
+      ? { lat: selectedHousing.lat, lng: selectedHousing.lng, key: selectedHousing.id }
+      : null;
+
+  const listCount =
+    panelView === 'saved' ? savedIds.length : (listResults?.length ?? listHousing?.length ?? 0);
+
+  const activeFilterCount =
+    Number(Boolean(filters.depositMaxManwon)) +
+    Number(Boolean(filters.district)) +
+    Number(Boolean(filters.roomCount)) +
+    Number(Boolean(filters.builtAfter)) +
+    Number(Boolean(filters.type)) +
+    (mode === 'preference' ? selectedCount : 0);
+
   return (
-    <MapShell markers={markers} trails={trails} onMarkerClick={handleMarkerClick} fitKey={fitKey}>
-      <ExploreNavbar
-        mode={mode}
-        onModeChange={handleModeChange}
-        criteriaFilters={filters}
-        onCriteriaFiltersChange={setFilters}
-        selectedCategories={selectedCategories}
-        onToggleCategory={toggleCategory}
-        radiusMeters={radiusMeters}
-        onRadiusChange={setRadiusMeters}
-        onSubmit={handleSubmit}
-        submitDisabled={mode === "preference" && (selectedCategories.size === 0 || recommend.isPending)}
-        submitting={recommend.isPending}
-        panelView={panelView}
-        onPanelViewChange={setPanelView}
-      />
+    <MapShell
+      markers={markers}
+      trails={trails}
+      circle={circle}
+      focus={focus}
+      onMarkerClick={(marker) => {
+        if (marker.kind === 'housing') toggleSelectedHousing(marker.id);
+      }}
+      onMapClick={() => {
+        clearSelectedHousing();
+        setClusterIds(null);
+      }}
+      onClusterClick={setClusterIds}
+      onBoundsChange={setMapBounds}
+      fitKey={fitKey}
+    >
+      <ExploreNavbar />
 
-      {!hasEverSearched && (
-        <div className="pointer-events-none flex flex-1 items-center justify-center px-6">
-          <div className="pointer-events-auto max-w-lg rounded-3xl border border-slate-light/30 bg-mist/95 p-8 text-center shadow-lg backdrop-blur">
-            <p className="font-mono text-sm tracking-wide text-terracotta uppercase">{t.explore.heroEyebrow}</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-marine">{t.explore.heroTitle}</h1>
-            <p className="mt-3 text-slate">{t.explore.prompt}</p>
-            <div className="mt-6 flex justify-center">
-              <TagStrip variant="hero" tags={(categories ?? []).slice(0, 7).map((c) => ({ label: c.categoryName }))} />
-            </div>
-          </div>
-        </div>
-      )}
+      <div className='pointer-events-none relative min-h-0 flex-1'>
+        <FilterPanel activeFilterCount={activeFilterCount} />
 
-      {(hasEverSearched || panelView === "saved") && (
-      <div className="flex flex-1 overflow-hidden">
-        <ResultsListPanel>
-          {panelView === "saved" ? (
+        <ListPanel
+          heading={panelView === 'saved' ? t('saved.title') : t('explore.resultsHeading')}
+          count={listCount}
+          fetching={criteriaQuery.isFetching || recommend.isPending}
+          clusterLabel={
+            clusterIds !== null && panelView !== 'saved' ? t('explore.clusterFilter') : null
+          }
+          onClearCluster={() => setClusterIds(null)}
+        >
+          {panelView === 'saved' ? (
             savedIds.length === 0 ? (
-              <p className="text-sm text-slate">{t.saved.empty}</p>
+              <ListItem
+                key='saved-empty'
+                index={0}
+              >
+                <ListMessage>{t('saved.empty')}</ListMessage>
+              </ListItem>
             ) : (
-              savedIds.map((id) => (
-                <SavedHousingCard
-                  key={id}
-                  id={id}
-                  onSelect={() => handleSelect(id)}
-                  onHover={() => setHoveredHousingId(id)}
-                  onUnhover={() => setHoveredHousingId(null)}
-                />
+              savedIds.map((id, i) => (
+                <ListItem
+                  key={`saved-${id}`}
+                  index={i}
+                  active={id === selectedHousingId}
+                >
+                  <div
+                    onMouseEnter={() => setHoveredHousing(id)}
+                    onMouseLeave={() => setHoveredHousing(null)}
+                  >
+                    <SavedListCard
+                      id={id}
+                      onSelect={() => toggleSelectedHousing(id)}
+                      selected={id === selectedHousingId}
+                    />
+                  </div>
+                </ListItem>
               ))
             )
-          ) : mode === "criteria" ? (
-            <>
-              {!hasSearchedCriteria && <p className="text-sm text-slate">{t.explore.prompt}</p>}
-              {hasSearchedCriteria && criteriaQuery.isLoading && <p className="text-sm text-slate">{t.explore.loading}</p>}
-              {hasSearchedCriteria && criteriaQuery.isError && (
-                <p className="text-sm text-terracotta-dark">{t.explore.error}</p>
-              )}
-              {hasSearchedCriteria && criteriaQuery.data?.length === 0 && (
-                <p className="text-sm text-slate">{t.explore.empty}</p>
-              )}
-              {criteriaQuery.data?.map((housing) => (
+          ) : mode === 'preference' && selectedCount === 0 ? (
+            <ListItem
+              key='pref-hint'
+              index={0}
+            >
+              <ListMessage>{t('explore.prompt')}</ListMessage>
+            </ListItem>
+          ) : mode === 'preference' && recommend.isPending && !recommend.data ? (
+            <ListItem
+              key='pref-loading'
+              index={0}
+            >
+              <ListSkeleton />
+            </ListItem>
+          ) : mode === 'preference' && recommend.isError ? (
+            <ListItem
+              key='pref-error'
+              index={0}
+            >
+              <ListMessage tone='error'>{t('explore.error')}</ListMessage>
+            </ListItem>
+          ) : mode === 'preference' && recommend.isSuccess && recommend.data.length === 0 ? (
+            <ListItem
+              key='pref-empty'
+              index={0}
+            >
+              <ListMessage>{t('explore.emptyResult')}</ListMessage>
+            </ListItem>
+          ) : listResults ? (
+            listResults.length === 0 ? (
+              <ListItem
+                key='pref-view-empty'
+                index={0}
+              >
+                <ListMessage>{t('explore.emptyResult')}</ListMessage>
+              </ListItem>
+            ) : (
+              listResults.map((result, i) => (
+                <ListItem
+                  key={`r-${result.housing.id}`}
+                  index={i}
+                  active={result.housing.id === selectedHousingId}
+                >
+                  <div
+                    className='relative'
+                    onMouseEnter={() => setHoveredHousing(result.housing.id)}
+                    onMouseLeave={() => setHoveredHousing(null)}
+                  >
+                    {rankById.has(result.housing.id) && (
+                      <RankBadge rank={rankById.get(result.housing.id)!} />
+                    )}
+                    <HousingCard
+                      housing={result.housing}
+                      onSelect={() => toggleSelectedHousing(result.housing.id)}
+                      selected={result.housing.id === selectedHousingId}
+                      saved={isSaved(result.housing.id)}
+                      onToggleSave={() => toggleSaved(result.housing.id)}
+                    >
+                      <ScoreBar
+                        score={result.score}
+                        maxScore={recommend.data?.[0]?.score ?? 0}
+                      />
+                      <div className='mt-2'>
+                        <TagStrip tags={aggregateTags(result.matches, t)} />
+                      </div>
+                    </HousingCard>
+                  </div>
+                </ListItem>
+              ))
+            )
+          ) : criteriaQuery.isLoading ? (
+            <ListItem
+              key='crit-loading'
+              index={0}
+            >
+              <ListSkeleton />
+            </ListItem>
+          ) : criteriaQuery.isError ? (
+            <ListItem
+              key='crit-error'
+              index={0}
+            >
+              <ListMessage tone='error'>{t('explore.error')}</ListMessage>
+            </ListItem>
+          ) : (listHousing?.length ?? 0) === 0 ? (
+            <ListItem
+              key='crit-empty'
+              index={0}
+            >
+              <ListMessage>{t('explore.empty')}</ListMessage>
+            </ListItem>
+          ) : (
+            (listHousing ?? []).map((housing, i) => (
+              <ListItem
+                key={`h-${housing.id}`}
+                index={i}
+                active={housing.id === selectedHousingId}
+              >
                 <div
-                  key={housing.id}
-                  onMouseEnter={() => setHoveredHousingId(housing.id)}
-                  onMouseLeave={() => setHoveredHousingId(null)}
+                  onMouseEnter={() => setHoveredHousing(housing.id)}
+                  onMouseLeave={() => setHoveredHousing(null)}
                 >
                   <HousingCard
                     housing={housing}
-                    onSelect={() => handleSelect(housing.id)}
+                    onSelect={() => toggleSelectedHousing(housing.id)}
+                    selected={housing.id === selectedHousingId}
                     saved={isSaved(housing.id)}
                     onToggleSave={() => toggleSaved(housing.id)}
                   />
                 </div>
-              ))}
-            </>
-          ) : (
-            <>
-              {!recommend.isPending && !recommend.isSuccess && <p className="text-sm text-slate">{t.explore.prompt}</p>}
-              {recommend.isPending && <p className="text-sm text-slate">{t.explore.submitting}</p>}
-              {recommend.isError && <p className="text-sm text-terracotta-dark">{t.explore.error}</p>}
-              {recommend.isSuccess && recommend.data.length === 0 && (
-                <p className="text-sm text-slate">{t.explore.emptyResult}</p>
-              )}
-              {recommend.data?.map((result) => (
-                <div
-                  key={result.housing.id}
-                  onMouseEnter={() => setHoveredHousingId(result.housing.id)}
-                  onMouseLeave={() => setHoveredHousingId(null)}
-                >
-                  <HousingCard
-                    housing={result.housing}
-                    onSelect={() => handleSelect(result.housing.id)}
-                    saved={isSaved(result.housing.id)}
-                    onToggleSave={() => toggleSaved(result.housing.id)}
-                  >
-                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-light/20 pt-3">
-                      <TagStrip
-                        tags={aggregateMatchesByIcon(result.matches).map((m) => ({
-                          label: t.poiCategoryLabels[m.key],
-                          sublabel:
-                            m.count > 0 ? t.units.matchCount(m.count, Math.round(m.nearestMeters ?? 0)) : t.units.matchNone,
-                          muted: m.count === 0,
-                        }))}
-                      />
-                      <span className="shrink-0 font-mono text-sm text-slate">
-                        {t.explore.scoreLabel} {result.score.toFixed(1)}
-                      </span>
-                    </div>
-                  </HousingCard>
-                </div>
-              ))}
-            </>
+              </ListItem>
+            ))
           )}
-        </ResultsListPanel>
+        </ListPanel>
       </div>
-      )}
     </MapShell>
   );
 }

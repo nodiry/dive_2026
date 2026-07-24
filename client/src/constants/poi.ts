@@ -1,4 +1,4 @@
-import { Coffee, Dumbbell, Fuel, Pill, Store, Utensils, type LucideIcon } from "lucide-react";
+import { Coffee, Dumbbell, Fuel, Pill, Store, Utensils, type LucideIcon } from 'lucide-react';
 
 /**
  * The preference-mode icon bar shows only real commercial_poi category_name
@@ -12,27 +12,29 @@ import { Coffee, Dumbbell, Fuel, Pill, Store, Utensils, type LucideIcon } from "
  * venues (요리 주점, 일반 유흥 주점) are deliberately excluded so this reads
  * as "restaurant," not "restaurant + bar."
  */
-export type PoiIconKey = "cafe" | "convenienceStore" | "gym" | "pharmacy" | "gasStation" | "food";
+export type PoiIconKey = 'cafe' | 'convenienceStore' | 'gym' | 'pharmacy' | 'gasStation' | 'food';
+
+export type CategoryWeights = Partial<Record<PoiIconKey, number>>;
 
 export const FOOD_GROUP_CATEGORY_NAMES = [
-  "백반/한정식",
-  "김밥/만두/분식",
-  "치킨",
-  "중국집",
-  "국/탕/찌개류",
-  "경양식",
-  "일식 회/초밥",
-  "국수/칼국수",
-  "돼지고기 구이/찜",
-  "횟집",
+  '백반/한정식',
+  '김밥/만두/분식',
+  '치킨',
+  '중국집',
+  '국/탕/찌개류',
+  '경양식',
+  '일식 회/초밥',
+  '국수/칼국수',
+  '돼지고기 구이/찜',
+  '횟집',
 ];
 
 export const POI_ICON_CATEGORY_NAMES: Record<PoiIconKey, string[]> = {
-  cafe: ["카페"],
-  convenienceStore: ["편의점"],
-  gym: ["헬스장"],
-  pharmacy: ["약국"],
-  gasStation: ["주유소"],
+  cafe: ['카페'],
+  convenienceStore: ['편의점'],
+  gym: ['헬스장'],
+  pharmacy: ['약국'],
+  gasStation: ['주유소'],
   food: FOOD_GROUP_CATEGORY_NAMES,
 };
 
@@ -41,12 +43,12 @@ export const POI_ICON_CATEGORY_NAMES: Record<PoiIconKey, string[]> = {
 // stay visually distinguishable as dots on a map, which 5 shades of one
 // hue can't do. See docs/DESIGN.md.
 export const POI_ICON_COLORS: Record<PoiIconKey, string> = {
-  cafe: "#e2592e", // terracotta
-  food: "#d9a441", // gold
-  convenienceStore: "#3f7fb0", // blue
-  gym: "#6b4fa0", // violet
-  pharmacy: "#3f9d72", // green
-  gasStation: "#a8642f", // amber
+  cafe: '#e2592e', // terracotta
+  food: '#d9a441', // gold
+  convenienceStore: '#3f7fb0', // blue
+  gym: '#6b4fa0', // violet
+  pharmacy: '#3f9d72', // green
+  gasStation: '#a8642f', // amber
 };
 
 export const POI_ICON_GLYPHS: Record<PoiIconKey, LucideIcon> = {
@@ -58,7 +60,14 @@ export const POI_ICON_GLYPHS: Record<PoiIconKey, LucideIcon> = {
   food: Utensils,
 };
 
-export const POI_ICON_KEYS: PoiIconKey[] = ["cafe", "food", "convenienceStore", "gym", "pharmacy", "gasStation"];
+export const POI_ICON_KEYS: PoiIconKey[] = [
+  'cafe',
+  'food',
+  'convenienceStore',
+  'gym',
+  'pharmacy',
+  'gasStation',
+];
 
 /** categoryName (real API value) -> the icon key it belongs to, for coloring POI map pins. */
 export function poiIconKeyForCategoryName(categoryName: string): PoiIconKey | undefined {
@@ -70,7 +79,7 @@ export function poiIconKeyForCategoryName(categoryName: string): PoiIconKey | un
 
 export function poiColorForCategoryName(categoryName: string): string {
   const key = poiIconKeyForCategoryName(categoryName);
-  return key ? POI_ICON_COLORS[key] : "#8a969a"; // slate-light fallback
+  return key ? POI_ICON_COLORS[key] : '#8a969a'; // slate-light fallback
 }
 
 export interface AggregatedMatch {
@@ -93,7 +102,10 @@ export function aggregateMatchesByIcon(
     if (!key) continue;
     const existing = byKey.get(key) ?? { key, count: 0, nearestMeters: null };
     existing.count += m.count;
-    if (m.nearestMeters != null && (existing.nearestMeters == null || m.nearestMeters < existing.nearestMeters)) {
+    if (
+      m.nearestMeters != null &&
+      (existing.nearestMeters == null || m.nearestMeters < existing.nearestMeters)
+    ) {
       existing.nearestMeters = m.nearestMeters;
     }
     byKey.set(key, existing);

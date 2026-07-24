@@ -1,40 +1,58 @@
-export type ExploreMode = "criteria" | "preference";
+import { motion } from 'motion/react';
+import type { ExploreMode } from '@type/explore';
+import { cn } from '@utils/cn';
 
 interface ModeToggleProps {
   mode: ExploreMode;
   onChange: (mode: ExploreMode) => void;
   criteriaLabel: string;
   preferenceLabel: string;
+  className?: string;
 }
 
 /**
  * A two-state scale, not two independent buttons: pressing one side always
- * turns the other off. `aria-pressed` reflects that mutual exclusivity for
- * screen readers.
+ * turns the other off. The active pill slides between sides (shared
+ * layoutId). `aria-pressed` reflects the mutual exclusivity.
  */
-export function ModeToggle({ mode, onChange, criteriaLabel, preferenceLabel }: ModeToggleProps) {
-  const base = "rounded-full px-4 py-2 text-sm font-medium transition-colors";
-  const active = "bg-marine text-mist";
-  const inactive = "text-marine/70 hover:bg-marine/10";
+export function ModeToggle({
+  mode,
+  onChange,
+  criteriaLabel,
+  preferenceLabel,
+  className,
+}: ModeToggleProps) {
+  const sides: { value: ExploreMode; label: string }[] = [
+    { value: 'criteria', label: criteriaLabel },
+    { value: 'preference', label: preferenceLabel },
+  ];
 
   return (
-    <div className="flex shrink-0 items-center gap-1 rounded-full bg-mist-dim p-1">
-      <button
-        type="button"
-        aria-pressed={mode === "criteria"}
-        onClick={() => onChange("criteria")}
-        className={`${base} ${mode === "criteria" ? active : inactive}`}
-      >
-        {criteriaLabel}
-      </button>
-      <button
-        type="button"
-        aria-pressed={mode === "preference"}
-        onClick={() => onChange("preference")}
-        className={`${base} ${mode === "preference" ? active : inactive}`}
-      >
-        {preferenceLabel}
-      </button>
+    <div className={cn('flex items-center gap-1 rounded-full bg-mist-dim p-1', className)}>
+      {sides.map((side) => {
+        const isActive = mode === side.value;
+        return (
+          <button
+            key={side.value}
+            type='button'
+            aria-pressed={isActive}
+            onClick={() => onChange(side.value)}
+            className={cn(
+              'relative flex-1 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+              isActive ? 'text-mist' : 'text-marine/70 hover:bg-marine/10',
+            )}
+          >
+            {isActive && (
+              <motion.span
+                layoutId='mode-toggle-indicator'
+                transition={{ type: 'spring', bounce: 0.18, duration: 0.4 }}
+                className='absolute inset-0 rounded-full bg-marine'
+              />
+            )}
+            <span className='relative z-10'>{side.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

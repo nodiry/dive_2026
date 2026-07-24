@@ -4,8 +4,16 @@ from geoalchemy2 import Geometry
 from sqlmodel import cast, col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from src.gis.models import CommercialZone
 from src.housing.models import HousingPrice, HousingProject, HousingUnit
-from src.housing.schemas import HousingSearchQuery, HousingSummary
+from src.housing.schemas import (
+    HousingSearchQuery,
+    HousingSummary,
+    NeighborhoodCategory,
+    NeighborhoodProfile,
+    NeighborhoodZone,
+)
+from src.poi.models import CommercialPoi
 
 
 def affordable_projects(deposit_max: float):
@@ -85,3 +93,52 @@ async def get_housing_id(session: AsyncSession, housing_id: int) -> HousingSumma
         return None
     summaries = await to_summaries(session, [project])
     return summaries[0]
+
+
+async def get_neighborhood_profile(session: AsyncSession, housing_id: int, radius_meters: float) -> NeighborhoodProfile | None:
+    project = await session.get(HousingProject, housing_id)
+    if project is None:
+        return None
+    if project.geom is None:
+        return NeighborhoodProfile(radius_meters=radius_meters, poi_total=0, categories=[], zones=[])
+
+    point = select(col(HousingProject.geom)).where(col(HousingProject.id) == housing_id).scalar_subquery()
+
+    poi_count = func.count()
+    category_rows = (
+        await session.exec(
+            select(col(CommercialPoi.category), poi_count)
+            .where(func.ST_DWithin(col(CommercialPoi.geom), point, radius_meters))
+            .group_by(col(CommercialPoi.category))
+            .order_by(poi_count.desc())
+        )
+    ).all()
+
+    buffer = func.ST_Buffer(point, radius_meters)
+    zone_area = func.sum(func.ST_Area(func.ST_Intersection(col(CommercialZone.geom), buffer)))
+    zone_rows = (
+        await session.exec(
+            select(col(CommercialZone.zone_type), zone_area)
+            .where(
+                col(CommercialZone.zone_type).is_not(None),
+                func.ST_DWithin(col(CommercialZone.geom), point, radius_meters),
+            )
+            .group_by(col(CommercialZone.zone_type))
+            .order_by(zone_area.desc())
+        )
+    ).all()
+
+    circle_area = 3.141592653589793 * radius_meters * radius_meters
+    zones = [
+        NeighborhoodZone(zone_type=zone_type, share=min(float(area) / circle_area, 1.0))
+        for zone_type, area in zone_rows
+        if zone_type is not None and area is not None
+    ]
+    categories = [NeighborhoodCategory(category=category, count=count) for category, count in category_rows]
+
+    return NeighborhoodProfile(
+        radius_meters=radius_meters,
+        poi_total=sum(c.count for c in categories),
+        categories=categories,
+        zones=zones,
+    )

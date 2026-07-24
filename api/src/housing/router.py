@@ -2,7 +2,12 @@ from fastapi import APIRouter, HTTPException
 
 from src.database import SessionDep
 from src.housing import service as housing_service
-from src.housing.schemas import HousingSearchQuery, HousingSummary, HousingType
+from src.housing.schemas import (
+    HousingSearchQuery,
+    HousingSummary,
+    HousingType,
+    NeighborhoodProfile,
+)
 
 router = APIRouter()
 
@@ -32,3 +37,11 @@ async def get_housing_detail(housing_id: int, session: SessionDep) -> HousingSum
     if not housing:
         raise HTTPException(status_code=404, detail="not found")
     return housing
+
+
+@router.get("/{housing_id}/neighborhood", response_model=NeighborhoodProfile)
+async def get_housing_neighborhood(housing_id: int, session: SessionDep, radiusMeters: float = 500) -> NeighborhoodProfile:
+    profile = await housing_service.get_neighborhood_profile(session, housing_id, min(max(radiusMeters, 100), 2000))
+    if profile is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return profile

@@ -43,3 +43,20 @@ class HousingSearchQuery(ApiModel):
     room_count: float | None = None
     district: str | None = None
     type: HousingType | None = None
+
+
+class NeighborhoodCategory(ApiModel):
+    category: str
+    count: int
+
+
+class NeighborhoodZone(ApiModel):
+    zone_type: str
+    share: float
+
+
+class NeighborhoodProfile(ApiModel):
+    radius_meters: float
+    poi_total: int
+    categories: list[NeighborhoodCategory]
+    zones: list[NeighborhoodZone]

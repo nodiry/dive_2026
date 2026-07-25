@@ -104,7 +104,8 @@ export default function ExploreScreen() {
   const criteria = useHousingSearch(toHousingQuery(debouncedFilters));
   const recommend = useLifestyleRecommendation();
   const density = useDistrictDensity(mapLayer !== 'none');
-  const supply = useDistrictSupply();
+  // Only the amenity layer reads this, and it is the slowest query we make.
+  const supply = useDistrictSupply(mapLayer === 'amenity');
   const { isSaved, toggleSaved, isLoggedIn } = useSavedHousing();
 
   const selectedCategories = Object.keys(weights);

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AlertActionCard } from '@/components/alerts/alert-card';
 import { ChatGame } from '@/components/game/chat-game';
 import { FullscreenMap, MapResultCard } from '@/components/housing/map-result-card';
 import { ScreenHeader } from '@/components/nav/screen-header';
@@ -24,6 +25,7 @@ import { Txt } from '@/components/ui/txt';
 import { Colors, FontFamily, FontSize, Radius, Spacing, Tint } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
 import { useChat, type TranscriptMessage } from '@/contexts/chat';
+import { useHousingAlerts } from '@/hooks/useAlerts';
 import * as ImagePicker from 'expo-image-picker';
 import type { HousingSummary } from '@/shared/schemas';
 
@@ -49,6 +51,10 @@ export default function AiScreen() {
     setInput('');
     setImage(null);
   };
+
+  const alerts = useHousingAlerts();
+  const subscribeAlert = (messageId: string) => alerts.subscribe.mutate(messageId);
+  const cancelAlert = (alertId: number) => alerts.cancel.mutate(alertId);
 
   const attachImage = async () => {
     const picked = await ImagePicker.launchImageLibraryAsync({
@@ -145,6 +151,10 @@ export default function AiScreen() {
               message={item}
               showMap={index === lastMapIndex}
               onExpandMap={() => setExpanded(item.housing ?? null)}
+              alerts={alerts}
+              onSubscribe={subscribeAlert}
+              onCancel={cancelAlert}
+              onRelax={() => submit(t('housingAlerts.relaxPrompt'))}
             />
           )}
         />
@@ -197,10 +207,18 @@ function Bubble({
   message,
   showMap,
   onExpandMap,
+  alerts,
+  onSubscribe,
+  onCancel,
+  onRelax,
 }: {
   message: TranscriptMessage;
   showMap: boolean;
   onExpandMap: () => void;
+  alerts: ReturnType<typeof useHousingAlerts>;
+  onSubscribe: (messageId: string) => void;
+  onCancel: (alertId: number) => void;
+  onRelax: () => void;
 }) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
@@ -252,6 +270,22 @@ function Bubble({
         ) : null}
 
         {message.gameId ? <ChatGame gameId={message.gameId} /> : null}
+
+        {message.noMatch ? (
+          <AlertActionCard
+            messageId={message.id}
+            context={message.noMatch}
+            actions={message.actions ?? []}
+            activeAlert={alerts.alerts.find(
+              (alert) => alert.criteriaKey === message.noMatch?.criteriaKey,
+            )}
+            subscribing={alerts.subscribe.isPending}
+            cancelling={alerts.cancel.isPending}
+            onSubscribe={onSubscribe}
+            onCancel={onCancel}
+            onRelax={onRelax}
+          />
+        ) : null}
       </View>
     </View>
   );

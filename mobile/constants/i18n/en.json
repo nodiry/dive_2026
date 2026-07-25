@@ -378,5 +378,21 @@
     "scoring": "Finding homes from your cards",
     "resultTitle": "Your cards",
     "matches": "Rentals matching this taste"
+  },
+  "housingAlerts": {
+    "cardTitle": "New listing alert",
+    "districtEmpty": "No housing is registered in {{district}} right now. You can be alerted when something is.",
+    "criteriaEmpty": "No registered housing meets these conditions. You can be alerted when something does.",
+    "subscribe": "Alert me on these conditions",
+    "subscribing": "Subscribing...",
+    "subscribed": "Alert active",
+    "cancel": "Remove alert",
+    "relax": "Loosen the conditions",
+    "relaxPrompt": "Loosen the conditions I just searched and try again",
+    "myAlerts": "My alerts",
+    "none": "No alerts yet.",
+    "criteriaDeposit": "Deposit under {{amount}}",
+    "criteriaBuilt": "Built after {{year}}",
+    "criteriaRooms": "{{count}}+ rooms"
   }
 }

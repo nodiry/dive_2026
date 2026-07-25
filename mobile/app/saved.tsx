@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AlertRow } from '@/components/alerts/alert-card';
 import { HousingCard } from '@/components/housing/housing-card';
 import { ScreenHeader } from '@/components/nav/screen-header';
 import { Button } from '@/components/ui/controls';
 import { EmptyState, Skeleton } from '@/components/ui/surfaces';
 import { Txt } from '@/components/ui/txt';
 import { Colors, Spacing } from '@/constants/theme';
+import { useHousingAlerts } from '@/hooks/useAlerts';
 import { useSavedHousing } from '@/hooks/useSaved';
 
 export default function SavedScreen() {
@@ -16,6 +18,7 @@ export default function SavedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { savedHousing, isLoading, isLoggedIn, isSaved, toggleSaved } = useSavedHousing();
+  const alerts = useHousingAlerts();
 
   return (
     <View style={styles.screen}>
@@ -55,6 +58,27 @@ export default function SavedScreen() {
             onToggleSave={() => toggleSaved(item.id)}
           />
         )}
+        ListFooterComponent={
+          // Alerts belong with 찜: both are things you kept, and this is the
+          // only place outside the chat where you can see or cancel them.
+          isLoggedIn ? (
+            <View style={styles.alerts}>
+              <Txt variant="eyebrow">{t('housingAlerts.myAlerts')}</Txt>
+              {alerts.alerts.length === 0 ? (
+                <EmptyState message={t('housingAlerts.none')} />
+              ) : (
+                alerts.alerts.map((alert) => (
+                  <AlertRow
+                    key={alert.id}
+                    alert={alert}
+                    cancelling={alerts.cancel.isPending}
+                    onCancel={() => alerts.cancel.mutate(alert.id)}
+                  />
+                ))
+              )}
+            </View>
+          ) : null
+        }
       />
     </View>
   );
@@ -65,4 +89,5 @@ const styles = StyleSheet.create({
   list: { padding: Spacing.lg, gap: Spacing.md, flexGrow: 1 },
   count: { marginBottom: Spacing.xs },
   skeletons: { gap: Spacing.md },
+  alerts: { marginTop: Spacing.xl, gap: Spacing.md },
 });

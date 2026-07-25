@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 
+import { authAPI } from '@/api/auth';
 import { onUnauthorized } from '@/api/client';
 import { setAuthToken } from '@/lib/auth-token';
 import { queryClient } from '@/lib/queryClient';
@@ -81,6 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
+    // Ask the server to drop the session before the local token goes: the axios
+    // interceptor reads that token, and clearing it first would leave a valid
+    // session alive until it expired. Failure is ignored — signing out locally
+    // must work offline, and a 401-triggered sign-out has nothing to revoke.
+    void authAPI.logout().catch(() => undefined);
     clearUserScopedCache();
     setAuthToken(null);
     setToken(null);

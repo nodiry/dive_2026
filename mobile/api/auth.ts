@@ -14,4 +14,8 @@ export const authAPI = {
     const res = await client.get('/api/auth/me');
     return User.parse(res.data);
   },
+  /** Invalidates the session server-side; clearing the local token is not enough. */
+  logout: async (): Promise<void> => {
+    await client.post('/api/auth/logout');
+  },
 };

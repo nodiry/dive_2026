@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Segmented } from '@/components/ui/controls';
 import { PressableScale } from '@/components/ui/press';
 import { Divider } from '@/components/ui/surfaces';
 import { Txt } from '@/components/ui/txt';
@@ -111,6 +112,37 @@ export function AppDrawer({ visible, onClose }: { visible: boolean; onClose: () 
               </PressableScale>
             </View>
 
+            {/*
+              Identity sits with the brand, where the eye enters the drawer,
+              rather than buried under the chat history at the bottom.
+            */}
+            {isLoggedIn ? (
+              <View style={styles.account}>
+                <View style={styles.avatar}>
+                  <Txt style={styles.avatarLetter}>
+                    {user?.username?.[0]?.toUpperCase() ?? '?'}
+                  </Txt>
+                </View>
+                <View style={styles.accountText}>
+                  <Txt variant="subheading" numberOfLines={1}>
+                    {user?.username}
+                  </Txt>
+                  <Txt variant="caption" numberOfLines={1}>
+                    {user?.email}
+                  </Txt>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.account}>
+                <View style={styles.accountText}>
+                  <Txt variant="caption">{t('menu.guest')}</Txt>
+                </View>
+                <PressableScale onPress={() => go('/login')} style={styles.loginPill}>
+                  <Txt style={styles.loginLabel}>{t('menu.login')}</Txt>
+                </PressableScale>
+              </View>
+            )}
+
             <PressableScale onPress={startNewChat} style={styles.newChat}>
               <View style={styles.newChatIcon}>
                 <Ionicons name="add" size={17} color={Colors.violet} />
@@ -176,52 +208,32 @@ export function AppDrawer({ visible, onClose }: { visible: boolean; onClose: () 
               ) : null}
             </ScrollView>
 
+            {/*
+              The footer is now only settings. The language row used to state a
+              value on its right, which read as the language you would get
+              rather than the one you have; a two-state control says which is
+              active without having to guess.
+            */}
             <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
               <Divider />
-              {isLoggedIn ? (
-                <View style={styles.account}>
-                  <View style={styles.avatar}>
-                    <Txt style={styles.avatarLetter}>
-                      {user?.username?.[0]?.toUpperCase() ?? '?'}
-                    </Txt>
-                  </View>
-                  <View style={styles.accountText}>
-                    <Txt variant="subheading" numberOfLines={1}>
-                      {user?.username}
-                    </Txt>
-                    <Txt variant="caption" numberOfLines={1}>
-                      {user?.email}
-                    </Txt>
-                  </View>
-                  <PressableScale
-                    onPress={signOut}
-                    hitSlop={10}
-                    accessibilityLabel={t('menu.logout')}
-                  >
-                    <Ionicons name="log-out-outline" size={20} color={Colors.slate} />
-                  </PressableScale>
-                </View>
-              ) : (
-                <View style={styles.account}>
-                  <View style={styles.accountText}>
-                    <Txt variant="caption">{t('menu.guest')}</Txt>
-                  </View>
-                  <PressableScale onPress={() => go('/login')} style={styles.loginPill}>
-                    <Txt style={styles.loginLabel}>{t('menu.login')}</Txt>
-                  </PressableScale>
-                </View>
-              )}
+              <View style={styles.languageBlock}>
+                <Txt variant="eyebrow">{t('menu.language')}</Txt>
+                <Segmented
+                  value={i18n.language.startsWith('en') ? 'en' : 'ko'}
+                  onChange={(next) => void i18n.changeLanguage(next)}
+                  options={[
+                    { value: 'ko', label: '한국어' },
+                    { value: 'en', label: 'English' },
+                  ]}
+                />
+              </View>
 
-              <PressableScale
-                onPress={() => void i18n.changeLanguage(i18n.language === 'ko' ? 'en' : 'ko')}
-                style={styles.languageRow}
-              >
-                <Ionicons name="language-outline" size={18} color={Colors.slate} />
-                <Txt style={styles.languageLabel}>{t('menu.language')}</Txt>
-                <Txt style={styles.languageValue}>
-                  {i18n.language === 'ko' ? '한국어' : 'English'}
-                </Txt>
-              </PressableScale>
+              {isLoggedIn ? (
+                <PressableScale onPress={signOut} style={styles.footerRow}>
+                  <Ionicons name="log-out-outline" size={18} color={Colors.slate} />
+                  <Txt style={styles.footerRowLabel}>{t('menu.logout')}</Txt>
+                </PressableScale>
+              ) : null}
             </View>
           </Animated.View>
         </GestureDetector>
@@ -308,7 +320,22 @@ const styles = StyleSheet.create({
   },
   chatLabelActive: { fontFamily: FontFamily.semibold, color: Colors.violetDark },
   footer: { paddingHorizontal: Spacing.lg, gap: Spacing.md },
-  account: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingTop: Spacing.md },
+  footerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: 4 },
+  footerRowLabel: { fontFamily: FontFamily.semibold, fontSize: FontSize.sm, color: Colors.plum },
+  languageBlock: { gap: Spacing.sm },
+  account: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.card,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Tint.border,
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -326,16 +353,4 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   loginLabel: { fontFamily: FontFamily.semibold, fontSize: FontSize.sm, color: Colors.white },
-  languageRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  languageLabel: {
-    flex: 1,
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.sm,
-    color: Colors.plum,
-  },
-  languageValue: {
-    fontFamily: FontFamily.semibold,
-    fontSize: FontSize.sm,
-    color: Colors.violetDark,
-  },
 });

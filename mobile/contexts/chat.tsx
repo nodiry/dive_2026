@@ -4,14 +4,19 @@ import { useTranslation } from 'react-i18next';
 import { aiAPI } from '@/api/ai';
 import { useAuth } from '@/contexts/auth';
 import { useAiSearch } from '@/hooks/useAi';
-import type { ChatMessage, HousingSummary } from '@/shared/schemas';
+import type { AiAction, ChatMessage, HousingSummary, NoMatchContext } from '@/shared/schemas';
 
 export interface TranscriptMessage extends ChatMessage {
+  /** The stored message id — what an alert subscription is created from. */
+  id?: string;
   housing?: HousingSummary[];
   /** Data URL of what the user attached, echoed into their own bubble. */
   image?: string;
   /** A generated 하루 deck this reply spawned. */
   gameId?: string;
+  /** Set when the search found nothing; carries the criteria an alert would watch. */
+  noMatch?: NoMatchContext | null;
+  actions?: AiAction[];
 }
 
 interface ChatValue {
@@ -57,10 +62,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             setMessages((prev) => [
               ...prev,
               {
+                id: data.messageId,
                 role: 'assistant',
                 text: data.reply,
                 housing: data.housing.length > 0 ? data.housing : undefined,
                 gameId: data.gameId ?? undefined,
+                noMatch: data.noMatch,
+                actions: data.actions,
               },
             ]);
           },
@@ -82,10 +90,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const detail = await aiAPI.getConversation(id);
         setMessages(
           detail.messages.map((message) => ({
+            id: message.id,
             role: message.role,
             text: message.text,
             housing: message.housing.length > 0 ? message.housing : undefined,
             gameId: message.gameId ?? undefined,
+            noMatch: message.noMatch,
+            actions: message.actions,
           })),
         );
       } catch {

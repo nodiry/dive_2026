@@ -1,4 +1,4 @@
-import { Heart, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import { ExternalLink, Heart, Minus, Share2, TrendingDown, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { Roadview } from '@components/Roadview';
 import { StatTile } from '@components/StatTile';
 import { TagStrip } from '@components/TagStrip';
 import { useHousingDetail, useNeighborhood } from '@hooks/useHousing';
+import { useToastStore } from '@stores/useToastStore';
 import { useSavedHousing } from '@hooks/useSaved';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
@@ -139,6 +140,37 @@ export function Detail() {
   const { data: housing, isLoading, isError } = useHousingDetail(housingId);
   const { isSaved, toggleSaved } = useSavedHousing();
   const [locationView, setLocationView] = useState<'map' | 'roadview'>('map');
+  const showSuccess = useToastStore((s) => s.showSuccess);
+  const showError = useToastStore((s) => s.showError);
+
+  const kakaoMapUrl =
+    housing?.lat != null && housing?.lng != null
+      ? `https://map.kakao.com/link/map/${encodeURIComponent(housing.projectName)},${housing.lat},${housing.lng}`
+      : null;
+
+  async function share() {
+    if (!housing) return;
+    const pageUrl = window.location.href;
+    const lines = [housing.projectName, housing.address, kakaoMapUrl].filter(Boolean).join('\n');
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: housing.projectName, text: lines, url: pageUrl });
+        return;
+      } catch {
+        // A dismissed share sheet is not a failure, and it must not fall
+        // through to the clipboard copy either.
+        return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${lines}\n${pageUrl}`);
+      showSuccess(t('detail.shareCopied'));
+    } catch {
+      showError(t('detail.shareFailed'));
+    }
+  }
 
   if (isLoading) return <div className='px-6 py-12 text-slate sm:px-8'>{t('detail.loading')}</div>;
   if (isError || !housing) {
@@ -162,21 +194,32 @@ export function Detail() {
             </h1>
             <p className='mt-1 text-slate'>{housing.address}</p>
           </div>
-          <button
-            type='button'
-            aria-label={saved ? t('saved.unsaveLabel') : t('saved.saveLabel')}
-            aria-pressed={saved}
-            onClick={() => toggleSaved(housing.id)}
-            className={cn(
-              'flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
-              saved
-                ? 'border-violet/40 bg-violet/10 text-violet-dark'
-                : 'border-slate-light/40 bg-white text-slate hover:border-violet/40',
-            )}
-          >
-            <Heart className={cn('size-4', saved && 'fill-violet text-violet')} />
-            {saved ? t('saved.unsaveLabel') : t('saved.saveLabel')}
-          </button>
+          <div className='flex shrink-0 items-center gap-2'>
+            <button
+              type='button'
+              aria-label={t('detail.share')}
+              onClick={share}
+              className='flex shrink-0 items-center gap-1.5 rounded-full border border-slate-light/40 bg-white px-4 py-2 text-sm font-medium text-slate transition-colors hover:border-violet/40 hover:text-violet-dark'
+            >
+              <Share2 className='size-4' />
+              <span className='hidden sm:inline'>{t('detail.share')}</span>
+            </button>
+            <button
+              type='button'
+              aria-label={saved ? t('saved.unsaveLabel') : t('saved.saveLabel')}
+              aria-pressed={saved}
+              onClick={() => toggleSaved(housing.id)}
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                saved
+                  ? 'border-violet/40 bg-violet/10 text-violet-dark'
+                  : 'border-slate-light/40 bg-white text-slate hover:border-violet/40',
+              )}
+            >
+              <Heart className={cn('size-4', saved && 'fill-violet text-violet')} />
+              {saved ? t('saved.unsaveLabel') : t('saved.saveLabel')}
+            </button>
+          </div>
         </div>
       </Reveal>
 
@@ -214,24 +257,39 @@ export function Detail() {
           <div>
             <div className='mb-3 flex items-center justify-between gap-3'>
               <h2 className='font-medium text-plum'>{t('detail.locationHeading')}</h2>
-              {geocoded && (
-                <div className='flex rounded-full border border-slate-light/30 bg-white p-0.5'>
-                  {(['map', 'roadview'] as const).map((view) => (
-                    <button
-                      key={view}
-                      type='button'
-                      aria-pressed={locationView === view}
-                      onClick={() => setLocationView(view)}
-                      className={cn(
-                        'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                        locationView === view ? 'bg-plum text-lilac' : 'text-slate hover:text-plum',
-                      )}
-                    >
-                      {t(view === 'map' ? 'detail.viewMap' : 'detail.viewRoadview')}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className='flex items-center gap-2'>
+                {kakaoMapUrl && (
+                  <a
+                    href={kakaoMapUrl}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='flex items-center gap-1 rounded-full border border-slate-light/40 bg-white px-3 py-1 text-xs font-medium text-violet-dark transition-colors hover:border-violet/40'
+                  >
+                    {t('detail.openKakaoMap')}
+                    <ExternalLink className='size-3' />
+                  </a>
+                )}
+                {geocoded && (
+                  <div className='flex rounded-full border border-slate-light/30 bg-white p-0.5'>
+                    {(['map', 'roadview'] as const).map((view) => (
+                      <button
+                        key={view}
+                        type='button'
+                        aria-pressed={locationView === view}
+                        onClick={() => setLocationView(view)}
+                        className={cn(
+                          'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                          locationView === view
+                            ? 'bg-plum text-lilac'
+                            : 'text-slate hover:text-plum',
+                        )}
+                      >
+                        {t(view === 'map' ? 'detail.viewMap' : 'detail.viewRoadview')}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className='overflow-hidden rounded-2xl border border-slate-light/30'>
               {locationView === 'map' ? (

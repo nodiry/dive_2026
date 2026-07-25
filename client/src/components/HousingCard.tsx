@@ -105,9 +105,13 @@ export function HousingCard({
     </>
   );
 
-  const className = `block rounded-2xl border bg-white transition-colors ${
+  const className = `block rounded-2xl border transition-colors ${
     variant === 'rail' ? 'w-[300px] shrink-0 snap-start p-3.5' : 'p-4'
-  } ${selected ? 'border-violet/60' : 'border-slate-light/30 hover:border-violet/40'}`;
+  } ${
+    selected
+      ? 'border-violet bg-violet/5 ring-2 ring-violet/25'
+      : 'border-slate-light/30 bg-white hover:border-violet/40'
+  }`;
 
   // The body can contain nested interactive elements (the save button, the
   // detail Link) — the outer wrapper must not be a <button> or <a> itself

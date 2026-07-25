@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@utils/cn';
@@ -69,14 +69,23 @@ interface ListItemProps {
   children: ReactNode;
 }
 
+/**
+ * Keeping the active card in view is not a one-shot scroll: selecting a pin
+ * pans the map, the pan changes the viewport, and the re-filtered list then
+ * springs to its new layout — which slides the card away from wherever the
+ * first scroll left it. So it re-scrolls on reorder and again once the layout
+ * animation settles.
+ */
 export function ListItem({ index, active, children }: ListItemProps) {
   const ref = useRef<HTMLDivElement>(null);
 
+  const reveal = useCallback(() => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, []);
+
   useEffect(() => {
-    if (active) {
-      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, [active]);
+    if (active) reveal();
+  }, [active, index, reveal]);
 
   return (
     <motion.div
@@ -85,6 +94,9 @@ export function ListItem({ index, active, children }: ListItemProps) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
+      onLayoutAnimationComplete={() => {
+        if (active) reveal();
+      }}
       transition={{
         layout: { type: 'spring', bounce: 0.15, duration: 0.45 },
         duration: 0.2,

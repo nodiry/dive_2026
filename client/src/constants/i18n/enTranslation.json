@@ -260,7 +260,11 @@
     "youthShare": "Residents in 20s-30s",
     "neighborhoodError": "Couldn't load the neighborhood profile.",
     "viewMap": "Map",
-    "viewRoadview": "Roadview"
+    "viewRoadview": "Roadview",
+    "share": "Share",
+    "shareCopied": "Link copied. Paste it to send to a friend.",
+    "shareFailed": "Couldn't copy the link. Copy the address bar URL instead.",
+    "openKakaoMap": "Kakao Map"
   },
   "housingType": {
     "purchased": "Purchased Rental Housing",

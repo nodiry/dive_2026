@@ -28,7 +28,7 @@ export function ModeToggle({
   ];
 
   return (
-    <div className={cn('flex items-center gap-1 rounded-full bg-lilac-dim p-1', className)}>
+    <div className={cn('flex items-center gap-1 rounded-full bg-lilac-dim p-0.5', className)}>
       {sides.map((side) => {
         const isActive = mode === side.value;
         return (

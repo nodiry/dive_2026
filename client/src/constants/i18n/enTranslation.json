@@ -110,7 +110,15 @@
     "liveNote": "Results recalculate automatically as you adjust.",
     "perWeekCount_other": "{{count}}x per week",
     "perWeekCount_one": "{{count}}x per week",
-    "openOnMap": "See this on the map"
+    "openOnMap": "See this on the map",
+    "showConditions": "Adjust conditions",
+    "hideConditions": "Hide conditions",
+    "reportArcana": "Life arcana",
+    "reportWeek": "Your week",
+    "reportMatches": "Matches",
+    "reportMatch": "Match {{index}}",
+    "reportConditions": "Conditions",
+    "conditionsHint": "Calculated from what the cards decided. Change the budget or area and the results recalculate."
   },
   "policy": {
     "navLabel": "Policy report",
@@ -318,7 +326,13 @@
     "shareCopied": "Link copied. Paste it to send to a friend.",
     "shareFailed": "Couldn't copy the link. Copy the address bar URL instead.",
     "openKakaoMap": "Kakao Map",
-    "busStopAreas": "Bus-stop areas"
+    "busStopAreas": "Bus-stop areas",
+    "specArea": "Area",
+    "specRooms": "Rooms",
+    "specElevator": "Elevator",
+    "specParking": "Parking",
+    "elevatorYes": "Yes",
+    "elevatorNo": "No"
   },
   "housingType": {
     "purchased": "Purchased Rental Housing",
@@ -409,7 +423,10 @@
     "matchNone": "None",
     "totalUnits_one": "{{count}} unit",
     "totalUnits_other": "{{count}} units",
-    "walkMinutes": "{{minutes}} min (direct)"
+    "walkMinutes": "{{minutes}} min (direct)",
+    "area": "{{value}} m²",
+    "areaRange": "{{min}}-{{max}} m²",
+    "parkingSpots": "{{value}} spaces"
   },
   "poiMajorCategories": {
     "retail": "Retail",

@@ -14,10 +14,11 @@ export function useHousingSearch(query: HousingSearchQuery, enabled: boolean) {
   });
 }
 
-export function useHousingDetail(id: number) {
+export function useHousingDetail(id: number, enabled = true) {
   return useQuery({
     queryKey: ['housing', 'detail', id],
     queryFn: () => housingAPI.getById(id),
+    enabled,
   });
 }
 

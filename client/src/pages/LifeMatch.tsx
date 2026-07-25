@@ -1,10 +1,13 @@
 import type { LifestyleRecommendationRequest, LifestyleRecommendationResult } from '@shared';
+import { SlidersHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@utils/cn';
 import { Reveal } from '@components/Reveal';
 import { LifeDeck, LifeDeckSummary } from '@features/lifeMatch/LifeDeck';
 import { LifeMatchResults } from '@features/lifeMatch/LifeMatchResults';
 import { LifeProfilePanel } from '@features/lifeMatch/LifeProfilePanel';
+import { ReportSection, ReportSpine } from '@features/lifeMatch/ReportSection';
 import type { LifeDeckResult } from '@features/lifeMatch/lifeDeckModel';
 import {
   buildLifestylePreferences,
@@ -98,6 +101,7 @@ export function LifeMatch() {
     () => stored?.discovery ?? null,
   );
   const [results, setResults] = useState<LifestyleRecommendationResult[]>([]);
+  const [panelOpen, setPanelOpen] = useState(false);
   const recommendation = useLifestyleRecommendation();
   const mutateRef = useRef(recommendation.mutate);
   const firstRunRef = useRef(true);
@@ -160,21 +164,19 @@ export function LifeMatch() {
   };
 
   return (
-    <div className='px-6 py-10 sm:px-8'>
-      {discovery && (
-        <div className='mx-auto mb-8 max-w-7xl'>
-          <LifeDeckSummary
-            result={discovery}
-            onRetake={() => {
-              requestSeqRef.current += 1;
-              recommendation.reset();
-              setResults([]);
-              setStage('deck');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
-        </div>
-      )}
+    /*
+      One reading, top to bottom: what the cards decided, the week they
+      inferred, the homes that answer it, and only then the controls. The
+      previous two-column layout opened on a wall of sliders and left the
+      matches competing with them for attention. Container matches About's
+      measure exactly (padding inside the same capped element, not outside it)
+      so the two report-shaped pages line up.
+
+      w-full is load-bearing: PageShell's <main> is a column flex container, and
+      auto cross-axis margins beat the default stretch, so without it the column
+      is shrink-to-fit and visibly widens as the matches arrive.
+    */
+    <div className='mx-auto w-full max-w-3xl px-6 py-16'>
       <Reveal>
         <p className='font-mono text-sm tracking-wide text-slate uppercase'>
           {t('lifeMatch.navLabel')}
@@ -182,20 +184,30 @@ export function LifeMatch() {
         <h1 className='mt-1 text-3xl font-extrabold tracking-tight text-plum'>
           {t('lifeMatch.title')}
         </h1>
-        <p className='mt-2 max-w-2xl text-sm text-slate'>{t('lifeMatch.intro')}</p>
+        <p className='mt-2 text-sm text-slate'>{t('lifeMatch.intro')}</p>
         <p className='mt-1 text-xs text-slate-light'>{t('lifeMatch.liveNote')}</p>
       </Reveal>
 
-      <div className='mt-6 grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]'>
-        <Reveal delay={0.05}>
-          <LifeProfilePanel
-            profile={profile}
-            routine={routine}
-            onProfileChange={setProfile}
-            onRoutineChange={updateRoutine}
-          />
-        </Reveal>
-        <Reveal delay={0.1}>
+      <div className='mt-8'>
+        <ReportSpine>
+          {discovery && (
+            <ReportSection
+              eyebrow={t('lifeMatch.reportArcana')}
+              tone='arcana'
+            >
+              <LifeDeckSummary
+                result={discovery}
+                onRetake={() => {
+                  requestSeqRef.current += 1;
+                  recommendation.reset();
+                  setResults([]);
+                  setStage('deck');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
+            </ReportSection>
+          )}
+
           <LifeMatchResults
             results={results}
             profile={profile}
@@ -204,7 +216,43 @@ export function LifeMatch() {
             error={recommendation.isError}
             onProfileChange={setProfile}
           />
-        </Reveal>
+
+          {/*
+              Last on purpose. The cards already answered these questions, so
+              the panel is for the minority who want to argue with the result.
+            */}
+          <ReportSection
+            eyebrow={t('lifeMatch.reportConditions')}
+            tone='quiet'
+            aside={
+              <button
+                type='button'
+                aria-expanded={panelOpen}
+                onClick={() => setPanelOpen((open) => !open)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                  panelOpen
+                    ? 'border-violet/40 bg-violet/10 text-violet-dark'
+                    : 'border-slate-light/40 bg-white text-slate hover:border-violet/40 hover:text-violet-dark',
+                )}
+              >
+                <SlidersHorizontal className='size-4' />
+                {t(panelOpen ? 'lifeMatch.hideConditions' : 'lifeMatch.showConditions')}
+              </button>
+            }
+          >
+            {panelOpen ? (
+              <LifeProfilePanel
+                profile={profile}
+                routine={routine}
+                onProfileChange={setProfile}
+                onRoutineChange={updateRoutine}
+              />
+            ) : (
+              <p className='text-sm text-slate'>{t('lifeMatch.conditionsHint')}</p>
+            )}
+          </ReportSection>
+        </ReportSpine>
       </div>
     </div>
   );

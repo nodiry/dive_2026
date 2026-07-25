@@ -104,12 +104,49 @@ def _group_score(category_scores: dict[str, float], categories: set[str], fallba
     return sum(values) / len(values) if values else fallback
 
 
+# Both loaders below are keyed only by (project_id, radius): they read the
+# seeded zoning and bus-stop layers and know nothing about the caller's
+# preferences, budget, or routine. Life Match recalculates on every slider
+# drag, so without this the zone buffering ran again for identical inputs and
+# accounted for ~94% of the endpoint's 3.6s. Process-lifetime cache, because
+# the inputs only change on a reseed; at 355 projects across a couple of radii
+# it stays a few hundred entries.
+_EVIDENCE_CACHE: dict[tuple[int, float], NeighborhoodEvidence] = {}
+_BUS_STOP_CACHE: dict[tuple[int, float], int] = {}
+
+# Zoning covers most of Busan but not every buffer, and a project with no
+# overlapping polygon produces no row. Cached as an explicit zero so it is not
+# re-queried on every keystroke for the rest of the process.
+_NO_ZONE_EVIDENCE = NeighborhoodEvidence(
+    residential_ratio=0.0, commercial_ratio=0.0, green_ratio=0.0, source="zoning"
+)
+
+
+def _split_cached[T](
+    cache: dict[tuple[int, float], T], project_ids: list[int], radius_meters: float
+) -> tuple[dict[int, T], list[int]]:
+    """Partition ids into what the cache already answers and what must be read."""
+    hits: dict[int, T] = {}
+    misses: list[int] = []
+    for project_id in project_ids:
+        cached = cache.get((project_id, radius_meters))
+        if cached is None:
+            misses.append(project_id)
+        else:
+            hits[project_id] = cached
+    return hits, misses
+
+
 async def _load_bus_stop_cells(
     session: AsyncSession,
     project_ids: list[int],
     radius_meters: float,
 ) -> dict[int, int]:
     """Bus-stop-flagged cells within the radius, per project."""
+    counts, missing = _split_cached(_BUS_STOP_CACHE, project_ids, radius_meters)
+    if not missing:
+        return counts
+
     rows = await session.execute(  # ty:ignore[deprecated]
         text(
             """
@@ -121,9 +158,14 @@ async def _load_bus_stop_cells(
             GROUP BY p.id
             """
         ),
-        {"project_ids": project_ids, "radius": radius_meters},
+        {"project_ids": missing, "radius": radius_meters},
     )
-    return {row.project_id: int(row.cells) for row in rows}
+    for row in rows:
+        counts[row.project_id] = int(row.cells)
+    for project_id in missing:
+        # Absent from the result set means zero cells, which is worth caching too.
+        _BUS_STOP_CACHE[(project_id, radius_meters)] = counts.setdefault(project_id, 0)
+    return counts
 
 
 async def _load_neighborhood_evidence(
@@ -131,6 +173,10 @@ async def _load_neighborhood_evidence(
     project_ids: list[int],
     radius_meters: float,
 ) -> dict[int, NeighborhoodEvidence]:
+    evidence, missing = _split_cached(_EVIDENCE_CACHE, project_ids, radius_meters)
+    if not missing:
+        return evidence
+
     rows = await session.execute(  # ty:ignore[deprecated]
         text(
             """
@@ -166,17 +212,20 @@ async def _load_neighborhood_evidence(
             GROUP BY project_id
             """
         ),
-        {"project_ids": project_ids, "radius": radius_meters},
+        {"project_ids": missing, "radius": radius_meters},
     )
-    return {
-        row["project_id"]: NeighborhoodEvidence(
+    for row in rows.mappings():
+        evidence[row["project_id"]] = NeighborhoodEvidence(
             residential_ratio=round(float(row["residential_ratio"]), 4),
             commercial_ratio=round(float(row["commercial_ratio"]), 4),
             green_ratio=round(float(row["green_ratio"]), 4),
             source="zoning",
         )
-        for row in rows.mappings()
-    }
+    for project_id in missing:
+        _EVIDENCE_CACHE[(project_id, radius_meters)] = evidence.setdefault(
+            project_id, _NO_ZONE_EVIDENCE
+        )
+    return evidence
 
 
 def _rest_score(evidence: NeighborhoodEvidence) -> float:

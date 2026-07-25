@@ -7,6 +7,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import type { NeighborhoodProfile } from '@shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -22,9 +23,26 @@ import { useSavedHousing } from '@hooks/useSaved';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
 
-function NeighborhoodSection({ housingId, className }: { housingId: number; className?: string }) {
+/** The radii the API will honor (it clamps to 100..2000m server-side). */
+const NEIGHBORHOOD_RADII = [300, 500, 1000] as const;
+
+/** Areas arrive as floats, so 29.749999 has to not reach the tile. */
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function NeighborhoodSection({
+  profile,
+  isLoading,
+  isError,
+  className,
+}: {
+  profile: NeighborhoodProfile | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  className?: string;
+}) {
   const { t } = useTranslation();
-  const { data: profile, isLoading, isError } = useNeighborhood(housingId, true);
 
   if (isLoading) {
     return (
@@ -156,9 +174,17 @@ export function Detail() {
   const { t } = useTranslation();
   const { id } = useParams();
   const housingId = Number(id);
-  const { data: housing, isLoading, isError } = useHousingDetail(housingId);
+  // /housing/abc used to send a request for /api/housing/NaN and wait for the
+  // 422 before showing "not found".
+  const validId = Number.isInteger(housingId) && housingId > 0;
+  const { data: housing, isLoading, isError } = useHousingDetail(housingId, validId);
   const { isSaved, toggleSaved } = useSavedHousing();
   const [locationView, setLocationView] = useState<'map' | 'roadview'>('map');
+  const [radiusMeters, setRadiusMeters] = useState<number>(500);
+  // Fired alongside the detail request rather than from inside the section
+  // below, which could only mount once the detail resolved. An ungeocoded
+  // project answers with an empty profile, so this is safe before we know.
+  const neighborhood = useNeighborhood(housingId, validId, radiusMeters);
   const showSuccess = useToastStore((s) => s.showSuccess);
   const showError = useToastStore((s) => s.showError);
 
@@ -191,14 +217,58 @@ export function Detail() {
     }
   }
 
-  if (isLoading) return <div className='px-6 py-12 text-slate sm:px-8'>{t('detail.loading')}</div>;
-  if (isError || !housing) {
+  if (isLoading) {
+    return (
+      <div className='px-6 py-10 sm:px-8'>
+        <span className='sr-only'>{t('detail.loading')}</span>
+        <div className='h-8 w-2/3 max-w-md animate-pulse rounded-full bg-white/70' />
+        <div className='mt-3 h-4 w-1/2 max-w-sm animate-pulse rounded-full bg-white/70' />
+        <div className='mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4'>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <div
+              key={i}
+              className='h-20 animate-pulse rounded-2xl border border-slate-light/20 bg-white/70'
+              style={{ animationDelay: `${i * 60}ms` }}
+            />
+          ))}
+        </div>
+        <div className='mt-8 grid gap-6 lg:grid-cols-5'>
+          <div className='aspect-[4/3] animate-pulse rounded-2xl border border-slate-light/20 bg-white/70 lg:col-span-3' />
+          <div className='h-64 animate-pulse rounded-2xl border border-slate-light/20 bg-white/70 lg:col-span-2' />
+        </div>
+      </div>
+    );
+  }
+  if (!validId || isError || !housing) {
     return <div className='px-6 py-12 text-violet-dark sm:px-8'>{t('detail.notFound')}</div>;
   }
 
   const typeLabel = t(`housingType.${housing.type}`);
   const geocoded = housing.lat != null && housing.lng != null;
   const saved = isSaved(housing.id);
+
+  // Every one of these is filterable in Explore, so a project's detail page
+  // has to let you verify what you filtered on.
+  const areaLabel =
+    housing.minAreaM2 == null
+      ? null
+      : housing.maxAreaM2 != null && round1(housing.maxAreaM2) !== round1(housing.minAreaM2)
+        ? t('units.areaRange', { min: round1(housing.minAreaM2), max: round1(housing.maxAreaM2) })
+        : t('units.area', { value: round1(housing.minAreaM2) });
+  const roomsLabel =
+    housing.minRooms == null
+      ? null
+      : housing.maxRooms != null && housing.maxRooms !== housing.minRooms
+        ? `${housing.minRooms}~${housing.maxRooms}`
+        : String(housing.minRooms);
+  const elevatorLabel =
+    housing.hasElevator == null
+      ? null
+      : housing.hasElevator
+        ? t('detail.elevatorYes')
+        : t('detail.elevatorNo');
+  const parkingLabel =
+    housing.parkingSpots == null ? null : t('units.parkingSpots', { value: housing.parkingSpots });
 
   return (
     <div className='px-6 py-10 sm:px-8'>
@@ -264,6 +334,22 @@ export function Detail() {
           <StatTile
             label={t('detail.specBuiltDate')}
             value={housing.builtDate ?? t('detail.noData')}
+          />
+          <StatTile
+            label={t('detail.specArea')}
+            value={areaLabel ?? t('detail.noData')}
+          />
+          <StatTile
+            label={t('detail.specRooms')}
+            value={roomsLabel ?? t('detail.noData')}
+          />
+          <StatTile
+            label={t('detail.specElevator')}
+            value={elevatorLabel ?? t('detail.noData')}
+          />
+          <StatTile
+            label={t('detail.specParking')}
+            value={parkingLabel ?? t('detail.noData')}
           />
         </div>
       </Reveal>
@@ -342,12 +428,39 @@ export function Detail() {
           className='lg:relative lg:col-span-2'
         >
           <div className='flex h-full flex-col lg:absolute lg:inset-0'>
-            <h2 className='mb-3 shrink-0 font-medium text-plum'>
-              {t('detail.neighborhoodHeading')}
-            </h2>
+            <div className='mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2'>
+              <h2 className='font-medium text-plum'>{t('detail.neighborhoodHeading')}</h2>
+              {geocoded && (
+                <div className='flex items-center gap-2'>
+                  <span className='font-mono text-xs text-slate-light'>
+                    {t('detail.neighborhoodRadius', { meters: radiusMeters })}
+                  </span>
+                  <div className='flex rounded-full border border-slate-light/30 bg-white p-0.5'>
+                    {NEIGHBORHOOD_RADII.map((meters) => (
+                      <button
+                        key={meters}
+                        type='button'
+                        aria-pressed={radiusMeters === meters}
+                        onClick={() => setRadiusMeters(meters)}
+                        className={cn(
+                          'rounded-full px-2.5 py-1 font-mono text-xs font-medium transition-colors',
+                          radiusMeters === meters
+                            ? 'bg-plum text-lilac'
+                            : 'text-slate hover:text-plum',
+                        )}
+                      >
+                        {meters}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             {geocoded ? (
               <NeighborhoodSection
-                housingId={housing.id}
+                profile={neighborhood.data}
+                isLoading={neighborhood.isLoading}
+                isError={neighborhood.isError}
                 className='min-h-0 flex-1 overflow-y-auto'
               />
             ) : (

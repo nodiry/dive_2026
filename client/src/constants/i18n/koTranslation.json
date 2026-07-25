@@ -109,7 +109,15 @@
     "no": "없음",
     "liveNote": "조건을 바꾸면 결과가 자동으로 다시 계산됩니다.",
     "perWeekCount_other": "주 {{count}}회",
-    "openOnMap": "이 설정으로 지도에서 보기"
+    "openOnMap": "이 설정으로 지도에서 보기",
+    "showConditions": "조건 조정하기",
+    "hideConditions": "조건 접기",
+    "reportArcana": "생활 아르카나",
+    "reportWeek": "당신의 한 주",
+    "reportMatches": "매치",
+    "reportMatch": "매치 {{index}}",
+    "reportConditions": "조건",
+    "conditionsHint": "카드가 정한 조건으로 계산했어요. 예산이나 면적을 바꾸면 결과가 바로 다시 계산됩니다."
   },
   "policy": {
     "navLabel": "정책 리포트",
@@ -317,7 +325,13 @@
     "shareCopied": "링크를 복사했어요. 친구에게 붙여넣어 보내보세요.",
     "shareFailed": "링크를 복사하지 못했어요. 주소창의 주소를 직접 복사해주세요.",
     "openKakaoMap": "카카오맵",
-    "busStopAreas": "버스정류장 구역"
+    "busStopAreas": "버스정류장 구역",
+    "specArea": "면적",
+    "specRooms": "방 수",
+    "specElevator": "승강기",
+    "specParking": "주차",
+    "elevatorYes": "있음",
+    "elevatorNo": "없음"
   },
   "housingType": {
     "purchased": "매입임대",
@@ -406,7 +420,10 @@
     "matchCount_other": "{{count}}곳 · {{meters}}m",
     "matchNone": "없음",
     "totalUnits_other": "{{count}}세대",
-    "walkMinutes": "직선 {{minutes}}분"
+    "walkMinutes": "직선 {{minutes}}분",
+    "area": "{{value}}㎡",
+    "areaRange": "{{min}}~{{max}}㎡",
+    "parkingSpots": "{{value}}대"
   },
   "poiMajorCategories": {
     "retail": "소매",

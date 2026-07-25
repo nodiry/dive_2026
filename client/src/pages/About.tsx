@@ -18,7 +18,7 @@ export function About() {
   const { t } = useTranslation();
 
   return (
-    <div className='mx-auto max-w-3xl px-6 py-16'>
+    <div className='mx-auto w-full max-w-3xl px-6 py-16'>
       <p className='font-mono text-sm tracking-wide text-violet uppercase'>DIVE 2026</p>
       <h1 className='mt-3 text-4xl font-extrabold tracking-tight text-plum'>{t('about.title')}</h1>
       <p className='mt-4 text-lg text-slate'>{t('about.intro')}</p>

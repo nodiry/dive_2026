@@ -5,10 +5,11 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
-import { KakaoMap, type HousingMarker, type MapFocus } from '@components/KakaoMap';
+import { KakaoMap } from '@components/KakaoMap';
 import { ROUTES, housingDetailPath } from '@constants/path';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
+import { ReportSection } from './ReportSection';
 import {
   buildLifestylePreferences,
   deriveLifeStats,
@@ -43,111 +44,131 @@ function breakdownEntries(result: LifestyleRecommendationResult, t: TFunction) {
   }));
 }
 
-function MatchCard({
+/** Top categories that actually earned the score, newly surfaced on the row. */
+const EVIDENCE_CHIPS = 3;
+
+function MatchRow({
   result,
   rank,
   best,
-  selected,
   onOpen,
-  onSelect,
 }: {
   result: LifestyleRecommendationResult;
   rank: number;
   best: number;
-  selected: boolean;
   onOpen: () => void;
-  onSelect: () => void;
 }) {
   const { t } = useTranslation();
   const entries = breakdownEntries(result, t);
   const strongest = entries.reduce((a, b) => (b.value > a.value ? b : a));
   const weakest = entries.reduce((a, b) => (b.value < a.value ? b : a));
-  const axes = [
-    [t('lifeMatch.fun'), result.lifeAxes.fun, 'bg-violet'],
-    [t('lifeMatch.work'), result.lifeAxes.work, 'bg-plum'],
-    [t('lifeMatch.rest'), result.lifeAxes.rest, 'bg-gold'],
-  ] as const;
+  const evidence = result.matches
+    .filter((match) => match.count > 0)
+    .sort((a, b) => (a.nearestMeters ?? Infinity) - (b.nearestMeters ?? Infinity))
+    .slice(0, EVIDENCE_CHIPS);
+  const geocoded = result.housing.lat != null && result.housing.lng != null;
 
   return (
-    <article
-      onMouseEnter={onSelect}
-      onFocusCapture={onSelect}
-      className={cn(
-        'rounded-2xl border bg-white p-5 transition-colors',
-        selected ? 'border-violet/70' : 'border-slate-light/30 hover:border-violet/40',
-      )}
-    >
-      <div className='flex items-center gap-3'>
-        <span
-          className={cn(
-            'flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-xs',
-            rank === 1 ? 'bg-gold text-plum' : 'bg-plum text-lilac',
+    <article className='overflow-hidden rounded-2xl border border-slate-light/30 bg-white transition-colors hover:border-violet/40'>
+      <div className='flex flex-col sm:flex-row'>
+        {/* A locator per row, so each match is readable on its own rather than
+            cross-referenced against one shared map above the list. */}
+        <div className='shrink-0 bg-lilac-dim sm:w-60'>
+          {geocoded ? (
+            <KakaoMap
+              staticView
+              className='aspect-[16/9] w-full sm:aspect-auto sm:h-full sm:min-h-40'
+              markers={[
+                {
+                  kind: 'housing',
+                  id: result.housing.id,
+                  lat: result.housing.lat as number,
+                  lng: result.housing.lng as number,
+                  label: result.housing.projectName,
+                },
+              ]}
+            />
+          ) : (
+            <div className='flex aspect-[16/9] w-full items-center justify-center p-3 text-center font-mono text-xs text-slate-light sm:aspect-auto sm:h-full sm:min-h-40 sm:w-60'>
+              {t('map.noCoordsTitle')}
+            </div>
           )}
-        >
-          {rank}
-        </span>
-        <h3 className='min-w-0 flex-1 truncate text-lg font-bold text-plum'>
-          {result.housing.projectName}
-        </h3>
-        <span className='shrink-0 font-mono text-lg font-bold text-violet-dark'>
-          {Math.round(result.matchRate)}%
-        </span>
-      </div>
-      <p className='mt-1 truncate pl-9 text-sm text-slate'>{result.housing.address}</p>
-      <div className='mt-2.5 h-1 rounded-full bg-lilac-dim'>
-        <div
-          className='h-1 rounded-full bg-violet'
-          style={{ width: `${best > 0 ? Math.round((result.matchRate / best) * 100) : 0}%` }}
-        />
-      </div>
-      <p className='mt-2.5 font-mono text-sm text-plum'>
-        {formatWon(result.housing.minDeposit)} · {formatWon(result.housing.minRent)}
-      </p>
+        </div>
 
-      <div className='mt-3 grid grid-cols-3 gap-2'>
-        {axes.map(([label, value, color]) => (
-          <div key={label}>
-            <div className='flex items-baseline justify-between font-mono text-xs'>
-              <span className='text-slate'>{label}</span>
-              <span className='text-plum'>{Math.round(value)}</span>
-            </div>
-            <div className='mt-1 h-1 rounded-full bg-lilac-dim'>
-              <div
-                className={cn('h-1 rounded-full', color)}
-                style={{ width: `${value}%` }}
-              />
-            </div>
+        <div className='min-w-0 flex-1 p-5'>
+          <div className='flex items-baseline gap-3'>
+            <span className='font-mono text-2xl font-bold text-violet-dark'>
+              {Math.round(result.matchRate)}%
+            </span>
+            <h3 className='min-w-0 flex-1 truncate text-lg font-bold text-plum'>
+              {result.housing.projectName}
+            </h3>
           </div>
-        ))}
-      </div>
+          <div className='mt-2 h-1 rounded-full bg-lilac-dim'>
+            <div
+              className={cn('h-1 rounded-full', rank === 1 ? 'bg-gold' : 'bg-violet')}
+              style={{ width: `${best > 0 ? Math.round((result.matchRate / best) * 100) : 0}%` }}
+            />
+          </div>
+          <p className='mt-2.5 truncate text-sm text-slate'>{result.housing.address}</p>
+          <p className='mt-1 font-mono text-sm text-plum'>
+            {formatWon(result.housing.minDeposit)} · {formatWon(result.housing.minRent)}
+          </p>
 
-      <div className='mt-3 space-y-1 text-xs'>
-        <p className='flex items-center gap-1.5 text-violet-dark'>
-          <CheckCircle2 className='size-3.5 shrink-0' />
-          {t('lifeMatch.strength')}: {strongest.label}{' '}
-          <span className='font-mono'>{Math.round(strongest.value)}</span>
-        </p>
-        <p className='flex items-center gap-1.5 text-slate'>
-          <TriangleAlert className='size-3.5 shrink-0 text-gold' />
-          {t('lifeMatch.caution')}: {weakest.label}{' '}
-          <span className='font-mono'>{Math.round(weakest.value)}</span>
-        </p>
-      </div>
+          {evidence.length > 0 && (
+            <div className='mt-3 flex flex-wrap gap-1.5'>
+              {evidence.map((match) => (
+                <span
+                  key={match.categoryName}
+                  className='rounded-full border border-slate-light/30 bg-lilac px-2.5 py-1 text-xs text-plum'
+                >
+                  {match.categoryName}{' '}
+                  <span className='font-mono text-slate'>
+                    {t('units.matchCount', {
+                      count: match.count,
+                      meters: Math.round(match.nearestMeters ?? 0),
+                    })}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
 
-      <div className='mt-4 grid grid-cols-2 gap-2'>
-        <button
-          type='button'
-          onClick={onOpen}
-          className='rounded-full border border-slate-light/40 px-5 py-2 text-sm font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
-        >
-          {t('lifeMatch.openDetail')}
-        </button>
-        <Link
-          to={housingDetailPath(result.housing.id)}
-          className='rounded-full border border-slate-light/40 px-5 py-2 text-center text-sm font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
-        >
-          {t('explore.detailLink')}
-        </Link>
+          <p className='mt-3 font-mono text-xs text-slate'>
+            {t('lifeMatch.fun')} {Math.round(result.lifeAxes.fun)} · {t('lifeMatch.work')}{' '}
+            {Math.round(result.lifeAxes.work)} · {t('lifeMatch.rest')}{' '}
+            {Math.round(result.lifeAxes.rest)}
+          </p>
+
+          <div className='mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
+            <span className='flex items-center gap-1.5 text-violet-dark'>
+              <CheckCircle2 className='size-3.5 shrink-0' />
+              {t('lifeMatch.strength')}: {strongest.label}{' '}
+              <span className='font-mono'>{Math.round(strongest.value)}</span>
+            </span>
+            <span className='flex items-center gap-1.5 text-slate'>
+              <TriangleAlert className='size-3.5 shrink-0 text-gold' />
+              {t('lifeMatch.caution')}: {weakest.label}{' '}
+              <span className='font-mono'>{Math.round(weakest.value)}</span>
+            </span>
+          </div>
+
+          <div className='mt-4 flex flex-wrap gap-2'>
+            <button
+              type='button'
+              onClick={onOpen}
+              className='rounded-full border border-slate-light/40 px-5 py-2 text-sm font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
+            >
+              {t('lifeMatch.openDetail')}
+            </button>
+            <Link
+              to={housingDetailPath(result.housing.id)}
+              className='rounded-full border border-slate-light/40 px-5 py-2 text-center text-sm font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
+            >
+              {t('explore.detailLink')}
+            </Link>
+          </div>
+        </div>
       </div>
     </article>
   );
@@ -395,35 +416,9 @@ export function LifeMatchResults({
     navigate(ROUTES.Root);
   }
   const [openResult, setOpenResult] = useState<LifestyleRecommendationResult | null>(null);
-  const [selectedHousingId, setSelectedHousingId] = useState<number | null>(null);
   const topResults = results.slice(0, 3);
   const best = topResults[0]?.matchRate ?? 0;
-  const activeSelectedHousingId = topResults.some(
-    (result) => result.housing.id === selectedHousingId,
-  )
-    ? selectedHousingId
-    : (topResults[0]?.housing.id ?? null);
-  const markers: HousingMarker[] = topResults.map((result) => ({
-    kind: 'housing',
-    id: result.housing.id,
-    lat: result.housing.lat ?? Number.NaN,
-    lng: result.housing.lng ?? Number.NaN,
-    label: result.housing.projectName,
-    selected: result.housing.id === activeSelectedHousingId,
-  }));
-  const selectedResult = topResults.find((r) => r.housing.id === activeSelectedHousingId);
-  const focus: MapFocus | null =
-    selectedResult && selectedResult.housing.lat != null && selectedResult.housing.lng != null
-      ? {
-          lat: selectedResult.housing.lat,
-          lng: selectedResult.housing.lng,
-          key: selectedResult.housing.id,
-        }
-      : null;
-  const fitKey = topResults
-    .map((r) => r.housing.id)
-    .sort((a, b) => a - b)
-    .join(',');
+  const stats = deriveLifeStats(routine);
   const numeric = (value: string) => Number(value) || 0;
   const relaxChips = [
     {
@@ -446,97 +441,135 @@ export function LifeMatchResults({
       : []),
   ];
 
+  const axes = [
+    [t('lifeMatch.fun'), stats.fun, 'bg-violet'],
+    [t('lifeMatch.work'), stats.work, 'bg-plum'],
+    [t('lifeMatch.rest'), stats.rest, 'bg-gold'],
+  ] as const;
+
+  const status: 'error' | 'loading' | 'empty' | null = error
+    ? 'error'
+    : results.length > 0
+      ? null
+      : pending
+        ? 'loading'
+        : 'empty';
+
   return (
-    <div>
-      <div className='flex flex-wrap items-baseline justify-between gap-3'>
-        <h2 className='font-medium text-plum'>{t('lifeMatch.resultTitle')}</h2>
-        {results.length > 0 && (
-          <button
-            type='button'
-            onClick={openOnMap}
-            className='flex items-center gap-1.5 rounded-full bg-violet px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-dark'
-          >
-            <MapPinned className='size-4' />
-            {t('lifeMatch.openOnMap')}
-          </button>
-        )}
-        {pending ? (
-          <span className='font-mono text-xs text-slate'>{t('lifeMatch.recalculating')}</span>
-        ) : (
-          results.length > 0 && (
-            <span className='font-mono text-xs text-slate'>
-              {t('lifeMatch.candidateSummary', {
-                count: results.length,
-                top: Math.round(results[0].matchRate),
-              })}
-            </span>
+    <>
+      <ReportSection
+        eyebrow={t('lifeMatch.reportWeek')}
+        aside={
+          pending ? (
+            <span className='font-mono text-xs text-slate'>{t('lifeMatch.recalculating')}</span>
+          ) : (
+            results.length > 0 && (
+              <span className='font-mono text-xs text-slate'>
+                {t('lifeMatch.candidateSummary', {
+                  count: results.length,
+                  top: Math.round(results[0].matchRate),
+                })}
+              </span>
+            )
           )
-        )}
-      </div>
-
-      {error && (
-        <p className='mt-3 rounded-2xl border-2 border-dashed border-slate-light/40 bg-lilac-dim p-6 text-center text-sm text-slate'>
-          {t('lifeMatch.error')}
-        </p>
-      )}
-
-      {pending && results.length === 0 && (
-        <div className='mt-3 space-y-3'>
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className='h-44 animate-pulse rounded-2xl border border-slate-light/20 bg-white/70'
-            />
-          ))}
-        </div>
-      )}
-
-      {!pending && !error && results.length === 0 && (
-        <div className='mt-3 rounded-2xl border-2 border-dashed border-slate-light/40 bg-lilac-dim p-6 text-center'>
-          <p className='text-sm text-slate'>{t('lifeMatch.noResults')}</p>
-          <p className='mt-3 text-xs font-medium text-slate'>{t('lifeMatch.quickRelaxTitle')}</p>
-          <div className='mt-2 flex flex-wrap justify-center gap-1.5'>
-            {relaxChips.map((chip) => (
-              <button
-                key={chip.label}
-                type='button'
-                onClick={() => onProfileChange({ ...profile, ...chip.patch })}
-                className='rounded-full border border-slate-light/40 bg-white px-3 py-1.5 text-xs font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
-              >
-                {chip.label}
-              </button>
+        }
+      >
+        <div className='rounded-2xl border border-slate-light/30 bg-white p-5'>
+          <div className='grid gap-4 sm:grid-cols-3'>
+            {axes.map(([label, value, color]) => (
+              <div key={label}>
+                <div className='flex items-baseline justify-between font-mono text-xs'>
+                  <span className='tracking-wide text-slate uppercase'>{label}</span>
+                  <span className='text-lg font-bold text-plum'>{value}</span>
+                </div>
+                <div className='mt-1.5 h-1 rounded-full bg-lilac-dim'>
+                  <div
+                    className={cn('h-1 rounded-full', color)}
+                    style={{ width: `${value}%` }}
+                  />
+                </div>
+              </div>
             ))}
           </div>
+          {results.length > 0 && (
+            <button
+              type='button'
+              onClick={openOnMap}
+              className='mt-5 flex items-center gap-1.5 rounded-full bg-violet px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-dark'
+            >
+              <MapPinned className='size-4' />
+              {t('lifeMatch.openOnMap')}
+            </button>
+          )}
         </div>
+      </ReportSection>
+
+      {/* Error, first load, and no-match are all "no rows to show yet", so
+          they share one section rather than three copies of its chrome. */}
+      {status !== null && (
+        <ReportSection
+          eyebrow={t('lifeMatch.reportMatches')}
+          tone='quiet'
+        >
+          {status === 'error' && (
+            <p className='rounded-2xl border-2 border-dashed border-slate-light/40 bg-lilac-dim p-6 text-center text-sm text-slate'>
+              {t('lifeMatch.error')}
+            </p>
+          )}
+
+          {status === 'loading' && (
+            <div className='space-y-3'>
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className='h-44 animate-pulse rounded-2xl border border-slate-light/20 bg-white/70'
+                  style={{ animationDelay: `${i * 120}ms` }}
+                />
+              ))}
+            </div>
+          )}
+
+          {status === 'empty' && (
+            <div className='rounded-2xl border-2 border-dashed border-slate-light/40 bg-lilac-dim p-6 text-center'>
+              <p className='text-sm text-slate'>{t('lifeMatch.noResults')}</p>
+              <p className='mt-3 text-xs font-medium text-slate'>
+                {t('lifeMatch.quickRelaxTitle')}
+              </p>
+              <div className='mt-2 flex flex-wrap justify-center gap-1.5'>
+                {relaxChips.map((chip) => (
+                  <button
+                    key={chip.label}
+                    type='button'
+                    onClick={() => onProfileChange({ ...profile, ...chip.patch })}
+                    className='rounded-full border border-slate-light/40 bg-white px-3 py-1.5 text-xs font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </ReportSection>
       )}
 
-      {topResults.length > 0 && (
-        <div className={cn('mt-3 space-y-4', pending && 'opacity-60 transition-opacity')}>
-          <div className='overflow-hidden rounded-2xl border border-slate-light/30 bg-lilac-dim'>
-            <KakaoMap
-              bounded
-              className='aspect-[21/9] w-full'
-              markers={markers}
-              focus={focus}
-              fitKey={fitKey}
-              onMarkerClick={(m) => m.kind === 'housing' && setSelectedHousingId(m.id)}
+      {topResults.map((result, index) => (
+        <ReportSection
+          key={result.housing.id}
+          eyebrow={t('lifeMatch.reportMatch', {
+            index: String(index + 1).padStart(2, '0'),
+          })}
+          tone={index === 0 ? 'arcana' : 'primary'}
+        >
+          <div className={cn(pending && 'opacity-60 transition-opacity')}>
+            <MatchRow
+              result={result}
+              rank={index + 1}
+              best={best}
+              onOpen={() => setOpenResult(result)}
             />
           </div>
-          <div className='space-y-3'>
-            {topResults.map((result, index) => (
-              <MatchCard
-                key={result.housing.id}
-                result={result}
-                rank={index + 1}
-                best={best}
-                selected={result.housing.id === activeSelectedHousingId}
-                onOpen={() => setOpenResult(result)}
-                onSelect={() => setSelectedHousingId(result.housing.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+        </ReportSection>
+      ))}
 
       <AnimatePresence>
         {openResult && (
@@ -546,6 +579,6 @@ export function LifeMatchResults({
           />
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

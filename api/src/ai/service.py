@@ -5,6 +5,7 @@ from uuid import UUID
 
 from google import genai
 from google.genai import types
+from pydantic import ValidationError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -33,6 +34,14 @@ MODEL = "gemini-flash-lite-latest"
 MAX_TOOL_ROUNDS = 5
 # Gemini's inline-data ceiling is ~7MB per request; stay under it.
 MAX_IMAGE_BYTES = 6_000_000
+
+# What Gemini actually accepts as inline image data. The browser's image/*
+# file picker is wider than this: SVG and AVIF sail through a naive image/*
+# check and then fail the entire request at the model, so they get dropped
+# here with every other unusable attachment.
+SUPPORTED_IMAGE_MIME = frozenset(
+    {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"}
+)
 
 SYSTEM_PROMPT = """
 You are 하루 (Haru)'s AI search assistant — a public rental
@@ -94,6 +103,8 @@ def _image_part(data_url: str) -> types.Part | None:
     if not match:
         return None
     mime, payload = match.group(1), match.group(2)
+    if mime.lower() not in SUPPORTED_IMAGE_MIME:
+        return None
     try:
         raw = base64.b64decode(payload, validate=True)
     except (binascii.Error, ValueError):
@@ -148,7 +159,20 @@ async def generate_reply(
         for fc in function_calls:
             if not fc.name:
                 continue
-            result_text, housing, no_match = await ai_tools.dispatch_tool(session, fc.name, dict(fc.args or {}))
+            try:
+                result_text, housing, no_match = await ai_tools.dispatch_tool(session, fc.name, dict(fc.args or {}))
+            except ValidationError as e:
+                # The model broke its own tool schema — a Korean label where the
+                # enum wants an id, a string where a number belongs. This is a
+                # retryable mistake, so hand the rejection back as the tool
+                # result and let the remaining rounds correct it rather than
+                # failing the whole turn with a 500.
+                rejected = ", ".join(str(err["loc"][0]) for err in e.errors() if err["loc"]) or "arguments"
+                result_text = (
+                    f"Rejected: {fc.name} was called with invalid {rejected}. "
+                    "Use the exact types and enum values from the tool schema and call it again."
+                )
+                housing, no_match = [], None
             if no_match is not None:
                 last_no_match = no_match
             for h in housing:
@@ -167,19 +191,33 @@ class ConversationNotFound(Exception):
     pass
 
 
-# "/game" is the explicit command; the keywords catch natural phrasing in both
-# languages ("게임 하고 싶어", "give me a quiz"). Checked server-side rather than
-# left to the model so the deck is guaranteed to exist before the reply
-# mentions it.
+# "/game" is the explicit command; the patterns below catch natural phrasing
+# in both languages ("게임 하고 싶어", "give me a quiz"). Checked server-side
+# rather than left to the model so the deck is guaranteed to exist before the
+# reply mentions it.
 GAME_COMMAND = "/game"
-GAME_KEYWORDS = ("게임", "테스트", "game", "quiz")
+
+# Latin keywords need word boundaries: "Gamecheon culture village" is 감천문화마을,
+# a real Busan landmark, not a request to play.
+GAME_WORD_RE = re.compile(r"\b(game|quiz)\b", re.I)
+
+# The Korean keywords only count when paired with a play verb (or standing
+# alone), so "게임처럼 재밌네요" and "테스트로 하나만 물어볼게요" stay ordinary
+# messages instead of silently becoming a card deck.
+GAME_INTENT_RE = re.compile(r"(게임|테스트)\s*(을|를|은|는|도)?\s*(해|하|할|시작|플레이|하자|하고|$)")
+
+# ...and never when the message is plainly a housing search. A deck generated
+# for "보증금 테스트해보고 싶은데 3000만원 이하로" answers a question nobody asked.
+HOUSING_HINT_RE = re.compile(r"(보증금|임대|월세|전세|만원|매물|평수|추천해|\d\s*방|방\s*\d)")
 
 
 def wants_game(message: str) -> bool:
-    lowered = message.strip().lower()
-    if lowered.startswith(GAME_COMMAND):
+    stripped = message.strip()
+    if stripped.lower().startswith(GAME_COMMAND):
         return True
-    return any(keyword in lowered for keyword in GAME_KEYWORDS)
+    if HOUSING_HINT_RE.search(stripped):
+        return False
+    return bool(GAME_WORD_RE.search(stripped) or GAME_INTENT_RE.search(stripped))
 
 
 def game_theme(message: str) -> str:
@@ -245,10 +283,13 @@ async def chat(
     The stored assistant message carries everything the turn produced — its
     deck and its no-match context — so callers read those off the row rather
     than off a widening tuple."""
+    started_here = conversation_id is None
     if conversation_id is not None:
         conversation = await _get_owned_conversation(session, user_id, conversation_id)
         history = _to_chat_history(await get_messages(session, conversation.id))
     else:
+        # Committed up front because the game below needs a real row to point
+        # its foreign key at, which is why the failure path has to clean up.
         conversation = AIConversation(user_id=user_id, title=user_message[:TITLE_MAX_LENGTH])
         session.add(conversation)
         await session.commit()
@@ -265,7 +306,23 @@ async def chat(
         except Exception:
             game_id = None
 
-    reply, housing, no_match = await generate_reply(session, history, user_message, image)
+    # Read before the failure path below: a rollback expires the instance, and
+    # touching conversation.id afterwards would attempt lazy IO from a context
+    # that cannot await it (MissingGreenlet).
+    conversation_pk = conversation.id
+
+    try:
+        reply, housing, no_match = await generate_reply(session, history, user_message, image)
+    except Exception:
+        # A first turn that never produced a reply must not leave a chat in the
+        # sidebar titled with the question, which would open completely blank.
+        if started_here:
+            await session.rollback()
+            orphan = await session.get(AIConversation, conversation_pk)
+            if orphan is not None:
+                await session.delete(orphan)
+                await session.commit()
+        raise
 
     session.add(AIMessage(chat_id=conversation.id, role=AIMessageRole.USER, content=user_message))
     assistant_message = AIMessage(

@@ -560,6 +560,9 @@ export function KakaoMap({
       (m): m is HousingMarker => m.kind === 'housing' && isValidLatLng(m),
     );
     const pois = markers.filter((m): m is PoiMarker => m.kind === 'poi' && isValidLatLng(m));
+    // Nothing to click on a locator map, or on any map whose owner passed no
+    // marker handler.
+    const interactivePins = !staticView && Boolean(onMarkerClickRef.current);
 
     // Screen-space greedy clustering — recomputed per zoom level (viewVersion).
     const proj = map.getProjection();
@@ -598,7 +601,12 @@ export function KakaoMap({
       if (cluster.members.length === 1) {
         const m = cluster.members[0];
         const wrap = document.createElement('div');
-        wrap.className = 'flex cursor-pointer flex-col items-center select-none';
+        // A locator map (Detail, the Life Match rows) has nothing to click, so
+        // its pin must not offer a pointer, a hover border, or a text selection
+        // the user can drag across.
+        wrap.className = `flex flex-col items-center select-none ${
+          interactivePins ? 'cursor-pointer' : 'pointer-events-none cursor-default'
+        }`;
         wrap.style.transform = `scale(${tagScale})`;
         wrap.style.transformOrigin = 'bottom center';
 
@@ -630,8 +638,10 @@ export function KakaoMap({
         wrap.appendChild(bubble);
         wrap.appendChild(tail);
         if (m.label) wrap.title = m.label;
-        stopPointerSequence(wrap);
-        wrap.addEventListener('click', () => onMarkerClickRef.current?.(m));
+        if (interactivePins) {
+          stopPointerSequence(wrap);
+          wrap.addEventListener('click', () => onMarkerClickRef.current?.(m));
+        }
         addOverlay(m.lat, m.lng, wrap, 1, 30);
       } else {
         const memberIds = cluster.members.map((m) => m.id);

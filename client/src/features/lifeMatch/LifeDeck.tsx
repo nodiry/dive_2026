@@ -331,7 +331,7 @@ export function LifeDeck({
         className='relative isolate overflow-hidden px-4 py-12 sm:px-6 sm:py-16'
       >
         <div className='pointer-events-none absolute top-24 left-1/2 -z-10 size-[34rem] -translate-x-1/2 rounded-full bg-violet/5 blur-3xl' />
-        <header className='mx-auto max-w-4xl text-center'>
+        <header className='mx-auto w-full max-w-3xl text-center'>
           <p className='font-mono text-xs tracking-wide text-violet uppercase'>{copy.eyebrow}</p>
           <h1 className='mt-5 text-3xl leading-tight font-extrabold tracking-tight text-plum sm:text-4xl'>
             {copy.titleBefore}
@@ -339,12 +339,12 @@ export function LifeDeck({
             {copy.titleMiddle}
             <span className='text-gold'>{copy.titleHidden}</span>
           </h1>
-          <p className='mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate sm:text-base'>
+          <p className='mx-auto mt-5 w-full max-w-2xl text-sm leading-7 text-slate sm:text-base'>
             {copy.intro}
           </p>
         </header>
 
-        <div className='mx-auto mt-10 flex max-w-5xl snap-x snap-mandatory gap-4 overflow-x-auto px-[max(0px,calc((100vw-64px)*0.04))] pb-5 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0'>
+        <div className='mx-auto mt-10 flex w-full max-w-3xl snap-x snap-mandatory gap-4 overflow-x-auto px-[max(0px,calc((100vw-64px)*0.04))] pb-5 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0'>
           {(['routine', 'intuition'] as const).map((choice, index) => {
             const modeCopy = MODE_COPY[choice];
             const dark = choice === 'intuition';
@@ -406,7 +406,7 @@ export function LifeDeck({
           })}
         </div>
 
-        <p className='mx-auto mt-5 flex max-w-2xl items-start justify-center gap-2 text-center text-xs leading-5 text-slate'>
+        <p className='mx-auto mt-5 flex w-full max-w-2xl items-start justify-center gap-2 text-center text-xs leading-5 text-slate'>
           <Sparkles
             aria-hidden
             className='mt-0.5 size-4 shrink-0 text-gold'
@@ -424,7 +424,7 @@ export function LifeDeck({
         data-testid='life-deck-question'
         className='px-4 py-8 sm:px-6 sm:py-12'
       >
-        <div className='mx-auto max-w-6xl'>
+        <div className='mx-auto w-full max-w-3xl'>
           <div className='grid grid-cols-[auto_1fr_auto] items-center gap-3'>
             <span className='font-mono text-xs text-slate'>
               {String(questionIndex + 1).padStart(2, '0')} / 07
@@ -446,7 +446,7 @@ export function LifeDeck({
             </span>
           </div>
 
-          <header className='mx-auto mt-10 max-w-3xl text-center'>
+          <header className='mx-auto mt-10 w-full max-w-3xl text-center'>
             <span
               className={cn(
                 'inline-flex rounded-full px-3 py-1 font-mono text-xs tracking-wide uppercase',
@@ -466,12 +466,18 @@ export function LifeDeck({
             >
               {localize(question.title, locale)}
             </h2>
-            <p className='mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate'>
+            <p className='mx-auto mt-4 w-full max-w-2xl text-sm leading-6 text-slate'>
               {localize(question.description, locale)}
             </p>
           </header>
 
-          <div className='mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
+          {/*
+            A hand of cards, not a grid of tiles. Inside the report's 3xl
+            measure four across lands at ~170px each, which keeps the portrait
+            proportion a card needs; below lg it falls back to a swipeable rail
+            rather than squaring the cards off.
+          */}
+          <div className='mt-9 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0 sm:pb-0'>
             {question.options.map((option, index) => {
               const selected = selectedId === option.id;
               const muted = Boolean(selectedId && !selected);
@@ -488,7 +494,8 @@ export function LifeDeck({
                   animate={{ opacity: muted ? 0.5 : 1, y: selected ? -6 : 0 }}
                   transition={{ delay: index * 0.035, duration: 0.24 }}
                   className={cn(
-                    'relative min-h-72 overflow-hidden rounded-2xl border p-5 text-left transition-colors',
+                    'relative flex w-[62vw] shrink-0 snap-center flex-col overflow-hidden rounded-2xl border p-4 text-left transition-colors sm:w-auto',
+                    'aspect-[5/7] sm:aspect-auto sm:min-h-80',
                     selected
                       ? 'border-plum bg-plum text-lilac shadow-lg'
                       : 'border-slate-light/30 bg-white text-plum hover:border-violet/40',
@@ -507,7 +514,7 @@ export function LifeDeck({
                   </span>
                   <div
                     className={cn(
-                      'mt-7 flex size-16 items-center justify-center rounded-full border',
+                      'mt-5 flex size-14 items-center justify-center rounded-full border',
                       selected
                         ? 'border-lilac/15 bg-lilac/10 text-gold'
                         : 'border-violet/20 bg-violet/5 text-violet',
@@ -515,7 +522,7 @@ export function LifeDeck({
                   >
                     <DeckIcon
                       icon={option.icon}
-                      className='size-8'
+                      className='size-7'
                     />
                   </div>
                   {/*
@@ -525,20 +532,20 @@ export function LifeDeck({
                     longer than the caption and adds chips), and since these are
                     grid items that resize propagates to the whole row.
                   */}
-                  <div className='mt-6 grid'>
+                  <div className='mt-auto grid pt-6'>
                     <motion.div
                       aria-hidden={!selected}
                       animate={{ opacity: selected ? 1 : 0 }}
                       transition={{ duration: 0.2 }}
                       className='col-start-1 row-start-1'
                     >
-                      <p className='text-lg leading-snug font-bold'>
+                      <p className='text-base leading-snug font-bold'>
                         {localize(option.title, locale)}
                       </p>
-                      <p className='mt-2 text-sm leading-6 text-lilac/70'>
+                      <p className='mt-1.5 text-xs leading-5 text-lilac/70'>
                         {localize(option.meaning, locale)}
                       </p>
-                      <div className='mt-4 flex flex-wrap gap-1.5'>
+                      <div className='mt-3 flex flex-wrap gap-1.5'>
                         {option.chips.map((chip) => (
                           <span
                             key={localize(chip, locale)}
@@ -555,10 +562,10 @@ export function LifeDeck({
                       transition={{ duration: 0.2 }}
                       className='col-start-1 row-start-1'
                     >
-                      <h3 className='text-lg leading-snug font-bold'>
+                      <h3 className='text-base leading-snug font-bold'>
                         {localize(option.title, locale)}
                       </h3>
-                      <p className='mt-2 text-sm leading-6 text-slate'>
+                      <p className='mt-1.5 text-xs leading-5 text-slate'>
                         {localize(option.caption, locale)}
                       </p>
                     </motion.div>
@@ -608,7 +615,7 @@ export function LifeDeck({
         data-testid='life-deck-reveal'
         className='px-4 py-10 sm:px-6 sm:py-14'
       >
-        <header className='mx-auto max-w-3xl text-center'>
+        <header className='mx-auto w-full max-w-3xl text-center'>
           <p className='font-mono text-xs tracking-wide text-violet uppercase'>
             {copy.resultEyebrow}
           </p>
@@ -617,7 +624,7 @@ export function LifeDeck({
           </h2>
         </header>
 
-        <div className='mx-auto mt-10 grid max-w-5xl gap-5 lg:grid-cols-[0.9fr_1.1fr]'>
+        <div className='mx-auto mt-10 grid w-full max-w-3xl gap-5'>
           <motion.article
             initial={{ opacity: 0, rotateY: -12, y: 18 }}
             animate={{ opacity: 1, rotateY: 0, y: 0 }}
@@ -743,19 +750,19 @@ export function LifeDeck({
         data-testid='life-deck-reality'
         className='px-4 py-10 sm:px-6 sm:py-14'
       >
-        <header className='mx-auto max-w-3xl text-center'>
+        <header className='mx-auto w-full max-w-3xl text-center'>
           <p className='font-mono text-xs tracking-wide text-violet uppercase'>
             {copy.realityEyebrow}
           </p>
           <h2 className='mt-4 text-3xl font-extrabold tracking-tight text-plum sm:text-4xl'>
             {copy.realityTitle}
           </h2>
-          <p className='mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate'>
+          <p className='mx-auto mt-4 w-full max-w-2xl text-sm leading-6 text-slate'>
             {copy.realityDescription}
           </p>
         </header>
 
-        <div className='mx-auto mt-9 grid max-w-5xl gap-4 lg:grid-cols-3'>
+        <div className='mx-auto mt-9 grid w-full max-w-3xl gap-4'>
           <RealitySection
             title={copy.budget}
             highlighted={result.mustKeepId === 'budget'}
@@ -883,7 +890,7 @@ export function LifeDeck({
           </RealitySection>
         </div>
 
-        <div className='mx-auto mt-7 flex max-w-5xl flex-col-reverse gap-2 sm:flex-row sm:justify-between'>
+        <div className='mx-auto mt-7 flex w-full max-w-3xl flex-col-reverse gap-2 sm:flex-row sm:justify-between'>
           <button
             type='button'
             onClick={goBack}
@@ -928,42 +935,52 @@ export function LifeDeckSummary({
       data-testid='life-deck-summary'
       className='overflow-hidden rounded-3xl border border-plum-light bg-plum text-lilac shadow-lg'
     >
-      <div className='grid gap-6 p-6 sm:p-8 lg:grid-cols-[auto_1fr_auto] lg:items-center'>
-        <div className='flex size-20 items-center justify-center rounded-full border border-lilac/15 bg-lilac/5 text-gold'>
-          <DeckIcon
-            icon={archetype.icon}
-            className='size-10'
-          />
-        </div>
-        <div>
+      {/*
+        Stacked rather than three columns: inside the report's measure the old
+        right-hand column squeezed the retake button, and its "adjust below"
+        note now duplicates the hint the conditions section carries.
+      */}
+      <div className='p-6 sm:p-7'>
+        <div className='flex items-start justify-between gap-4'>
           <p className='font-mono text-xs tracking-wide text-gold uppercase'>
             {copy.resultEyebrow}
           </p>
-          <h2 className='mt-1 text-2xl font-extrabold tracking-tight'>
-            {localize(archetype.name, locale)}
-          </h2>
-          <p className='mt-2 max-w-2xl text-sm leading-6 text-lilac/60'>
-            {localize(archetype.description, locale)}
-          </p>
-          <div className='mt-4 flex flex-wrap gap-2 text-xs'>
-            <span className='rounded-full border border-lilac/15 px-3 py-1.5 text-lilac/75'>
-              {copy.mustKeep} · {mustKeep ? localize(mustKeep.title, locale) : '-'}
-            </span>
-            <span className='rounded-full border border-lilac/15 px-3 py-1.5 text-lilac/75'>
-              {copy.relaxFirst} · {relaxFirst ? localize(relaxFirst.title, locale) : '-'}
-            </span>
-          </div>
-        </div>
-        <div className='lg:text-right'>
           <button
             type='button'
             onClick={onRetake}
-            className='inline-flex items-center gap-2 rounded-full border border-lilac/20 px-4 py-2 text-xs font-bold text-lilac hover:bg-lilac/10'
+            className='inline-flex shrink-0 items-center gap-2 rounded-full border border-lilac/20 px-4 py-2 text-xs font-bold text-lilac transition-colors hover:bg-lilac/10'
           >
             <RotateCcw className='size-3.5' />
             {copy.retake}
           </button>
-          <p className='mt-3 max-w-xs text-xs leading-5 text-lilac/40'>{copy.adjust}</p>
+        </div>
+
+        <div className='mt-4 flex items-center gap-4'>
+          <div className='flex size-14 shrink-0 items-center justify-center rounded-full border border-lilac/15 bg-lilac/5 text-gold'>
+            <DeckIcon
+              icon={archetype.icon}
+              className='size-7'
+            />
+          </div>
+          <div className='min-w-0'>
+            <h2 className='truncate text-2xl font-extrabold tracking-tight'>
+              {localize(archetype.name, locale)}
+            </h2>
+            <p className='font-mono text-xs tracking-wide text-gold'>{archetype.english}</p>
+          </div>
+        </div>
+
+        <p className='mt-4 text-sm leading-6 text-lilac/60'>
+          {localize(archetype.description, locale)}
+        </p>
+
+        <div className='mt-4 flex flex-wrap gap-2 text-xs'>
+          <span className='rounded-full border border-lilac/15 px-3 py-1.5 text-lilac/75'>
+            {copy.mustKeep} · {mustKeep ? localize(mustKeep.title, locale) : '-'}
+          </span>
+          <span className='rounded-full border border-lilac/15 px-3 py-1.5 text-lilac/75'>
+            {copy.relaxFirst} · {relaxFirst ? localize(relaxFirst.title, locale) : '-'}
+          </span>
         </div>
       </div>
     </section>

@@ -51,6 +51,15 @@ interface TranscriptMessage extends ChatMessage {
 // so the user gets a clear message instead of a 400 from the API.
 const MAX_ATTACHMENT_BYTES = 4_000_000;
 
+/** Kept in step with SUPPORTED_IMAGE_MIME in api/src/ai/service.py. */
+const SUPPORTED_IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+];
+
 const markdownComponents = {
   p: (props: React.ComponentPropsWithoutRef<'p'>) => (
     <p
@@ -735,7 +744,10 @@ export function AiSearch() {
             <input
               ref={fileInputRef}
               type='file'
-              accept='image/*'
+              // Narrower than image/*, which offers SVG and AVIF: the model
+              // rejects both, and the server drops them, so the picker should
+              // never have offered them in the first place.
+              accept={SUPPORTED_IMAGE_TYPES.join(',')}
               className='hidden'
               onChange={(e) => {
                 attachImage(e.target.files?.[0]);

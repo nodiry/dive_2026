@@ -24,19 +24,25 @@ from scripts.lib.csv_utils import (
     strip_dong_suffix,
     to_number,
 )
-from scripts.lib.paths import BMC_DIR, require_samples_dir
+from scripts.lib.paths import BMC_DIR, require_samples_dir, resolve_unicode_path
 
 # The handout keeps the CSVs under two Korean-named folders; read them in
 # place rather than renaming, so a fresh handout drop-in needs no prep.
-RENTAL_DIR = BMC_DIR / "통합공공임대, 행복주택, 재개발임대주택 상세 정보 및 보증금, 임대료"
-PURCHASED_DIR = BMC_DIR / "매입임대주택 상세 정보 및 평균보증금, 평균임대료"
+RENTAL_DIR = resolve_unicode_path(
+    BMC_DIR,
+    "통합공공임대, 행복주택, 재개발임대주택 상세 정보 및 보증금, 임대료",
+)
+PURCHASED_DIR = resolve_unicode_path(
+    BMC_DIR,
+    "매입임대주택 상세 정보 및 평균보증금, 평균임대료",
+)
 
-COMBINED_UNITS_CSV = RENTAL_DIR / "행복, 통합, 재개발 주택정보_20260630.csv"
-HAPPY_PRICE_CSV = RENTAL_DIR / "행복주택 표준보증금 및 임대료_20260630.csv"
-INTEGRATED_PRICE_CSV = RENTAL_DIR / "통합공공임대 표준보증금 및 임대료_20260630.csv"
-REDEVELOPMENT_PRICE_CSV = RENTAL_DIR / "재개발임대 표준보증금 및 임대료_20260630.csv"
-PURCHASED_UNITS_CSV = PURCHASED_DIR / "매입임대 주택정보_20260630.csv"
-PURCHASED_PRICE_CSV = PURCHASED_DIR / "매입임대 표준보증금 및 임대료_20260630.csv"
+COMBINED_UNITS_CSV = resolve_unicode_path(RENTAL_DIR, "행복, 통합, 재개발 주택정보_20260630.csv")
+HAPPY_PRICE_CSV = resolve_unicode_path(RENTAL_DIR, "행복주택 표준보증금 및 임대료_20260630.csv")
+INTEGRATED_PRICE_CSV = resolve_unicode_path(RENTAL_DIR, "통합공공임대 표준보증금 및 임대료_20260630.csv")
+REDEVELOPMENT_PRICE_CSV = resolve_unicode_path(RENTAL_DIR, "재개발임대 표준보증금 및 임대료_20260630.csv")
+PURCHASED_UNITS_CSV = resolve_unicode_path(PURCHASED_DIR, "매입임대 주택정보_20260630.csv")
+PURCHASED_PRICE_CSV = resolve_unicode_path(PURCHASED_DIR, "매입임대 표준보증금 및 임대료_20260630.csv")
 
 HOUSING_TYPE_MAP = {
     "통합공공임대주택": "integrated",

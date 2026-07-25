@@ -3,9 +3,9 @@ Loads the 3 shapefiles that are actually usable (see docs/DATA_MODEL.md
 Part 3 for the full story, including the one that ISN'T usable):
 
  - admin_boundary  <- vworld 행정구역도 (link #1), 192 동 boundary polygons, all 16 districts
- - commercial_zone <- vworld 용도지역지구 (link #4, LSMD_CONT_UQ111 half only — the
-                      other file in that download, AL_D011, is a scattered nationwide
-                      preview sample and is NOT loaded)
+ - commercial_zone <- vworld 용도지역지구 (link #4), AL_D124 도시지역 current-state
+                      layer, Busan slice — every row carries a zone label (the older
+                      LSMD_CONT_UQ111 history file only labeled ~500 of 3,307)
  - building        <- vworld 도로명주소 건물 (link #5), 379,711 Busan building footprints
 
 IMPORTANT: building is loaded as reference data ONLY. Testing showed
@@ -46,18 +46,24 @@ async def ingest_admin_boundary(conn: asyncpg.Connection) -> None:
 
 
 async def ingest_zoning(conn: asyncpg.Connection) -> None:
-    _load_staging("gis/zoning/LSMD_CONT_UQ111_26_202606.shp", "staging_zoning")
+    # AL_D124 (국토계획/도시지역, current-state layer) Busan slice — carries a
+    # zone label (a6) on every row, unlike the old LSMD designation-history
+    # file that only labeled ~500 of 3,307. a5 is the UQAxxx zone code
+    # directly. 관리지역/농림지역 layers were checked and contain zero Busan
+    # polygons — 도시지역 alone is complete coverage here (docs/DATA_MODEL.md).
+    _load_staging("gis/zoning/AL_D124_26_20260719.shp", "staging_zoning")
     await conn.execute("TRUNCATE commercial_zone")
     await conn.execute(
         """
         INSERT INTO commercial_zone (zone_type, zone_code, geom)
-        SELECT NULLIF(alias, ''), substring(mnum FROM 'UQA[0-9]{3}'), ST_SetSRID(geom, 4326)::geography
+        SELECT NULLIF(a6, ''), NULLIF(a5, ''), ST_SetSRID(geom, 4326)::geography
         FROM staging_zoning
         """
     )
     await conn.execute("DROP TABLE staging_zoning")
     count = await conn.fetchval("SELECT count(*) FROM commercial_zone")
-    print(f"commercial_zone: {count} rows")
+    labeled = await conn.fetchval("SELECT count(*) FROM commercial_zone WHERE zone_type IS NOT NULL")
+    print(f"commercial_zone: {count} rows ({labeled} with zone_type)")
 
 
 async def ingest_buildings(conn: asyncpg.Connection) -> None:

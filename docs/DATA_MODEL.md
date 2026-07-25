@@ -21,7 +21,7 @@ samples/
   [참고자료]부산도시공사 모집공고/            recruitment-notice hwp/pdf, reference only
   [참고자료]선도소프트 원천데이터 링크/       원천데이터 링크.txt — the 5 raw-source links
   poi/            business_busan.csv (Part 2 — raw source behind link #2)
-  gis/            admin_boundary/, zoning/, zoning_unverified/, building/ (Part 3 — links #1/#4/#5)
+  gis/            admin_boundary/, zoning/, building/ (Part 3 — links #1/#4/#5)
   population_grid_UNPLACEABLE/   (Part 4 — unusable, manual drop-in, link #3)
 ```
 
@@ -165,29 +165,39 @@ shell-escaping (`api/scripts/lib/gis.py`).
 | Folder | Source | Table | Rows | Status |
 |---|---|---|---|---|
 | `gis/admin_boundary/` | vworld 행정구역도 (link #1) | `admin_boundary` | 192 | ✅ loaded |
-| `gis/zoning/` | vworld 용도지역지구, LSMD_CONT_UQ111 (link #4) | `commercial_zone` | 3,307 | ✅ loaded |
-| `gis/zoning_unverified/` | vworld 용도지역지구, AL_D011 (link #4, other file) | — | — | ❌ **not loaded, see below** |
+| `gis/zoning/` | vworld 용도지역지구, AL_D124 도시지역 Busan slice (link #4) | `commercial_zone` | 3,308 | ✅ loaded, **every row labeled** |
 | `gis/building/` | vworld 도로명주소 건물, TL_SPBD_BULD (link #5) | `building` | 379,711 | ✅ loaded, reference-only (see geocoding note) |
 
-### `gis/zoning_unverified/` — do not load this one
+### The zoning-source story (link #4) — how we got to AL_D124
 
-Link #4's download contained *two* shapefiles. `AL_D011_00_20260709` looked
-like the real zoning data at a glance, but inspection showed it's a **scattered
-nationwide preview sample** — only 480 features total, region codes (`A4`
-field) spanning ~17 different provinces with only 2-3 incidentally in Busan.
-That's not usable regional coverage; it reads like a generic/default VWorld
-catalog preview rather than a real Busan extract. `LSMD_CONT_UQ111` (loaded
-into `commercial_zone`) is the real one — confirmed by its feature count
-(3,307), its extent matching Busan exactly, and real zone-type Korean text
-(`준공업지역`, `일반상업지역`, `자연녹지지역`, `1종일반주거지역`, etc.) once
-decoded. If you re-download link #4, request a Busan-scoped export explicitly
-rather than trusting whatever comes back by default.
+Three sources were tried, in this order:
 
-Also worth knowing: only ~500 of `commercial_zone`'s 3,307 rows have a non-null
-`zone_type` — the rest are administrative-history entries (this LSMD_CONT
-layer is a "designation history" table; most rows only carry an `NTFDATE` /
-`REMARK`, not an actual zone label). Filter `WHERE zone_type IS NOT NULL` for
-anything that needs a real zone classification.
+1. **`AL_D011_00_20260709`** (first download's second file) — a scattered
+   nationwide preview sample, 480 features across ~17 provinces, useless.
+   Was kept as `gis/zoning_unverified/` for a while; deleted now.
+2. **`LSMD_CONT_UQ111_26_202606`** — real Busan coverage (3,307 features)
+   but it's a *designation-history* table: only ~500 rows carried an
+   `ALIAS` zone label; the rest were history entries. The original
+   `commercial_zone` load and the "filter `zone_type IS NOT NULL`" rule
+   came from this era.
+3. **`AL_D124_00_20260719`** (full nationwide 국토계획/도시지역 file,
+   ~1GB download) — the current-state layer. Its Busan slice
+   (`A4 LIKE '26%'`, 3,308 features, ~10MB) has a human-readable zone name
+   (`A6`: 제2종일반주거지역/자연녹지지역/…) on **every** row and the
+   `UQAxxx` code directly in `A5`. This slice is what now ships as
+   `gis/zoning/AL_D124_26_20260719.*` inside `samples.zip` — the 1GB
+   nationwide download is **not** needed by teammates.
+
+Neighborhood zoning shares now cover ~99.5% of a radius area instead of
+the sparse coverage the LSMD labels gave. `WHERE zone_type IS NOT NULL`
+still works (it's now a no-op filter).
+
+**관리지역 (AL_D125) / 농림지역 (AL_D126): Busan has none.** Verified
+against the nationwide files: zero polygons with Busan district codes, and
+zero polygons spatially intersecting the Busan admin boundary (the nearby
+hits in a bbox check are all 김해/양산, 경남). The 원천데이터 링크's "use 3
+layers" note is generic nationwide advice — for Busan, 도시지역 alone is
+complete coverage. Don't spend time re-downloading these.
 
 ### CRS gotchas
 

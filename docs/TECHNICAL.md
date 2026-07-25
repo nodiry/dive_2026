@@ -102,7 +102,8 @@ commercial_poi    155,103 rows; category = ENGLISH SLUG of 상권업종대분류
                   ('retail'/'food'/... mapped at ingest), category_name = Korean
                   소분류 ("카페"...), biz_name, address, district, geom
 admin_boundary    192 rows (vworld 행정구역도)
-commercial_zone   3,307 rows; only ~500 have non-null zone_type — filter on it
+commercial_zone   3,308 rows (AL_D124 도시지역 current-state layer), every row
+                  has zone_type + UQAxxx zone_code; Busan has no 관리/농림지역
 building          379,711 rows, reference only
 industry_population_grid  filled from the 선도소프트 POP_STORE grid when present
                           (jsonb industry_mix + population_density; docs/DATA_MODEL.md Parts 4-5)
@@ -142,9 +143,11 @@ changes re-run the mutation after 450ms.
 area via `ST_Buffer` + `ST_Intersection` + `ST_Area` over
 `commercial_zone`. This is what makes the zoning layer load-bearing.
 
-VWorld zoning's human-readable `ALIAS` is blank on many records. Alembic
-migration `7b7b4257e9c1` adds `commercial_zone.zone_code`, and `seed_gis.py`
-extracts the stable `UQAxxx` code from `MNUM`.
+`commercial_zone.zone_code` (added by migration `7b7b4257e9c1`) holds the
+stable `UQAxxx` code — the AL_D124 source carries it directly in `A5`, and
+the zone label in `A6` on every row (the earlier LSMD source had blank
+labels on most records; see docs/DATA_MODEL.md Part 3 for the source
+history).
 
 ## Known gotchas / debugging notes
 

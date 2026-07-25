@@ -22,7 +22,6 @@ class AppSettings(SettingsBase):
     KAKAO_REST_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     FRONTEND_ORIGINS: str = ""
-    FRONTEND_URL: str = ""
     APP_VERSION: str = "0.1.0"
 
     @property

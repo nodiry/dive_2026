@@ -126,3 +126,6 @@ then re-commit.
 - Pending: compare view, AI prompt-to-filters (the navbar search pill is
   reserved for it), event-day city-wide dataset swap.
 
+
+# TODO:
+* add share button to share the kakao map link

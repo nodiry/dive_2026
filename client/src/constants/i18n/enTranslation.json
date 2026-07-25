@@ -7,6 +7,12 @@
     "login": "Log in",
     "logout": "Log out"
   },
+  "lifeMatch": {
+    "navLabel": "Life Match"
+  },
+  "policy": {
+    "navLabel": "Policy Report"
+  },
   "footer": "DIVE 2026 · Busan Metropolitan City (BMC) × Sundosoft · Commercial-district & preference-based public rental housing recommendation service",
   "explore": {
     "heroEyebrow": "Busan Metropolitan City Public Rental Housing",
@@ -47,7 +53,11 @@
     "clusterFilter": "Selected area",
     "showAll": "Show all",
     "showMoreCategories": "{{count}} more",
-    "showFewerCategories": "Show less"
+    "showFewerCategories": "Show less",
+    "densityToggle": "Population",
+    "densityLow": "Low",
+    "densityHigh": "High",
+    "densitySource": "Registered population"
   },
   "personas": {
     "youngSingle": "Young single",

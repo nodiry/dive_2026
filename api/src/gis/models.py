@@ -10,6 +10,7 @@ class AdminBoundary(SQLModel, table=True):
     emd_code: str = Field(index=True)
     emd_name: str | None = None
     sgg_code: str | None = None
+    population: int | None = None
     geom: str = Field(sa_column=Column(Geography("MULTIPOLYGON", srid=4326), nullable=False))
 
 
@@ -18,6 +19,7 @@ class CommercialZone(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     zone_type: str | None = None
+    zone_code: str | None = Field(default=None, index=True)
     geom: str = Field(sa_column=Column(Geography("MULTIPOLYGON", srid=4326), nullable=False))
 
 

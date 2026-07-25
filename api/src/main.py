@@ -42,6 +42,7 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
     )
 
 
+@app.get("/api/health", include_in_schema=False)
 @app.get("/health", include_in_schema=False)
 async def health():
     return {

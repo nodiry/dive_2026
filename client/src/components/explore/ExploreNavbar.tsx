@@ -1,4 +1,4 @@
-import { ArrowRight, Heart, Info, Search } from 'lucide-react';
+import { ArrowRight, BarChart3, Heart, Info, Search, Sparkles } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -83,6 +83,20 @@ export function ExploreNavbar() {
           <Heart className={cn('size-4', panelView === 'saved' && 'fill-mist')} />
           <span className='hidden sm:inline'>{t('nav.savedLabel')}</span>
         </button>
+        <Link
+          to='/life-match'
+          className='flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1.5 text-sm font-semibold text-terracotta-dark transition-colors hover:bg-terracotta/20'
+        >
+          <Sparkles className='size-4' />
+          <span className='hidden lg:inline'>{t('lifeMatch.navLabel')}</span>
+        </Link>
+        <Link
+          to='/policy'
+          className='flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-marine/70 transition-colors hover:bg-marine/10'
+        >
+          <BarChart3 className='size-4' />
+          <span className='hidden xl:inline'>{t('policy.navLabel')}</span>
+        </Link>
         <Link
           to='/about'
           className='flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-marine/70 transition-colors hover:bg-marine/10'

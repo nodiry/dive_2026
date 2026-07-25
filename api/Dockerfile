@@ -7,6 +7,8 @@ ENV PYTHONPATH=/src
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev --frozen
 
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
 COPY src/ ./src/
 
 CMD ["uv", "run", "--no-sync", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]

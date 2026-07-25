@@ -1,5 +1,14 @@
 import type { TFunction } from 'i18next';
-import { Coffee, Dumbbell, Fuel, MapPin, Pill, Store, Utensils, type LucideIcon } from 'lucide-react';
+import {
+  Coffee,
+  Dumbbell,
+  Fuel,
+  MapPin,
+  Pill,
+  Store,
+  Utensils,
+  type LucideIcon,
+} from 'lucide-react';
 
 /**
  * The preference-mode icon bar shows only real commercial_poi category_name

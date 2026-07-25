@@ -90,6 +90,8 @@ export interface MapTrail {
   durationMinutes?: number;
   /** Ties the line + dot + tag to the destination's category color (e.g. from poiColorForCategoryName). */
   color?: string;
+  /** 'subtle' renders a faint static connector (tier-2 anchors); default is the animated primary trail. */
+  emphasis?: 'primary' | 'subtle';
 }
 
 export interface MapCircle {
@@ -112,6 +114,40 @@ export interface MapBounds {
   neLng: number;
 }
 
+export interface DensityRegion {
+  emdName: string;
+  densityPerKm2: number;
+  areaKm2: number;
+  centroidLat: number;
+  centroidLng: number;
+}
+
+// Heat ramp (cool marine -> gold -> terracotta), sampled into a 256-entry
+// lookup for colorizing the grayscale heat accumulation.
+const HEAT_STOPS: [number, string][] = [
+  [0.0, 'rgba(79, 127, 146, 0)'],
+  [0.25, 'rgba(79, 127, 146, 0.26)'],
+  [0.55, 'rgba(217, 164, 65, 0.34)'],
+  [0.8, 'rgba(226, 89, 46, 0.4)'],
+  [1.0, 'rgba(192, 72, 36, 0.46)'],
+];
+
+let heatLutCache: Uint8ClampedArray | null = null;
+
+function heatLut(): Uint8ClampedArray {
+  if (heatLutCache) return heatLutCache;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 1;
+  const ctx = canvas.getContext('2d')!;
+  const gradient = ctx.createLinearGradient(0, 0, 256, 0);
+  for (const [stop, color] of HEAT_STOPS) gradient.addColorStop(stop, color);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 256, 1);
+  heatLutCache = ctx.getImageData(0, 0, 256, 1).data;
+  return heatLutCache;
+}
+
 interface KakaoMapProps {
   markers: MapMarker[];
   trails?: MapTrail[];
@@ -126,6 +162,8 @@ interface KakaoMapProps {
   onClusterClick?: (ids: number[]) => void;
   /** Fired after every pan/zoom settles, with the visible bounds. */
   onBoundsChange?: (bounds: MapBounds) => void;
+  /** Population-density choropleth polygons, drawn beneath all pins. */
+  densityRegions?: DensityRegion[] | null;
   /** Bump this (e.g. on a fresh submit) to refit the viewport to `markers`. Hover-only changes should NOT bump it. */
   fitKey?: string | number;
   /**
@@ -217,6 +255,7 @@ export function KakaoMap({
   onMapClick,
   onClusterClick,
   onBoundsChange,
+  densityRegions = null,
   fitKey,
   background = false,
   staticView = false,
@@ -227,6 +266,9 @@ export function KakaoMap({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
   const mapObjRef = useRef<any>(null);
   const cleanupFnsRef = useRef<(() => void)[]>([]);
+  const heatCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
+  const heatOverlayRef = useRef<any>(null);
   const markersRef = useRef(markers);
   const onMarkerClickRef = useRef(onMarkerClick);
   const onMapClickRef = useRef(onMapClick);
@@ -293,6 +335,10 @@ export function KakaoMap({
         kakao.maps.event.addListener(map, 'idle', emitView);
         emitView();
 
+        kakao.maps.event.addListener(map, 'zoom_start', () => {
+          if (heatCanvasRef.current) heatCanvasRef.current.style.opacity = '0';
+        });
+
         if (background) {
           kakao.maps.event.addListener(map, 'center_changed', () => {
             const c = map.getCenter();
@@ -328,12 +374,13 @@ export function KakaoMap({
     for (const cleanup of cleanupFnsRef.current) cleanup();
     cleanupFnsRef.current = [];
 
-    const addOverlay = (lat: number, lng: number, el: HTMLElement, yAnchor = 0.5) => {
+    const addOverlay = (lat: number, lng: number, el: HTMLElement, yAnchor = 0.5, zIndex = 20) => {
       const overlay = new kakao.maps.CustomOverlay({
         position: new kakao.maps.LatLng(lat, lng),
         content: el,
         xAnchor: 0.5,
         yAnchor,
+        zIndex,
       });
       overlay.setMap(map);
       cleanupFnsRef.current.push(() => overlay.setMap(null));
@@ -414,7 +461,7 @@ export function KakaoMap({
         wrap.appendChild(tail);
         if (m.label) wrap.title = m.label;
         wrap.addEventListener('click', () => onMarkerClickRef.current?.(m));
-        addOverlay(m.lat, m.lng, wrap, 1);
+        addOverlay(m.lat, m.lng, wrap, 1, 30);
       } else {
         const memberIds = cluster.members.map((m) => m.id);
         const containsSelected = cluster.members.some((m) => m.selected);
@@ -431,13 +478,20 @@ export function KakaoMap({
         el.addEventListener('click', () => onClusterClickRef.current?.(memberIds));
 
         wrap.appendChild(el);
-        addOverlay(cluster.lat, cluster.lng, wrap);
+        addOverlay(cluster.lat, cluster.lng, wrap, 0.5, 30);
       }
     }
 
+    // The nearest-match pins carry their trail's distance/walk-time as a
+    // hover tooltip — matched by the trail's destination coordinates, so
+    // the Explore data flow doesn't need to thread trail info into markers.
+    const trailEnds = trails
+      .filter((trail) => trail.path.length > 0)
+      .map((trail) => ({ trail, end: trail.path[trail.path.length - 1] }));
+
     for (const m of pois) {
       const color = m.color ?? '#8a969a';
-      const size = m.highlighted ? 28 : 18;
+      const size = m.highlighted ? 30 : 22;
 
       const wrap = document.createElement('div');
       wrap.className = 'flex flex-col items-center';
@@ -455,7 +509,7 @@ export function KakaoMap({
       pin.style.backgroundColor = color;
       pin.innerHTML = renderToStaticMarkup(
         createElement(m.icon ?? MapPin, {
-          size: m.highlighted ? 14 : 9,
+          size: m.highlighted ? 15 : 12,
           color: '#fff',
           strokeWidth: 2.5,
         }),
@@ -465,9 +519,45 @@ export function KakaoMap({
       tail.className = `-mt-1 size-2 rotate-45 border-r-2 border-b-2 border-white`;
       tail.style.backgroundColor = color;
 
+      const matchedTrail = m.highlighted
+        ? trailEnds.find(
+            ({ end }) => Math.abs(end.lat - m.lat) < 1e-7 && Math.abs(end.lng - m.lng) < 1e-7,
+          )?.trail
+        : undefined;
+
+      if (matchedTrail?.distanceMeters != null && matchedTrail.durationMinutes != null) {
+        // Absolutely positioned so showing it never changes the wrapper's
+        // size — an in-flow tooltip inflates the overlay and visibly
+        // shifts the anchored pin.
+        wrap.style.position = 'relative';
+        const tooltip = document.createElement('div');
+        tooltip.className =
+          'absolute bottom-full left-1/2 mb-1.5 hidden -translate-x-1/2 items-center gap-1.5 rounded-full bg-marine px-2.5 py-1 font-mono text-xs whitespace-nowrap text-mist shadow-lg';
+        const name = m.label ? `${m.label} · ` : '';
+        tooltip.textContent = `${name}${formatTrailDistance(matchedTrail.distanceMeters)} · ${t('units.walkMinutes', { minutes: matchedTrail.durationMinutes })}`;
+        wrap.appendChild(tooltip);
+        wrap.addEventListener('mouseenter', () => {
+          tooltip.classList.remove('hidden');
+          tooltip.classList.add('flex');
+        });
+        wrap.addEventListener('mouseleave', () => {
+          tooltip.classList.add('hidden');
+          tooltip.classList.remove('flex');
+        });
+      } else if (m.label) {
+        wrap.title = m.label;
+      }
+
+      // POI pins are informational. Kakao derives its map 'click' from the
+      // mousedown/mouseup pair on the container, so every pointer event in
+      // the sequence must be stopped or the click falls through and clears
+      // the selection.
+      for (const eventName of ['mousedown', 'mouseup', 'click', 'touchstart', 'touchend']) {
+        wrap.addEventListener(eventName, (e) => e.stopPropagation());
+      }
+
       wrap.appendChild(pin);
       wrap.appendChild(tail);
-      if (m.label) wrap.title = m.label;
       addOverlay(m.lat, m.lng, wrap, 1);
     }
 
@@ -490,29 +580,21 @@ export function KakaoMap({
       if (trail.path.length < 2) continue;
       const kakaoPath = trail.path.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
       const lineColor = trail.color ?? '#c04824';
-      const lineWeight = 4;
-
-      // A light casing drawn underneath, wider than the line itself, gives
-      // every trail its own "little space" — several routes fanning out
-      // from the same housing pin stay visually separated instead of
-      // merging into one indistinguishable stroke where they run close.
-      const casing = new kakao.maps.Polyline({
-        path: kakaoPath,
-        strokeWeight: lineWeight + 3,
-        strokeColor: '#f2f5f3',
-        strokeOpacity: 0.9,
-        strokeStyle: 'solid',
-      });
-      casing.setMap(map);
+      const subtle = trail.emphasis === 'subtle';
 
       const polyline = new kakao.maps.Polyline({
         path: kakaoPath,
-        strokeWeight: lineWeight,
+        strokeWeight: subtle ? 2 : 3,
         strokeColor: lineColor,
-        strokeOpacity: 0.9,
-        strokeStyle: 'solid',
+        strokeOpacity: subtle ? 0.5 : 0.85,
+        strokeStyle: subtle ? 'shortdot' : 'shortdash',
       });
       polyline.setMap(map);
+
+      if (subtle) {
+        cleanupFnsRef.current.push(() => polyline.setMap(null));
+        continue;
+      }
 
       const dot = document.createElement('div');
       dot.className = 'size-2.5 rounded-full shadow';
@@ -522,28 +604,11 @@ export function KakaoMap({
         content: dot,
         xAnchor: 0.5,
         yAnchor: 0.5,
+        zIndex: 10,
       });
       dotOverlay.setMap(map);
 
       const { cum, total } = arcLengths(trail.path);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
-      let tagOverlay: any = null;
-      if (trail.distanceMeters != null && trail.durationMinutes != null) {
-        const mid = pointAtFraction(trail.path, cum, total, 0.5);
-        const tag = document.createElement('div');
-        tag.className =
-          'flex items-center gap-1 rounded-full border bg-mist/95 px-2 py-0.5 font-mono text-xs font-medium whitespace-nowrap text-marine shadow-lg backdrop-blur';
-        tag.style.borderColor = `${lineColor}4D`; // ~30% alpha, ties the tag to its line's color
-        tag.textContent = `${formatTrailDistance(trail.distanceMeters)} · ${t('units.walkMinutes', { minutes: trail.durationMinutes })}`;
-        tagOverlay = new kakao.maps.CustomOverlay({
-          position: new kakao.maps.LatLng(mid.lat, mid.lng),
-          content: tag,
-          xAnchor: 0.5,
-          yAnchor: 0.5,
-        });
-        tagOverlay.setMap(map);
-      }
 
       const durationMs = Math.min(
         TRAIL_MAX_DURATION_MS,
@@ -561,10 +626,8 @@ export function KakaoMap({
 
       cleanupFnsRef.current.push(() => {
         cancelAnimationFrame(raf);
-        casing.setMap(null);
         polyline.setMap(null);
         dotOverlay.setMap(null);
-        tagOverlay?.setMap(null);
       });
     }
 
@@ -574,6 +637,107 @@ export function KakaoMap({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- drawKey is the stable serialized form of markers+trails+circle
   }, [status, drawKey, viewVersion]);
+
+  // Population heat layer: grayscale radial gradients accumulated per 동
+  // (weighted by density, sized by area), colorized through the heat ramp.
+  // The canvas lives inside a CustomOverlay anchored at map center so it
+  // paints above the tile panes but below the pins (zIndex 5 < dot 10 <
+  // poi 20 < housing 30) and pans along with the map; each idle re-centers
+  // and redraws it. Hidden during zoom, where the scale would be wrong.
+  useEffect(() => {
+    const map = mapObjRef.current;
+    const container = containerRef.current;
+    if (!map || !container || status !== 'ready') return;
+    const { kakao } = window;
+
+    if (!heatCanvasRef.current) {
+      const el = document.createElement('canvas');
+      el.className = 'pointer-events-none opacity-0 transition-opacity duration-300';
+      el.setAttribute('aria-hidden', 'true');
+      heatCanvasRef.current = el;
+      heatOverlayRef.current = new kakao.maps.CustomOverlay({
+        position: map.getCenter(),
+        content: el,
+        xAnchor: 0.5,
+        yAnchor: 0.5,
+        zIndex: 5,
+        clickable: false,
+      });
+    }
+    const canvas = heatCanvasRef.current;
+    const overlay = heatOverlayRef.current;
+
+    if (!densityRegions || densityRegions.length === 0) {
+      canvas.style.opacity = '0';
+      overlay.setMap(null);
+      return;
+    }
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (!width || !height) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    overlay.setPosition(map.getCenter());
+    overlay.setMap(map);
+
+    const proj = map.getProjection();
+    const center = map.getCenter();
+    const centerPt = proj.containerPointFromCoords(center);
+    const shifted = proj.containerPointFromCoords(
+      new kakao.maps.LatLng(center.getLat(), center.getLng() + 0.01),
+    );
+    const metersPerPx =
+      (0.01 * 111320 * Math.cos((center.getLat() * Math.PI) / 180)) /
+      Math.max(Math.abs(shifted.x - centerPt.x), 1);
+
+    const maxDensity = Math.max(...densityRegions.map((r) => r.densityPerKm2));
+
+    for (const region of densityRegions) {
+      const pt = proj.containerPointFromCoords(
+        new kakao.maps.LatLng(region.centroidLat, region.centroidLng),
+      );
+      const radiusMeters = Math.sqrt(region.areaKm2 / Math.PI) * 1000 * 1.5;
+      const radiusPx = Math.min(Math.max(radiusMeters / metersPerPx, 20), 420);
+      if (
+        pt.x < -radiusPx ||
+        pt.y < -radiusPx ||
+        pt.x > width + radiusPx ||
+        pt.y > height + radiusPx
+      ) {
+        continue;
+      }
+      const intensity = Math.pow(region.densityPerKm2 / maxDensity, 0.55);
+      const gradient = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radiusPx);
+      gradient.addColorStop(0, `rgba(0, 0, 0, ${0.85 * intensity})`);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(pt.x - radiusPx, pt.y - radiusPx, radiusPx * 2, radiusPx * 2);
+    }
+
+    const lut = heatLut();
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = image.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const alpha = data[i + 3];
+      if (alpha === 0) continue;
+      const j = alpha * 4;
+      data[i] = lut[j];
+      data[i + 1] = lut[j + 1];
+      data[i + 2] = lut[j + 2];
+      data[i + 3] = lut[j + 3];
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.putImageData(image, 0, 0);
+    canvas.style.opacity = '1';
+  }, [status, densityRegions, viewVersion]);
 
   // Smooth-pan to the focused result when its key changes (card click / marker click).
   useEffect(() => {

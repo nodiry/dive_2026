@@ -25,6 +25,7 @@
       "@hooks/*": ["./src/hooks/*"],
       "@layout/*": ["./src/layout/*"],
       "@pages/*": ["./src/pages/*"],
+      "@shared": ["./src/shared"],
       "@stores/*": ["./src/stores/*"],
       "@styles/*": ["./src/styles/*"],
       "@type/*": ["./src/types/*"],

@@ -5,7 +5,7 @@ onboard:
 	bash scripts/onboard.sh
 
 install:
-	bun install
+	cd client && bun install
 	cd api && uv sync --all-groups
 
 up:

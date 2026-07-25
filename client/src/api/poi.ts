@@ -1,5 +1,5 @@
 import { client } from '@api/client';
-import { PoiCategorySummary } from '@dive2026/shared';
+import { PoiCategorySummary } from '@shared';
 import { z } from 'zod';
 
 export const poiAPI = {

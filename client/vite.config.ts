@@ -31,6 +31,7 @@ export default defineConfig({
       '@hooks': resolve(__dirname, 'src/hooks'),
       '@layout': resolve(__dirname, 'src/layout'),
       '@pages': resolve(__dirname, 'src/pages'),
+      '@shared': resolve(__dirname, 'src/shared'),
       '@stores': resolve(__dirname, 'src/stores'),
       '@styles': resolve(__dirname, 'src/styles'),
       '@type': resolve(__dirname, 'src/types'),

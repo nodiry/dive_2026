@@ -28,8 +28,8 @@ else
   exit 1
 fi
 
-step "installing dependencies (bun workspaces + api venv)"
-bun install
+step "installing dependencies (client bun install + api venv)"
+(cd client && bun install)
 (cd api && uv sync --all-groups)
 
 step "starting docker services (db, api, client)"

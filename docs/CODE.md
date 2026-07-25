@@ -10,7 +10,6 @@ see `docs/DATA_MODEL.md`; for how the UI must look see
 ```
 justfile                     # root task runner: onboard/install/up/down/migrate/seed/geocode/api/client
 docker-compose.yml           # db + api (+ client behind the "full" profile)
-package.json                 # bun workspaces only (client, packages/*) — no scripts
 scripts/onboard.sh           # full onboarding flow (prereq checks, env files, unzip, install, up, migrate, seed, geocode)
 samples.zip                  # committed (~98MB) — onboarding unzips to samples/ (gitignored)
 
@@ -39,12 +38,13 @@ api/
     gis/models.py            # admin_boundary, commercial_zone, building, industry_population_grid
 
 client/
-  package.json               # standalone bun app inside the workspace
-  vite.config.ts             # path aliases (@api/@components/@constants/@hooks/@layout/@pages/@stores/@styles/@type/@utils)
+  package.json               # standalone bun app — own lockfile, no root workspace
+  vite.config.ts             # path aliases (@api/@components/@constants/@hooks/@layout/@pages/@shared/@stores/@styles/@type/@utils)
   .prettierrc                # single quotes, one attribute per line
   src/
     main.tsx                 # QueryClientProvider + BrowserRouter; imports @hooks/i18n side-effect
     App.tsx                  # MotionConfig(reducedMotion) + routes (ROUTES constants) + ToastList
+    shared/schemas.ts         # zod API contract (mirrored by hand in api pydantic schemas)
     api/                     # client.ts (axios instance) + housing/recommendation/poi xAPI modules (zod-validated)
     hooks/                   # useHousing (search/detail/neighborhood), useRecommendation, usePoiCategories,
                              #   useDebouncedValue, i18n/ (i18next init + LanguageDetector)
@@ -66,7 +66,6 @@ client/
                              #   ListPanel (right viewport-synced list), MapShell, ModeToggle, controls.tsx
     pages/                   # Explore (map screen), Detail (stat tiles + locator map + neighborhood), About
 
-packages/shared/src/schemas.ts  # zod API contract (mirrored by hand in api pydantic schemas)
 docs/                        # this folder; STYLE_GUIDE.md governs all UI work
 ```
 

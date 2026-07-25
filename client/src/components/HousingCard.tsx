@@ -1,4 +1,4 @@
-import type { HousingSummary } from '@dive2026/shared';
+import type { HousingSummary } from '@shared';
 import { Heart } from 'lucide-react';
 import type { MouseEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';

@@ -1,5 +1,5 @@
 import { client } from '@api/client';
-import { LifestyleRecommendationRequest, LifestyleRecommendationResult } from '@dive2026/shared';
+import { LifestyleRecommendationRequest, LifestyleRecommendationResult } from '@shared';
 import { z } from 'zod';
 
 export const recommendationAPI = {

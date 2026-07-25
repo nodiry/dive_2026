@@ -22,8 +22,8 @@ see `docs/CODE.md`; for raw-file-level ingestion gotchas see
 | SHP ingestion | `ogr2ogr` (GDAL, host-installed) | far more reliable than parsing `.shp` in application code |
 | Geocoding | Kakao Local API (REST key) | BMC's address field is a road-name string with no lat/lng |
 | Map | Kakao Maps JS SDK (JS key) | best Korean address/POI support |
-| Task running | just (root justfile + api/justfile) | one verb set everywhere; root package.json is workspaces-only |
-| API contracts | `packages/shared` zod schemas, hand-mirrored in `api/src/*/schemas.py` (pydantic, camelCase aliases) | keep both in sync manually when either changes |
+| Task running | just (root justfile + api/justfile) | one verb set everywhere; bun lives only inside `client/`, no root package.json |
+| API contracts | `client/src/shared/schemas.ts` zod schemas, hand-mirrored in `api/src/*/schemas.py` (pydantic, camelCase aliases) | keep both in sync manually when either changes |
 
 ### History: two backend ports
 
@@ -61,8 +61,9 @@ Compose at the repo root, services:
   because day-to-day frontend work runs on the host
   (`just client` → Vite on :5173, the Kakao-whitelisted port).
 
-`.dockerignore` files keep contexts small (the repo root one exists because
-the client image builds from root for the bun workspace).
+`.dockerignore` files (one per service — `api/.dockerignore`,
+`client/.dockerignore`) keep contexts small; each service builds from its
+own directory, not the repo root.
 
 ## Onboarding
 
@@ -72,7 +73,7 @@ the client image builds from root for the bun workspace).
    install just gdal` covers the last two on macOS).
 2. `api/.env` / `client/.env` created from examples if missing.
 3. `samples.zip` unzipped to `samples/` if needed.
-4. `bun install` (workspaces) + `uv sync` (api venv).
+4. `bun install` (in `client/`) + `uv sync` (api venv).
 5. `docker compose up -d` (db + api), then host-side
    `alembic upgrade head` in a retry loop (Postgres's init briefly
    restarts after first reporting healthy).
@@ -150,5 +151,5 @@ area via `ST_Buffer` + `ST_Intersection` + `ST_Area` over
   `docker logout ghcr.io`.
 - **Secrets hygiene** — `.env` files are gitignored; `.env.example` files
   hold placeholders only. If a real key lands in a commit, rotate it.
-- **`client/node_modules` stale copies** — always `bun install` from the
-  repo root, never inside a workspace package.
+- **`client/node_modules` stale copies** — always run `bun install` inside
+  `client/`, its own standalone bun project (no root workspace).

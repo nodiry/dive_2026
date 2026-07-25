@@ -1,4 +1,4 @@
-import type { HousingSearchQuery, HousingType } from '@dive2026/shared';
+import type { HousingSearchQuery, HousingType } from '@shared';
 
 export interface CriteriaFilters {
   depositMaxManwon: string;

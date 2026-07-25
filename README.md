@@ -36,7 +36,7 @@ That's it. `just onboard` (→ `scripts/onboard.sh`) does everything:
 2. Creates `api/.env` / `client/.env` from their `.env.example` files if
    missing (never overwrites an existing one).
 3. Unzips `samples.zip` → `samples/` if not already unzipped.
-4. Installs dependencies (`bun install` workspaces + `uv sync` for the api).
+4. Installs dependencies (`bun install` in `client/` + `uv sync` for the api).
 5. Builds and starts `db` + `api` + `client` in Docker.
 6. Runs alembic migrations and seeds the database from the host.
 7. **Geocodes housing addresses**, if a `KAKAO_REST_API_KEY` is present in

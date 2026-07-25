@@ -1,10 +1,10 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /**
  * BMC's four public-rental housing programs. Source CSVs use Korean labels
  * (매입임대/재개발임대/통합공공임대/행복주택) — see docs/DATA_MODEL.md for the mapping.
  */
-export const HousingType = z.enum(["purchased", "redevelopment", "integrated", "happy"]);
+export const HousingType = z.enum(['purchased', 'redevelopment', 'integrated', 'happy']);
 export type HousingType = z.infer<typeof HousingType>;
 
 /**
@@ -14,16 +14,16 @@ export type HousingType = z.infer<typeof HousingType>;
  * these 10. See docs/DATA_MODEL.md.
  */
 export const PoiCategory = z.enum([
-  "retail", // 소매
-  "real_estate", // 부동산
-  "food", // 음식
-  "facility_leasing", // 시설관리·임대
-  "healthcare", // 보건의료
-  "education", // 교육
-  "lodging", // 숙박
-  "arts_sports", // 예술·스포츠
-  "repair_personal", // 수리·개인
-  "science_tech", // 과학·기술
+  'retail', // 소매
+  'real_estate', // 부동산
+  'food', // 음식
+  'facility_leasing', // 시설관리·임대
+  'healthcare', // 보건의료
+  'education', // 교육
+  'lodging', // 숙박
+  'arts_sports', // 예술·스포츠
+  'repair_personal', // 수리·개인
+  'science_tech', // 과학·기술
 ]);
 export type PoiCategory = z.infer<typeof PoiCategory>;
 

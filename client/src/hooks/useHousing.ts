@@ -1,5 +1,5 @@
 import { housingAPI } from '@api/housing';
-import type { HousingSearchQuery } from '@dive2026/shared';
+import type { HousingSearchQuery } from '@shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 export function useHousingSearch(query: HousingSearchQuery, enabled: boolean) {

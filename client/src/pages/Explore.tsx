@@ -1,4 +1,4 @@
-import type { HousingSummary, LifestylePreference } from '@dive2026/shared';
+import type { HousingSummary, LifestylePreference } from '@shared';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';

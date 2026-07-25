@@ -1,5 +1,5 @@
 import { client } from '@api/client';
-import { HousingSearchQuery, HousingSummary, NeighborhoodProfile } from '@dive2026/shared';
+import { HousingSearchQuery, HousingSummary, NeighborhoodProfile } from '@shared';
 import { z } from 'zod';
 
 export const housingAPI = {

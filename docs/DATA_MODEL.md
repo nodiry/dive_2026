@@ -107,7 +107,7 @@ coordinates already — no geocoding needed for this file.**
   implied an 8-category scheme (D/F/L/N/O/P/Q/R) — **that's stale.** The real
   2026 data uses 10 categories: 소매, 부동산, 음식, 시설관리·임대, 보건의료, 교육,
   숙박, 예술·스포츠, 수리·개인, 과학·기술 (mapped to `PoiCategory` in
-  `packages/shared/src/schemas.ts`).
+  `client/src/shared/schemas.ts`).
   Verify category taxonomies against real data before hardcoding a schema.
 - **`category_name`** = `상권업종소분류명` (minor category, 247 distinct values)
   — deliberately the finest granularity, because "카페", "헬스장", and "편의점"

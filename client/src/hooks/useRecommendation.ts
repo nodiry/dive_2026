@@ -1,5 +1,5 @@
 import { recommendationAPI } from '@api/recommendation';
-import type { LifestyleRecommendationRequest } from '@dive2026/shared';
+import type { LifestyleRecommendationRequest } from '@shared';
 import { useMutation } from '@tanstack/react-query';
 
 export function useLifestyleRecommendation() {

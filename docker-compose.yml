@@ -37,8 +37,7 @@ services:
   client:
     profiles: ["full"]
     build:
-      context: .
-      dockerfile: client/Dockerfile
+      context: ./client
     pull_policy: build
     restart: unless-stopped
     depends_on:
@@ -52,7 +51,6 @@ services:
       - "5173:5173"
     volumes:
       - ./client/src:/repo/client/src
-      - ./packages/shared/src:/repo/packages/shared/src
 
 volumes:
   dive_pg_data:

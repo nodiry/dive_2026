@@ -1,17 +1,19 @@
 from datetime import date
+from typing import Literal
 
 from geoalchemy2 import Geometry
 from sqlalchemy import select as sa_select
 from sqlmodel import cast, col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.gis.models import CommercialZone
+from src.gis.models import AdminBoundary, CommercialZone, DistrictStoreTrend
 from src.housing.models import HousingPrice, HousingProject, HousingUnit
 from src.housing.schemas import (
     HousingSearchQuery,
     HousingSummary,
     NeighborhoodCategory,
     NeighborhoodProfile,
+    NeighborhoodTrendPoint,
     NeighborhoodZone,
 )
 from src.poi.models import CommercialPoi
@@ -155,6 +157,26 @@ async def get_housing_id(session: AsyncSession, housing_id: int) -> HousingSumma
     return summaries[0]
 
 
+def _trend_label(store_trend: list[NeighborhoodTrendPoint]) -> Literal["rising", "stable", "declining"] | None:
+    """
+    Newest year vs two years prior (a 3-year window), ±5% threshold. The
+    window deliberately skips older baselines: the 2021 상가-건물 cut is
+    visibly under-collected city-wide (~113k stores vs ~155k in 2022-24),
+    so comparing against it would label nearly every 동 "rising".
+    """
+    if len(store_trend) < 2:
+        return None
+    baseline = store_trend[-3] if len(store_trend) >= 3 else store_trend[0]
+    if baseline.count <= 0:
+        return None
+    change = (store_trend[-1].count - baseline.count) / baseline.count
+    if change >= 0.05:
+        return "rising"
+    if change <= -0.05:
+        return "declining"
+    return "stable"
+
+
 async def get_neighborhood_profile(session: AsyncSession, housing_id: int, radius_meters: float) -> NeighborhoodProfile | None:
     project = await session.get(HousingProject, housing_id)
     if project is None:
@@ -196,9 +218,42 @@ async def get_neighborhood_profile(session: AsyncSession, housing_id: int, radiu
     ]
     categories = [NeighborhoodCategory(category=category, count=count) for category, count in category_rows]
 
+    # 법정동-level extras: youth share from the interpolated POP_STORE age
+    # bands, and the yearly store-count trend for the containing 동.
+    boundary = (
+        await session.execute(  # ty:ignore[deprecated] -- Row tuple wanted, exec() would scalar-collapse
+            sa_select(
+                col(AdminBoundary.emd_code),
+                col(AdminBoundary.emd_name),
+                col(AdminBoundary.youth_share),
+            )
+            .where(func.ST_Intersects(col(AdminBoundary.geom), point))
+            .limit(1)
+        )
+    ).first()
+
+    emd_name: str | None = None
+    youth_share: float | None = None
+    store_trend: list[NeighborhoodTrendPoint] = []
+    if boundary is not None:
+        emd_code, emd_name, raw_share = boundary
+        youth_share = float(raw_share) if raw_share is not None else None
+        trend_rows = (
+            await session.exec(
+                select(col(DistrictStoreTrend.year), col(DistrictStoreTrend.store_count))
+                .where(col(DistrictStoreTrend.emd_code) == emd_code)
+                .order_by(col(DistrictStoreTrend.year))
+            )
+        ).all()
+        store_trend = [NeighborhoodTrendPoint(year=year, count=count) for year, count in trend_rows]
+
     return NeighborhoodProfile(
         radius_meters=radius_meters,
         poi_total=sum(c.count for c in categories),
         categories=categories,
         zones=zones,
+        emd_name=emd_name,
+        store_trend=store_trend,
+        trend_label=_trend_label(store_trend),
+        youth_share=youth_share,
     )

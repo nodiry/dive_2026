@@ -25,8 +25,10 @@ api/
     seed_housing.py          #   6 BMC CSVs (2026-06-30 handout, Korean paths) -> housing_project/housing_unit/housing_price
     seed_poi.py              #   155k-row POI CSV -> commercial_poi (maps Korean 대분류 -> English slug)
     seed_gis.py              #   ogr2ogr for admin_boundary/commercial_zone/building
-    seed_population.py       #   admin_boundary.population + industry_population_grid
+    seed_population.py       #   admin_boundary.population + youth_share + industry_population_grid
                              #     (manual CSV if present, else 선도소프트 POP_STORE grid, else soft skip)
+    seed_trend.py            #   district_store_trend: yearly store counts per 법정동
+                             #     (선도소프트 상가-건물 zips; soft skip when absent)
     geocode_housing.py       #   Kakao geocoding for housing_project rows with geom IS NULL
     lib/                     #   csv_utils (EUC-KR handling), gis (ogr2ogr wrapper), geocode, paths
   src/
@@ -93,7 +95,11 @@ docs/                        # this folder; STYLE_GUIDE.md governs all UI work
   elevator and parking information.
 - `GET /api/housing/:id` — single housing project summary.
 - `GET /api/housing/:id/neighborhood?radiusMeters=500` — POI counts and
-  zoning shares in a 100–2000m clamped radius.
+  zoning shares in a 100–2000m clamped radius, plus 법정동-level signals:
+  `emdName`, `storeTrend` (yearly store counts 2021–24), `trendLabel`
+  (`rising`/`stable`/`declining`), and `youthShare` (20s-30s population
+  ratio). The signal fields are null/empty until the 선도소프트 handout
+  data is seeded.
 - `POST /api/recommendations/lifestyle` — lifestyle-based ranking.
   Request body:
   ```json

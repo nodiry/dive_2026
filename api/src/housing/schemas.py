@@ -84,8 +84,19 @@ class NeighborhoodZone(ApiModel):
     share: float
 
 
+class NeighborhoodTrendPoint(ApiModel):
+    year: int
+    count: int
+
+
 class NeighborhoodProfile(ApiModel):
     radius_meters: float
     poi_total: int
     categories: list[NeighborhoodCategory]
     zones: list[NeighborhoodZone]
+    # 법정동-level extras from the 선도소프트 data; null/empty when the
+    # project isn't geocoded or the trend/population seeds haven't run
+    emd_name: str | None = None
+    store_trend: list[NeighborhoodTrendPoint] = []
+    trend_label: Literal["rising", "stable", "declining"] | None = None
+    youth_share: float | None = None

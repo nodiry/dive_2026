@@ -107,6 +107,9 @@ commercial_zone   3,308 rows (AL_D124 도시지역 current-state layer), every r
 building          379,711 rows, reference only
 industry_population_grid  filled from the 선도소프트 POP_STORE grid when present
                           (jsonb industry_mix + population_density; docs/DATA_MODEL.md Parts 4-5)
+district_store_trend      yearly store counts per 법정동 from 선도소프트 상가-건물
+                          data (2021-24) — commercial-trend badge on housing detail;
+                          admin_boundary also carries youth_share (20s-30s ratio)
 ```
 
 Tables are defined as SQLModel models (`api/src/*/models.py`) with

@@ -306,9 +306,14 @@ housing-project jump came from the BMC CSVs (Part 1), which ship in
 
 | Folder | Contents | Ingested? |
 |---|---|---|
-| `01. 상가-건물 융합데이터/` | STORE_BUD shapefiles, 21–24년 | no — the raw 상가정보 behind it is already loaded as `commercial_poi` (Part 2) |
-| `02. 인구-5대업종 가맹점 융합데이터/` | POP_STORE shapefiles, 22–24년 | **yes** — `seed_population.py` fills `admin_boundary.population` + `industry_population_grid` from the latest year (see Part 4) |
-| `03. 상권-주거 융합데이터/` | STORE_USE_AREA shapefiles, 23–24년 | no — zoning ratios already come from `commercial_zone` (Part 3) |
+| `01. 상가-건물 융합데이터/` | STORE_BUD shapefiles, 21–24년 | **yes** — `seed_trend.py` counts stores per 법정동 per year into `district_store_trend` (the commercial-trend badge). Full store rows are NOT loaded — `commercial_poi` (Part 2) already covers that |
+| `02. 인구-5대업종 가맹점 융합데이터/` | POP_STORE shapefiles, 22–24년 | **yes** — `seed_population.py` fills `admin_boundary.population` + `youth_share` (20s-30s share) + `industry_population_grid` from the latest year (see Part 4) |
+| `03. 상권-주거 융합데이터/` | STORE_USE_AREA shapefiles, 23–24년 | no — zoning ratios already come from `commercial_zone` (Part 3); its 버스정류장여부 flag is a future transit-signal candidate |
+
+**2021 STORE_BUD caveat:** the 21년 cut is visibly under-collected
+(~113k stores city-wide vs ~150-160k in 22-24년), so the trend label is
+computed over the newest year vs two years prior — comparing against 2021
+would mark nearly every 동 "rising".
 
 `컬럼정의서.xlsx` (the column dictionary for all three) is small and ships
 in `samples.zip`. The inner shapefile zips have **EUC-KR-mangled inner

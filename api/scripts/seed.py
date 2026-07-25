@@ -6,6 +6,7 @@ from scripts.seed_gis import ingest_gis
 from scripts.seed_housing import ingest_housing
 from scripts.seed_poi import ingest_poi
 from scripts.seed_population import auto_ingest as ingest_population
+from scripts.seed_trend import ingest_trend
 
 
 async def main() -> None:
@@ -13,8 +14,9 @@ async def main() -> None:
     await ingest_housing()
     await ingest_poi()
     await ingest_gis()
-    # after gis so admin_boundary exists; soft-skips when no source is present
+    # after gis so admin_boundary exists; both soft-skip without their source
     await ingest_population()
+    await ingest_trend()
     await close_pool()
 
 

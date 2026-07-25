@@ -192,16 +192,28 @@ export const NeighborhoodZone = z.object({
 });
 export type NeighborhoodZone = z.infer<typeof NeighborhoodZone>;
 
+/** One year's store count for the project's 법정동 (선도소프트 상가-건물 data). */
+export const NeighborhoodTrendPoint = z.object({
+  year: z.number(),
+  count: z.number(),
+});
+export type NeighborhoodTrendPoint = z.infer<typeof NeighborhoodTrendPoint>;
+
 /**
  * The neighborhood profile around one housing project — POI density by
  * category plus the zoning mix, both computed within radiusMeters via
- * PostGIS. See /api/housing/:id/neighborhood.
+ * PostGIS, plus 법정동-level signals (store-count trend 2021-2024 and the
+ * 20s-30s population share). See /api/housing/:id/neighborhood.
  */
 export const NeighborhoodProfile = z.object({
   radiusMeters: z.number(),
   poiTotal: z.number(),
   categories: z.array(NeighborhoodCategory),
   zones: z.array(NeighborhoodZone),
+  emdName: z.string().nullable().optional(),
+  storeTrend: z.array(NeighborhoodTrendPoint).optional().default([]),
+  trendLabel: z.enum(['rising', 'stable', 'declining']).nullable().optional(),
+  youthShare: z.number().nullable().optional(),
 });
 export type NeighborhoodProfile = z.infer<typeof NeighborhoodProfile>;
 

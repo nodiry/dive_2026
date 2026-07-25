@@ -250,6 +250,13 @@
     "poiSectionLabel": "주변 상권",
     "zoneSectionLabel": "용도지역 구성",
     "zonesEmpty": "이 반경 안의 용도지역 데이터가 없어요.",
+    "signalsLabel": "동네 시그널",
+    "trend": {
+      "rising": "상권 성장 중",
+      "stable": "상권 안정",
+      "declining": "상권 축소 중"
+    },
+    "youthShare": "2030 인구 비중",
     "neighborhoodError": "동네 프로필을 불러오지 못했어요.",
     "viewMap": "지도",
     "viewRoadview": "로드뷰"

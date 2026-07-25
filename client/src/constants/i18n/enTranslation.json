@@ -251,6 +251,13 @@
     "poiSectionLabel": "Nearby commercial",
     "zoneSectionLabel": "Zoning mix",
     "zonesEmpty": "No zoning data within this radius.",
+    "signalsLabel": "District signals",
+    "trend": {
+      "rising": "Commercial district growing",
+      "stable": "Commercial district stable",
+      "declining": "Commercial district shrinking"
+    },
+    "youthShare": "Residents in 20s-30s",
     "neighborhoodError": "Couldn't load the neighborhood profile.",
     "viewMap": "Map",
     "viewRoadview": "Roadview"

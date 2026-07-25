@@ -1,4 +1,4 @@
-import { Heart } from 'lucide-react';
+import { Heart, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -42,6 +42,13 @@ function NeighborhoodSection({ housingId, className }: { housingId: number; clas
 
   const topCategories = profile.categories.slice(0, 6);
   const maxCount = topCategories[0]?.count ?? 0;
+  // show the same window the server's trend label is computed from
+  // (newest year vs two years prior — the 2021 cut is under-collected)
+  const trendBase =
+    profile.storeTrend.length >= 3
+      ? profile.storeTrend[profile.storeTrend.length - 3]
+      : profile.storeTrend[0];
+  const trendLast = profile.storeTrend[profile.storeTrend.length - 1];
 
   return (
     <div
@@ -81,6 +88,46 @@ function NeighborhoodSection({ housingId, className }: { housingId: number; clas
           />
         )}
       </div>
+
+      {(profile.trendLabel != null || profile.youthShare != null) && (
+        <div className='border-t border-slate-light/20 pt-4'>
+          <span className='mb-2.5 block font-mono text-xs tracking-wide text-slate uppercase'>
+            {t('detail.signalsLabel')}
+            {profile.emdName ? ` · ${profile.emdName}` : ''}
+          </span>
+          <div className='flex flex-wrap items-center gap-2'>
+            {profile.trendLabel != null && (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1 text-xs font-semibold',
+                  profile.trendLabel === 'rising' && 'border-violet/40 bg-lilac-dim text-violet-dark',
+                  profile.trendLabel === 'declining' && 'border-gold/50 bg-gold/10 text-gold',
+                  profile.trendLabel === 'stable' && 'border-slate-light/40 bg-lilac text-slate',
+                )}
+              >
+                {profile.trendLabel === 'rising' && <TrendingUp size={14} />}
+                {profile.trendLabel === 'declining' && <TrendingDown size={14} />}
+                {profile.trendLabel === 'stable' && <Minus size={14} />}
+                {t(`detail.trend.${profile.trendLabel}`)}
+                {profile.storeTrend.length >= 2 && trendBase !== trendLast && (
+                  <span className='font-mono font-normal text-slate'>
+                    {trendBase.year} {trendBase.count.toLocaleString()} → {trendLast.year}{' '}
+                    {trendLast.count.toLocaleString()}
+                  </span>
+                )}
+              </span>
+            )}
+            {profile.youthShare != null && (
+              <span className='inline-flex items-center gap-1.5 rounded-full border-2 border-slate-light/40 bg-lilac px-3 py-1 text-xs font-semibold text-plum'>
+                {t('detail.youthShare')}
+                <span className='font-mono text-violet-dark'>
+                  {Math.round(profile.youthShare * 100)}%
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

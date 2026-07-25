@@ -25,16 +25,18 @@ Explicit CSV path: `uv run python -m scripts.seed_population <csv>`.
 import asyncio
 import csv
 import sys
-import tempfile
-import zipfile
 from pathlib import Path
 
 from scripts.db import close_pool, get_pool
-from scripts.lib.gis import ogr2ogr_to_staging
-from scripts.lib.paths import SAMPLES_DIR
+from scripts.lib.gis import stage_zipped_shapefile
+from scripts.lib.paths import SAMPLES_DIR, resolve_unicode_path
 
 MANUAL_CSV = SAMPLES_DIR / "population" / "busan_population.csv"
-POP_STORE_DIR = SAMPLES_DIR / "2026_DIVE_해커톤_제공데이터_선도소프트" / "02. 인구-5대업종 가맹점 융합데이터"
+POP_STORE_DIR = resolve_unicode_path(
+    SAMPLES_DIR,
+    "2026_DIVE_해커톤_제공데이터_선도소프트",
+    "02. 인구-5대업종 가맹점 융합데이터",
+)
 
 
 def read_rows(path: Path) -> list[tuple[str, int]]:
@@ -98,44 +100,39 @@ def latest_pop_store_zip() -> Path | None:
     return zips[-1] if zips else None
 
 
-def _stage_pop_store(zip_path: Path, tmp: str) -> None:
-    # Inner filenames are EUC-KR-mangled in some year zips — extract via
-    # zipfile (names come out as cp437 mojibake, which is fine) and find
-    # the .shp by extension rather than by name.
-    with zipfile.ZipFile(zip_path) as zf:
-        zf.extractall(tmp)
-    shp = next(Path(tmp).rglob("*.shp"), None)
-    if shp is None:
-        raise RuntimeError(f"no .shp found inside {zip_path}")
-    print(f"loading POP_STORE grid from {zip_path.parent.name}/{zip_path.name}...")
-    ogr2ogr_to_staging(shp, "staging_pop_store")
-
-
 async def ingest_from_pop_store(zip_path: Path) -> None:
     pool = await get_pool()
-    with tempfile.TemporaryDirectory() as tmp:
-        _stage_pop_store(zip_path, tmp)
+    print(f"loading POP_STORE grid from {zip_path.parent.name}/{zip_path.name}...")
+    stage_zipped_shapefile(zip_path, "staging_pop_store")
 
     # Areal interpolation: each grid cell's 총인구 (p_val) is split across
-    # the admin boundaries it overlaps, proportionally to overlap area.
+    # the admin boundaries it overlaps, proportionally to overlap area. The
+    # same pass derives youth_share (residents in their 20s-30s / total).
     result = await pool.execute(
         """
         WITH interpolated AS (
             SELECT ab.id,
-                   ROUND(SUM(
+                   SUM(
                        COALESCE(g.p_val, 0)
                        * ST_Area(ST_Intersection(g.geom, ab.geom::geometry))
                        / NULLIF(ST_Area(g.geom), 0)
-                   ))::int AS pop
+                   ) AS pop,
+                   SUM(
+                       (COALESCE(g.p_20_val, 0) + COALESCE(g.p_30_val, 0))
+                       * ST_Area(ST_Intersection(g.geom, ab.geom::geometry))
+                       / NULLIF(ST_Area(g.geom), 0)
+                   ) AS youth
             FROM staging_pop_store g
             JOIN admin_boundary ab ON ST_Intersects(g.geom, ab.geom::geometry)
             GROUP BY ab.id
         )
-        UPDATE admin_boundary ab SET population = i.pop
+        UPDATE admin_boundary ab
+        SET population = ROUND(i.pop)::int,
+            youth_share = CASE WHEN i.pop > 0 THEN ROUND((i.youth / i.pop)::numeric, 4) END
         FROM interpolated i WHERE ab.id = i.id
         """
     )
-    print(f"population interpolated onto admin_boundary: {result.split()[-1]} polygons updated")
+    print(f"population + youth share interpolated onto admin_boundary: {result.split()[-1]} polygons updated")
 
     await pool.execute("TRUNCATE industry_population_grid")
     await pool.execute(

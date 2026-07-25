@@ -32,11 +32,7 @@ def resolve_unicode_path(base: Path, *parts: str) -> Path:
 
         normalized_part = unicodedata.normalize("NFC", part)
         try:
-            current = next(
-                child
-                for child in current.iterdir()
-                if unicodedata.normalize("NFC", child.name) == normalized_part
-            )
+            current = next(child for child in current.iterdir() if unicodedata.normalize("NFC", child.name) == normalized_part)
         except (FileNotFoundError, StopIteration):
             return current.joinpath(*parts[index:])
     return current

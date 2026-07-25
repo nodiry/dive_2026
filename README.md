@@ -6,7 +6,6 @@ citizen's lifestyle/commercial-district preferences (or hard search
 conditions) against real Busan housing and commercial data.
 
 ## Docs map
-
 - **`docs/ARCHITECTURE.md`** — current product overview and end-to-end
   architecture: screens, services, data flow, recommendation scoring,
   deployment, and extension boundaries. Start here for the whole system.

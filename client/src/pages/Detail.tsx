@@ -5,7 +5,7 @@ import { useParams } from 'react-router-dom';
 import { KakaoMap } from '@components/KakaoMap';
 import { TagStrip } from '@components/TagStrip';
 import { useHousingDetail, useNeighborhood } from '@hooks/useHousing';
-import { useSavedHousingStore } from '@stores/useSavedHousingStore';
+import { useSavedHousing } from '@hooks/useSaved';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
 
@@ -139,8 +139,7 @@ export function Detail() {
   const { id } = useParams();
   const housingId = Number(id);
   const { data: housing, isLoading, isError } = useHousingDetail(housingId);
-  const isSaved = useSavedHousingStore((s) => s.isSaved);
-  const toggleSaved = useSavedHousingStore((s) => s.toggleSaved);
+  const { isSaved, toggleSaved } = useSavedHousing();
 
   if (isLoading)
     return <div className='mx-auto max-w-5xl px-6 py-12 text-slate'>{t('detail.loading')}</div>;

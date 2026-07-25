@@ -2,6 +2,7 @@ import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router-dom';
 import { LanguageMenu } from '@layout/LanguageMenu';
+import { UserMenu } from '@layout/UserMenu';
 
 /**
  * The centered-column shell for non-map pages (Detail, About). The main
@@ -35,6 +36,7 @@ export function PageShell() {
               <Info className='h-4 w-4' />
               {t('nav.aboutLabel')}
             </Link>
+            <UserMenu />
             <LanguageMenu />
           </nav>
         </div>

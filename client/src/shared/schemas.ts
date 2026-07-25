@@ -256,12 +256,32 @@ export type ChatMessage = z.infer<typeof ChatMessage>;
 
 export const AiSearchRequest = z.object({
   message: z.string().min(1).max(1000),
-  history: z.array(ChatMessage).max(40).default([]),
+  conversationId: z.string().uuid().optional(),
 });
 export type AiSearchRequest = z.infer<typeof AiSearchRequest>;
 
 export const AiSearchResponse = z.object({
   reply: z.string(),
   housing: z.array(HousingSummary),
+  conversationId: z.string().uuid(),
 });
 export type AiSearchResponse = z.infer<typeof AiSearchResponse>;
+
+export const AiConversationSummary = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  createdAt: z.string(),
+});
+export type AiConversationSummary = z.infer<typeof AiConversationSummary>;
+
+export const AiConversationMessage = ChatMessage.extend({
+  housing: z.array(HousingSummary).default([]),
+});
+export type AiConversationMessage = z.infer<typeof AiConversationMessage>;
+
+export const AiConversationDetail = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  messages: z.array(AiConversationMessage),
+});
+export type AiConversationDetail = z.infer<typeof AiConversationDetail>;

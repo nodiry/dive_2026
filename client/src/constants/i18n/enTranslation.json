@@ -266,7 +266,16 @@
     "empty": "Describe your conditions or the vibe you want. e.g. \"Under 30M deposit near cafes and a gym in Suyeong-gu\"",
     "inputPlaceholder": "Type a message...",
     "thinking": "Thinking...",
-    "error": "Sorry, I couldn't process that. Please try again."
+    "error": "Sorry, I couldn't process that. Please try again.",
+    "expandMap": "Expand map",
+    "closeMap": "Close map",
+    "suggestion1": "Find homes in Suyeong-gu under a 30M KRW deposit",
+    "suggestion2": "Recommend a neighborhood near cafes and gyms",
+    "suggestion3": "Any rentals with 2+ rooms and parking?",
+    "newChat": "New chat",
+    "historyTitle": "History",
+    "deleteChat": "Delete chat",
+    "historyEmpty": "No conversations yet."
   },
   "housingCard": {
     "deposit": "Deposit",

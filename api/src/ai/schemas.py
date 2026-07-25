@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import Field
 
@@ -13,11 +15,28 @@ class ChatMessage(ApiModel):
 
 class AiSearchRequest(ApiModel):
     message: str = Field(min_length=1, max_length=1000)
-    # The caller (frontend) owns conversation state and replays it each
-    # turn — the API itself stays stateless, same as everything else here.
-    history: list[ChatMessage] = Field(default_factory=list, max_length=40)
+    # None starts a new conversation; the server owns history now (the
+    # response returns the id to continue with).
+    conversation_id: UUID | None = None
 
 
 class AiSearchResponse(ApiModel):
     reply: str
     housing: list[HousingSummary]
+    conversation_id: UUID
+
+
+class ConversationSummary(ApiModel):
+    id: UUID
+    title: str
+    created_at: datetime
+
+
+class ConversationMessage(ChatMessage):
+    housing: list[HousingSummary] = []
+
+
+class ConversationDetail(ApiModel):
+    id: UUID
+    title: str
+    messages: list[ConversationMessage]

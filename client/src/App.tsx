@@ -4,6 +4,7 @@ import { ToastList } from '@components/ToastList';
 import { ROUTES } from '@constants/path';
 import { useAuthBootstrap } from '@hooks/useAuth';
 import { PageShell } from '@layout/PageShell';
+import { RequireAuth } from '@layout/RequireAuth';
 import { About } from '@pages/About';
 import { AiSearch } from '@pages/AiSearch';
 import { Detail } from '@pages/Detail';
@@ -50,7 +51,11 @@ export default function App() {
           />
           <Route
             path={ROUTES.AiSearch}
-            element={<AiSearch />}
+            element={
+              <RequireAuth>
+                <AiSearch />
+              </RequireAuth>
+            }
           />
         </Route>
       </Routes>

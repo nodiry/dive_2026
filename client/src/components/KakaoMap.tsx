@@ -147,6 +147,8 @@ interface KakaoMapProps {
    * housing project still shows the honest "no coordinates" placeholder.
    */
   background?: boolean;
+  /** Background maps skip their first fit-to-markers (Explore opens on Suyeong); set this for bounded background maps that SHOULD fit their results immediately (e.g. the AI chat's map widget). */
+  fitOnLoad?: boolean;
   /** Locator mode: no dragging, no zooming — just centered on its marker. */
   staticView?: boolean;
   className?: string;
@@ -243,6 +245,7 @@ export function KakaoMap({
   activeClusterIds = null,
   fitKey,
   background = false,
+  fitOnLoad = false,
   staticView = false,
   className = '',
 }: KakaoMapProps) {
@@ -746,7 +749,7 @@ export function KakaoMap({
     if (valid.length === 0) return;
     // The background map opens on Suyeong-gu — don't override that with a
     // fit-all on the first data arrival; only refit on later set changes.
-    if (background && !skippedInitialFitRef.current) {
+    if (background && !fitOnLoad && !skippedInitialFitRef.current) {
       skippedInitialFitRef.current = true;
       return;
     }

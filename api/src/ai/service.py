@@ -1,11 +1,19 @@
+from uuid import UUID
+
 from google import genai
 from google.genai import types
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.ai import tools as ai_tools
+from src.ai.models import AIConversation, AIMessage, AIMessageRole
 from src.ai.schemas import ChatMessage
 from src.config import app_config
+from src.housing.models import HousingProject
 from src.housing.schemas import HousingSummary
+from src.housing.service import to_summaries
+
+TITLE_MAX_LENGTH = 60
 
 # Flash-Lite, not the full Flash tier: this task (tool-calling over a fixed
 # schema, then summarizing rows) doesn't need Flash's extra reasoning depth,
@@ -109,3 +117,93 @@ async def generate_reply(
             )
 
     return "I couldn't finish that request — try narrowing your question.", list(all_housing.values())
+
+
+class ConversationNotFound(Exception):
+    pass
+
+
+async def list_conversations(session: AsyncSession, user_id: int) -> list[AIConversation]:
+    result = await session.exec(
+        select(AIConversation)
+        .where(AIConversation.user_id == user_id)
+        .order_by(col(AIConversation.created_at).desc())
+    )
+    return list(result.all())
+
+
+async def _get_owned_conversation(
+    session: AsyncSession, user_id: int, conversation_id: UUID
+) -> AIConversation:
+    conversation = await session.get(AIConversation, conversation_id)
+    if conversation is None or conversation.user_id != user_id:
+        raise ConversationNotFound
+    return conversation
+
+
+async def get_messages(session: AsyncSession, conversation_id: UUID) -> list[AIMessage]:
+    result = await session.exec(
+        select(AIMessage)
+        .where(AIMessage.chat_id == conversation_id)
+        .order_by(col(AIMessage.sent_date).asc())
+    )
+    return list(result.all())
+
+
+async def get_conversation(
+    session: AsyncSession, user_id: int, conversation_id: UUID
+) -> tuple[AIConversation, list[AIMessage]]:
+    conversation = await _get_owned_conversation(session, user_id, conversation_id)
+    return conversation, await get_messages(session, conversation_id)
+
+
+async def delete_conversation(session: AsyncSession, user_id: int, conversation_id: UUID) -> None:
+    conversation = await _get_owned_conversation(session, user_id, conversation_id)
+    await session.delete(conversation)
+    await session.commit()
+
+
+def _to_chat_history(messages: list[AIMessage]) -> list[ChatMessage]:
+    return [
+        ChatMessage(role="assistant" if m.role == AIMessageRole.MODEL else "user", text=m.content)
+        for m in messages
+    ]
+
+
+async def chat(
+    session: AsyncSession, user_id: int, conversation_id: UUID | None, user_message: str
+) -> tuple[AIConversation, str, list[HousingSummary]]:
+    """One turn against a persisted conversation: loads (or creates) it,
+    replays its stored history to the model, and stores both new messages."""
+    if conversation_id is not None:
+        conversation = await _get_owned_conversation(session, user_id, conversation_id)
+        history = _to_chat_history(await get_messages(session, conversation.id))
+    else:
+        conversation = AIConversation(user_id=user_id, title=user_message[:TITLE_MAX_LENGTH])
+        session.add(conversation)
+        await session.commit()
+        await session.refresh(conversation)
+        history = []
+
+    reply, housing = await generate_reply(session, history, user_message)
+
+    session.add(AIMessage(chat_id=conversation.id, role=AIMessageRole.USER, content=user_message))
+    session.add(
+        AIMessage(
+            chat_id=conversation.id,
+            role=AIMessageRole.MODEL,
+            content=reply,
+            housing_ids=[h.id for h in housing] or None,
+        )
+    )
+    await session.commit()
+
+    return conversation, reply, housing
+
+
+async def housing_by_ids(session: AsyncSession, ids: set[int]) -> dict[int, HousingSummary]:
+    if not ids:
+        return {}
+    result = await session.exec(select(HousingProject).where(col(HousingProject.id).in_(ids)))
+    summaries = await to_summaries(session, list(result.all()))
+    return {s.id: s for s in summaries}

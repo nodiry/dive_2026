@@ -266,7 +266,16 @@
     "empty": "조건이나 원하는 동네 분위기를 자유롭게 설명해보세요. 예: \"수영구에서 카페랑 헬스장 가까운 보증금 3천만원 이하 집\"",
     "inputPlaceholder": "메시지를 입력하세요...",
     "thinking": "생각 중...",
-    "error": "죄송해요, 요청을 처리하지 못했어요. 다시 시도해주세요."
+    "error": "죄송해요, 요청을 처리하지 못했어요. 다시 시도해주세요.",
+    "expandMap": "지도 크게 보기",
+    "closeMap": "지도 닫기",
+    "suggestion1": "수영구에서 보증금 3천만원 이하 집 찾아줘",
+    "suggestion2": "카페랑 헬스장 가까운 동네 추천해줘",
+    "suggestion3": "방 2개 이상, 주차 가능한 임대주택 있어?",
+    "newChat": "새 대화",
+    "historyTitle": "대화 기록",
+    "deleteChat": "대화 삭제",
+    "historyEmpty": "아직 대화 기록이 없어요."
   },
   "housingCard": {
     "deposit": "보증금",

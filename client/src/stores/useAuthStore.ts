@@ -16,6 +16,7 @@ type AuthStore = {
 // on the same browser would flash the first account's cached data.
 function clearUserScopedCache() {
   queryClient.removeQueries({ queryKey: ['saved'] });
+  queryClient.removeQueries({ queryKey: ['ai-conversations'] });
 }
 
 /**

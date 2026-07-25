@@ -169,6 +169,7 @@
     "openFilters": "Open filters",
     "closeFilters": "Close filters",
     "searchPillPlaceholder": "What kind of neighborhood are you looking for?",
+    "searchSubmit": "Search",
     "clusterFilter": "Selected area",
     "showAll": "Show all",
     "showMoreCategories": "{{count}} more",
@@ -258,6 +259,14 @@
     "redevelopment": "Redevelopment Rental Housing",
     "integrated": "Integrated Public Rental Housing",
     "happy": "Happy House"
+  },
+  "aiSearch": {
+    "title": "AI Search",
+    "subtitle": "Ask anything about Busan public rental housing.",
+    "empty": "Describe your conditions or the vibe you want. e.g. \"Under 30M deposit near cafes and a gym in Suyeong-gu\"",
+    "inputPlaceholder": "Type a message...",
+    "thinking": "Thinking...",
+    "error": "Sorry, I couldn't process that. Please try again."
   },
   "housingCard": {
     "deposit": "Deposit",

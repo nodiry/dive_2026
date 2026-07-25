@@ -6,6 +6,7 @@ export const ROUTES = {
   Policy: '/policy',
   Login: '/login',
   Signup: '/signup',
+  AiSearch: '/search',
 };
 
 export function housingDetailPath(id: number): string {

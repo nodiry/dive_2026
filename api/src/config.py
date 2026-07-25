@@ -20,6 +20,7 @@ class AppSettings(SettingsBase):
     ENVIRONMENT: Environment = Environment.PRODUCTION
     PORT: int = 3000
     KAKAO_REST_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
     FRONTEND_ORIGINS: str = ""
     FRONTEND_URL: str = ""
     APP_VERSION: str = "0.1.0"

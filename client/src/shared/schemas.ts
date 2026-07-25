@@ -128,3 +128,29 @@ export const NeighborhoodProfile = z.object({
   zones: z.array(NeighborhoodZone),
 });
 export type NeighborhoodProfile = z.infer<typeof NeighborhoodProfile>;
+
+export const User = z.object({
+  id: z.number(),
+  username: z.string(),
+  email: z.string(),
+});
+export type User = z.infer<typeof User>;
+
+export const AuthResponse = z.object({
+  token: z.string(),
+  user: User,
+});
+export type AuthResponse = z.infer<typeof AuthResponse>;
+
+export const SignupRequest = z.object({
+  username: z.string().min(3).max(32),
+  email: z.string().min(3).max(254),
+  password: z.string().min(8).max(200),
+});
+export type SignupRequest = z.infer<typeof SignupRequest>;
+
+export const LoginRequest = z.object({
+  identifier: z.string().min(1),
+  password: z.string().min(1),
+});
+export type LoginRequest = z.infer<typeof LoginRequest>;

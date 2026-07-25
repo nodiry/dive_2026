@@ -4,13 +4,15 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HOUSING_QUERY_LIMIT } from '@/components/explore/explore-state';
 import { ScreenHeader } from '@/components/nav/screen-header';
 import { MeterBar, StatTile } from '@/components/ui/data';
 import { Card, EmptyState, Section } from '@/components/ui/surfaces';
 import { Txt } from '@/components/ui/txt';
-import { Colors, FontSize, MONO, Radius, Spacing, Tint } from '@/constants/theme';
+import { Colors, FontFamily, FontSize, MONO, Radius, Spacing, Tint } from '@/constants/theme';
+import { useDistrictSupply } from '@/hooks/useDistrictDensity';
 import { useHousingSearch } from '@/hooks/useHousing';
-import type { HousingSummary, HousingType } from '@/shared/schemas';
+import type { DistrictSupply, HousingSummary, HousingType } from '@/shared/schemas';
 
 function percent(part: number, total: number) {
   return total > 0 ? Math.round((part / total) * 100) : 0;
@@ -24,7 +26,8 @@ function builtYear(housing: HousingSummary) {
 export default function PolicyScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const housing = useHousingSearch({});
+  const housing = useHousingSearch({ limit: HOUSING_QUERY_LIMIT });
+  const supply = useDistrictSupply();
 
   const metrics = useMemo(() => {
     const rows = housing.data ?? [];
@@ -98,6 +101,10 @@ export default function PolicyScreen() {
           <StatTile label={t('policy.parkingGap')} value={String(metrics.parkingGap)} />
         </View>
 
+        {supply.data && supply.data.length > 0 ? (
+          <SupplyGap districts={supply.data} />
+        ) : null}
+
         <Card style={styles.card}>
           <Section label={t('policy.stockByType')}>
             <View style={styles.bars}>
@@ -153,6 +160,74 @@ export default function PolicyScreen() {
   );
 }
 
+function SupplyGap({ districts }: { districts: DistrictSupply[] }) {
+  const { t } = useTranslation();
+  const worst = districts.slice(0, 6);
+  const worstGap = worst[0]?.underservedResidents ?? 1;
+  const zeroSupply = districts.filter(
+    (district) => district.units === 0 && district.population >= 10000,
+  );
+
+  return (
+    <>
+      <Card style={styles.card}>
+        <Section label={t('policy.gapTitle')}>
+          <Txt variant="caption" style={styles.cardIntro}>
+            {t('policy.gapDescription')}
+          </Txt>
+          <View style={styles.bars}>
+            {worst.map((district) => (
+              <View key={district.emdCode} style={styles.gapRow}>
+                <View style={styles.gapHead}>
+                  <Txt variant="label" style={{ color: Colors.plum }}>
+                    {district.emdName}
+                  </Txt>
+                  <Txt variant="mono" style={styles.gapValue}>
+                    {district.underservedResidents.toLocaleString()}
+                  </Txt>
+                </View>
+                <View style={styles.gapTrack}>
+                  <View
+                    style={[
+                      styles.gapFill,
+                      { width: `${Math.round((district.underservedResidents / worstGap) * 100)}%` },
+                    ]}
+                  />
+                </View>
+                <Txt variant="caption">
+                  {t('policy.gapRow', {
+                    population: district.population.toLocaleString(),
+                    units: district.units.toLocaleString(),
+                  })}
+                </Txt>
+              </View>
+            ))}
+          </View>
+        </Section>
+      </Card>
+
+      <Card style={[styles.card, styles.zeroCard]}>
+        <Section label={t('policy.zeroSupplyTitle')}>
+          <Txt style={styles.zeroCount}>{zeroSupply.length}</Txt>
+          <Txt variant="caption" style={styles.cardIntro}>
+            {t('policy.zeroSupplyDescription')}
+          </Txt>
+          <View style={styles.zeroWrap}>
+            {zeroSupply.slice(0, 6).map((district) => (
+              <View key={district.emdCode} style={styles.zeroChip}>
+                <Txt style={styles.zeroChipText}>{district.emdName}</Txt>
+                <Txt style={styles.zeroChipCount}>
+                  {`${Math.round(district.population / 1000)}k`}
+                </Txt>
+              </View>
+            ))}
+          </View>
+        </Section>
+      </Card>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.lilac },
   padded: { padding: Spacing.lg },
@@ -184,4 +259,25 @@ const styles = StyleSheet.create({
   },
   actionIndex: { fontFamily: MONO, fontSize: FontSize.xs, color: Colors.violet },
   actionText: { fontSize: FontSize.sm },
+  gapRow: { gap: 4 },
+  gapHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  gapValue: { fontSize: FontSize.xs, color: Colors.violetDark },
+  gapTrack: { height: 6, borderRadius: Radius.full, backgroundColor: Colors.lilacDim },
+  gapFill: { height: 6, borderRadius: Radius.full, backgroundColor: Colors.violet },
+  zeroCard: { borderColor: Tint.borderViolet, backgroundColor: Tint.violet },
+  zeroCount: { fontFamily: MONO, fontSize: 28, color: Colors.violetDark },
+  zeroWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.sm },
+  zeroChip: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Tint.borderViolet,
+    backgroundColor: Colors.white,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  zeroChipText: { fontFamily: FontFamily.semibold, fontSize: FontSize.xs, color: Colors.violetDark },
+  zeroChipCount: { fontFamily: MONO, fontSize: 10, color: Colors.slate },
 });

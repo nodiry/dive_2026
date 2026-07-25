@@ -31,6 +31,23 @@
     @apply outline-2 outline-offset-2 outline-violet;
   }
 
+  /* Tailwind v4's preflight sets buttons to `cursor: default`, so every
+     control in the app looked unclickable. Restore the pointer once, here,
+     rather than per component — and leave disabled controls alone so they
+     still read as inert. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  label[for],
+  summary,
+  select:not(:disabled) {
+    @apply cursor-pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'] {
+    @apply cursor-default;
+  }
+
   /* Fast/double clicks on interactive elements shouldn't start a text
      selection — map pins get the same via select-none in KakaoMap.tsx. */
   button,

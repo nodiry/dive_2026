@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChatGame } from '@/components/game/chat-game';
 import { FullscreenMap, MapResultCard } from '@/components/housing/map-result-card';
 import { ScreenHeader } from '@/components/nav/screen-header';
 import { Button, Input } from '@/components/ui/controls';
@@ -22,6 +24,7 @@ import { Txt } from '@/components/ui/txt';
 import { Colors, FontFamily, FontSize, Radius, Spacing, Tint } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
 import { useChat, type TranscriptMessage } from '@/contexts/chat';
+import * as ImagePicker from 'expo-image-picker';
 import type { HousingSummary } from '@/shared/schemas';
 
 export default function AiScreen() {
@@ -32,6 +35,7 @@ export default function AiScreen() {
   const { messages, busy, send, newChat } = useChat();
   const listRef = useRef<FlatList<TranscriptMessage>>(null);
   const [input, setInput] = useState('');
+  const [image, setImage] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<HousingSummary[] | null>(null);
 
   const lastMapIndex = messages.reduce(
@@ -41,8 +45,20 @@ export default function AiScreen() {
 
   const submit = (text: string) => {
     if (!text.trim() || busy) return;
-    send(text);
+    send(text, image ?? undefined);
     setInput('');
+    setImage(null);
+  };
+
+  const attachImage = async () => {
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.6,
+      base64: true,
+    });
+    const asset = picked.canceled ? null : picked.assets[0];
+    if (!asset?.base64) return;
+    setImage(`data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`);
   };
 
   if (!isLoggedIn) {
@@ -85,6 +101,14 @@ export default function AiScreen() {
           <Txt variant="body" color="slate" style={styles.subtitle}>
             {t('ai.subtitle')}
           </Txt>
+          <PressableScale onPress={() => submit('/game')} style={styles.gameButton}>
+            <Ionicons name="sparkles" size={16} color={Colors.white} />
+            <Txt style={styles.gameButtonText}>{t('game.startButton')}</Txt>
+          </PressableScale>
+          <Txt variant="caption" style={styles.gameHint}>
+            {t('game.startHint')}
+          </Txt>
+
           <View style={styles.suggestions}>
             {suggestions.map((suggestion) => (
               <PressableScale
@@ -126,7 +150,26 @@ export default function AiScreen() {
         />
       )}
 
+      {image ? (
+        <View style={styles.pending}>
+          <Image source={{ uri: image }} style={styles.pendingThumb} contentFit="cover" />
+          <Txt variant="caption" style={styles.pendingText}>
+            {t('ai.imageAttached')}
+          </Txt>
+          <PressableScale onPress={() => setImage(null)} hitSlop={10}>
+            <Ionicons name="close" size={18} color={Colors.slate} />
+          </PressableScale>
+        </View>
+      ) : null}
+
       <View style={[styles.composer, { paddingBottom: insets.bottom + Spacing.md }]}>
+        <PressableScale
+          onPress={attachImage}
+          accessibilityLabel={t('ai.attachImage')}
+          style={styles.attach}
+        >
+          <Ionicons name="image-outline" size={19} color={Colors.slate} />
+        </PressableScale>
         <Input
           value={input}
           onChangeText={setInput}
@@ -175,9 +218,18 @@ function Bubble({
         ]}
       >
         {isUser ? (
-          <Txt variant="body" style={{ color: Colors.lilac }}>
-            {message.text}
-          </Txt>
+          <>
+            {message.image ? (
+              <Image
+                source={{ uri: message.image }}
+                style={styles.attachedImage}
+                contentFit="cover"
+              />
+            ) : null}
+            <Txt variant="body" style={{ color: Colors.lilac }}>
+              {message.text}
+            </Txt>
+          </>
         ) : (
           <Markdown text={message.text} />
         )}
@@ -198,6 +250,8 @@ function Bubble({
             )}
           </View>
         ) : null}
+
+        {message.gameId ? <ChatGame gameId={message.gameId} /> : null}
       </View>
     </View>
   );
@@ -268,6 +322,45 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.lilac,
   },
   input: { flex: 1, fontFamily: FontFamily.regular, maxHeight: 120 },
+  attach: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Tint.borderInput,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachedImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: Radius.card,
+    marginBottom: Spacing.sm,
+  },
+  pending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  pendingThumb: { width: 40, height: 40, borderRadius: Radius.card },
+  pendingText: { flex: 1 },
+  gameButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    alignSelf: 'flex-start',
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 11,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.violet,
+  },
+  gameButtonText: { fontFamily: FontFamily.semibold, fontSize: FontSize.sm, color: Colors.white },
+  gameHint: { marginTop: Spacing.sm },
   send: {
     width: 44,
     height: 44,

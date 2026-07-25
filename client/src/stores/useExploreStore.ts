@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ExploreMode, PanelView } from '@type/explore';
+import type { ExploreMode, MapLayer, PanelView } from '@type/explore';
 import { EMPTY_CRITERIA_FILTERS, type CriteriaFilters } from '@utils/filters';
 import { PERSONAS, type PersonaKey } from '@constants/personas';
 import type { CategoryWeights } from '@constants/poi';
@@ -14,15 +14,18 @@ interface ExploreStore {
   selectedHousingId: number | null;
   hoveredHousingId: number | null;
   panelOpen: boolean;
-  densityMode: boolean;
+  /** Which fusion layer paints under the pins: population, amenity density, or none. */
+  mapLayer: MapLayer;
   setPanelOpen: (open: boolean) => void;
-  toggleDensityMode: () => void;
+  setMapLayer: (layer: MapLayer) => void;
   setMode: (mode: ExploreMode) => void;
   setPanelView: (view: PanelView) => void;
   setFilters: (filters: CriteriaFilters) => void;
   resetFilters: () => void;
   toggleCategory: (categoryName: string) => void;
   setCategoryWeight: (categoryName: string, weight: number) => void;
+  /** Hand a whole derived profile over from Life Match in one update. */
+  applyWeights: (weights: CategoryWeights, radiusMeters?: number) => void;
   selectPersona: (key: PersonaKey) => void;
   setRadiusMeters: (meters: number) => void;
   toggleSelectedHousing: (id: number) => void;
@@ -40,10 +43,11 @@ export const useExploreStore = create<ExploreStore>((set) => ({
   selectedHousingId: null,
   hoveredHousingId: null,
   panelOpen: true,
-  densityMode: false,
+  mapLayer: 'none',
 
   setPanelOpen: (panelOpen) => set({ panelOpen }),
-  toggleDensityMode: () => set((state) => ({ densityMode: !state.densityMode })),
+  setMapLayer: (mapLayer) =>
+    set((state) => ({ mapLayer: state.mapLayer === mapLayer ? 'none' : mapLayer })),
   setMode: (mode) =>
     set({
       mode,
@@ -80,6 +84,16 @@ export const useExploreStore = create<ExploreStore>((set) => ({
     }),
 
   setRadiusMeters: (radiusMeters) => set({ radiusMeters, activePersona: null }),
+
+  applyWeights: (weights, radiusMeters) =>
+    set((state) => ({
+      weights,
+      activePersona: null,
+      mode: 'preference',
+      panelOpen: true,
+      panelView: 'results',
+      radiusMeters: radiusMeters ?? state.radiusMeters,
+    })),
 
   toggleSelectedHousing: (id) =>
     set((state) => ({ selectedHousingId: state.selectedHousingId === id ? null : id })),

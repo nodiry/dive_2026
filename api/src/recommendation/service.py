@@ -85,6 +85,14 @@ def _haversine_meters(lat1: float, lng1: float, lat2: float, lng2: float) -> flo
     return earth_radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+# Measured over the seeded stock at a 500m radius: p25=1, p50=16, p75=44,
+# max=192 bus-stop-flagged cells. Saturating at the 75th percentile keeps the
+# score discriminating across the middle of the range instead of pinning
+# almost every project at 100.
+TRANSIT_FULL_CELLS = 44
+TRANSIT_WEIGHT = 0.35
+
+
 def _destination_score(distance_meters: float | None) -> float:
     if distance_meters is None:
         return 50
@@ -94,6 +102,28 @@ def _destination_score(distance_meters: float | None) -> float:
 def _group_score(category_scores: dict[str, float], categories: set[str], fallback: float = 0) -> float:
     values = [category_scores[name] for name in categories if name in category_scores]
     return sum(values) / len(values) if values else fallback
+
+
+async def _load_bus_stop_cells(
+    session: AsyncSession,
+    project_ids: list[int],
+    radius_meters: float,
+) -> dict[int, int]:
+    """Bus-stop-flagged cells within the radius, per project."""
+    rows = await session.execute(  # ty:ignore[deprecated]
+        text(
+            """
+            SELECT p.id AS project_id, count(u.id) AS cells
+            FROM housing_project p
+            JOIN use_area_cell u
+              ON u.bus_stop AND ST_DWithin(p.geom, u.geom, :radius)
+            WHERE p.id = ANY(CAST(:project_ids AS INTEGER[])) AND p.geom IS NOT NULL
+            GROUP BY p.id
+            """
+        ),
+        {"project_ids": project_ids, "radius": radius_meters},
+    )
+    return {row.project_id: int(row.cells) for row in rows}
 
 
 async def _load_neighborhood_evidence(
@@ -276,6 +306,7 @@ async def recommend_lifestyle(
 
     summaries = await to_summaries(session, candidates)
     neighborhood_by_project = await _load_neighborhood_evidence(session, ids, req.radius_meters)
+    bus_stops_by_project = await _load_bus_stop_cells(session, ids, req.radius_meters)
 
     results: list[LifestyleRecommendationResult] = []
     for housing in summaries:
@@ -330,10 +361,20 @@ async def recommend_lifestyle(
             )
         destination_score = _destination_score(destination_distance)
         work_amenity_score = cafe_score * 0.4 + convenience_score * 0.3 + pharmacy_score * 0.2 + gas_score * 0.1
+        # Bus access is the only transit signal in the provided data (BSST_YN
+        # per cell). Saturating at TRANSIT_FULL_CELLS keeps a downtown grid
+        # from dwarfing a perfectly walkable suburb.
+        bus_stop_cells = bus_stops_by_project.get(housing.id, 0)
+        transit_score = min(1.0, bus_stop_cells / TRANSIT_FULL_CELLS) * 100
+        commute_score = (
+            destination_score * (1 - TRANSIT_WEIGHT) + transit_score * TRANSIT_WEIGHT
+            if destination_distance is not None
+            else transit_score
+        )
         destination_weight = 0.45 + min(req.destination_frequency or 0, 7) / 7 * 0.4
         work_score = (
-            destination_score * destination_weight + work_amenity_score * (1 - destination_weight)
-            if destination_distance is not None
+            commute_score * destination_weight + work_amenity_score * (1 - destination_weight)
+            if destination_distance is not None or bus_stop_cells > 0
             else work_amenity_score
         )
 
@@ -346,6 +387,7 @@ async def recommend_lifestyle(
                 source="unavailable",
             ),
         )
+        neighborhood = neighborhood.model_copy(update={"bus_stop_cells": bus_stop_cells})
         rest_score = _rest_score(neighborhood)
 
         axis_weights = (req.life_stats.fun, req.life_stats.work, req.life_stats.rest) if req.life_stats else (34.0, 33.0, 33.0)
@@ -358,8 +400,8 @@ async def recommend_lifestyle(
                 (
                     "commute",
                     req.routine.commute,
-                    destination_score if destination_distance is not None else work_score,
-                    "destination" if destination_distance is not None else "proxy",
+                    commute_score if destination_distance is not None or bus_stop_cells > 0 else work_score,
+                    "destination" if destination_distance is not None else "nearbyPoi" if bus_stop_cells > 0 else "proxy",
                 ),
                 ("focus", req.routine.focus, cafe_score * 0.7 + convenience_score * 0.3, "nearbyPoi"),
                 ("cafe", req.routine.cafe, cafe_score, "nearbyPoi"),

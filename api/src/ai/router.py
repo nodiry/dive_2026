@@ -21,12 +21,14 @@ router = APIRouter()
 async def post_ai_search(body: AiSearchRequest, session: SessionDep, user: CurrentUser) -> AiSearchResponse:
     assert user.id is not None
     try:
-        conversation, reply, housing = await ai_service.chat(session, user.id, body.conversation_id, body.message)
+        conversation, reply, housing, game_id = await ai_service.chat(
+            session, user.id, body.conversation_id, body.message, body.image
+        )
     except ai_service.ConversationNotFound:
         raise HTTPException(status_code=404, detail="conversation not found") from None
     except ai_service.AiSearchError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
-    return AiSearchResponse(reply=reply, housing=housing, conversation_id=conversation.id)
+    return AiSearchResponse(reply=reply, housing=housing, conversation_id=conversation.id, game_id=game_id)
 
 
 @router.get("/conversations", response_model=list[ConversationSummary])
@@ -52,6 +54,7 @@ async def get_conversation(conversation_id: UUID, session: SessionDep, user: Cur
                 role="assistant" if m.role == AIMessageRole.MODEL else "user",
                 text=m.content,
                 housing=[by_id[i] for i in (m.housing_ids or []) if i in by_id],
+                game_id=m.game_id,
             )
             for m in messages
         ],

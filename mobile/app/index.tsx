@@ -47,7 +47,7 @@ import {
 } from '@/constants/theme';
 import { useDrawer } from '@/contexts/drawer';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { useDistrictDensity } from '@/hooks/useDistrictDensity';
+import { useDistrictDensity, useDistrictSupply } from '@/hooks/useDistrictDensity';
 import { useHousingSearch } from '@/hooks/useHousing';
 import { useLifestyleRecommendation } from '@/hooks/useRecommendation';
 import { useSavedHousing } from '@/hooks/useSaved';
@@ -80,7 +80,7 @@ export default function ExploreScreen() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [clusterIds, setClusterIds] = useState<number[] | null>(null);
   const [bounds, setBounds] = useState<MapBounds | null>(null);
-  const [densityOn, setDensityOn] = useState(false);
+  const [mapLayer, setMapLayer] = useState<'none' | 'population' | 'amenity'>('none');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sheetIndex, setSheetIndex] = useState(SNAP_HALF);
   const [prefResults, setPrefResults] = useState<LifestyleRecommendationResult[]>([]);
@@ -103,7 +103,8 @@ export default function ExploreScreen() {
   const debouncedFilters = useDebouncedValue(filters, 350);
   const criteria = useHousingSearch(toHousingQuery(debouncedFilters));
   const recommend = useLifestyleRecommendation();
-  const density = useDistrictDensity(densityOn);
+  const density = useDistrictDensity(mapLayer !== 'none');
+  const supply = useDistrictSupply();
   const { isSaved, toggleSaved, isLoggedIn } = useSavedHousing();
 
   const selectedCategories = Object.keys(weights);
@@ -245,6 +246,23 @@ export default function ExploreScreen() {
         }
       : null;
 
+  // The amenity layer reuses the same heat canvas with a different value per
+  // 동: franchise counts per km² instead of residents. Both endpoints key on
+  // emdCode, so geometry comes from one and the metric from the other.
+  const amenityByCode = new Map((supply.data ?? []).map((d) => [d.emdCode, d.amenityTotal]));
+  const heatRegions =
+    mapLayer === 'none' || !density.data
+      ? null
+      : density.data.map((region) => ({
+          centroidLat: region.centroidLat,
+          centroidLng: region.centroidLng,
+          areaKm2: region.areaKm2,
+          densityPerKm2:
+            mapLayer === 'amenity'
+              ? (amenityByCode.get(region.emdCode) ?? 0) / Math.max(region.areaKm2, 0.0001)
+              : region.densityPerKm2,
+        }));
+
   const mapState = {
     pins: visibleHousing
       .filter((housing) => housing.lat != null && housing.lng != null)
@@ -261,15 +279,7 @@ export default function ExploreScreen() {
     circle,
     selectedId,
     clusterIds,
-    density:
-      densityOn && density.data
-        ? density.data.map((region) => ({
-            centroidLat: region.centroidLat,
-            centroidLng: region.centroidLng,
-            areaKm2: region.areaKm2,
-            densityPerKm2: region.densityPerKm2,
-          }))
-        : null,
+    density: heatRegions,
     userLocation,
   };
 
@@ -412,14 +422,21 @@ export default function ExploreScreen() {
         <IconButton icon="locate" onPress={locateMe} floating label={t('explore.locate')} />
         <IconButton
           icon="layers"
-          onPress={() => setDensityOn((value) => !value)}
+          onPress={() => setMapLayer((v) => (v === 'population' ? 'none' : 'population'))}
           floating
-          active={densityOn}
+          active={mapLayer === 'population'}
           label={t('explore.densityToggle')}
+        />
+        <IconButton
+          icon="storefront"
+          onPress={() => setMapLayer((v) => (v === 'amenity' ? 'none' : 'amenity'))}
+          floating
+          active={mapLayer === 'amenity'}
+          label={t('explore.amenityToggle')}
         />
       </Animated.View>
 
-      {densityOn ? (
+      {mapLayer !== 'none' ? (
         <Animated.View
           pointerEvents="none"
           style={[styles.legend, { bottom: controlsBottom }, controlsStyle]}
@@ -429,6 +446,9 @@ export default function ExploreScreen() {
             <View key={color} style={[styles.swatch, { backgroundColor: color }]} />
           ))}
           <Txt variant="caption">{t('explore.densityHigh')}</Txt>
+          <Txt variant="caption" style={styles.legendSource}>
+            {t(mapLayer === 'amenity' ? 'explore.amenitySource' : 'explore.densitySource')}
+          </Txt>
         </Animated.View>
       ) : null}
 
@@ -634,6 +654,7 @@ const styles = StyleSheet.create({
     ...FloatingShadow,
   },
   swatch: { width: 12, height: 12, borderRadius: 3 },
+  legendSource: { marginLeft: 4 },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',

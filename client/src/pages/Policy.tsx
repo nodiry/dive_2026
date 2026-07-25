@@ -1,11 +1,13 @@
-import type { HousingSummary, HousingType } from '@shared';
-import { Database } from 'lucide-react';
+import type { DistrictSupply, HousingSummary, HousingType } from '@shared';
+import { Database, MapPin, TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CategoryBar } from '@components/CategoryBar';
 import { Reveal } from '@components/Reveal';
 import { StatTile } from '@components/StatTile';
+import { useDistrictSupply } from '@hooks/useDistrictDensity';
 import { useHousingSearch } from '@hooks/useHousing';
+import { HOUSING_QUERY_LIMIT } from '@utils/filters';
 
 function percent(part: number, total: number) {
   return total > 0 ? Math.round((part / total) * 100) : 0;
@@ -16,9 +18,109 @@ function yearOf(housing: HousingSummary) {
   return Number.isFinite(year) ? year : null;
 }
 
+/**
+ * Where BMC supply falls short of where people actually live. Demand comes
+ * from the 선도소프트 인구-5대업종 grid (100m cells interpolated onto 법정동),
+ * supply from BMC's own stock, and the gap is the residents a 동 would house
+ * if it matched the citywide rate.
+ */
+function SupplyGapSection({ districts }: { districts: DistrictSupply[] }) {
+  const { t } = useTranslation();
+  const worst = districts.slice(0, 8);
+  const worstGap = worst[0]?.underservedResidents ?? 1;
+  const zeroSupply = districts.filter((d) => d.units === 0 && d.population >= 10000);
+
+  return (
+    <div className='mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]'>
+      <div className='rounded-2xl border border-slate-light/30 bg-white p-6'>
+        <div className='mb-1 flex items-baseline justify-between gap-3'>
+          <span className='font-mono text-xs tracking-wide text-slate uppercase'>
+            {t('policy.gapTitle')}
+          </span>
+          <span className='font-mono text-xs text-slate'>{t('policy.gapUnit')}</span>
+        </div>
+        <p className='mb-4 text-xs text-slate-light'>{t('policy.gapDescription')}</p>
+        <div className='space-y-3'>
+          {worst.map((district) => (
+            <div key={district.emdCode}>
+              <div className='flex items-baseline justify-between gap-3 text-sm'>
+                <span className='font-medium text-plum'>{district.emdName}</span>
+                <span className='font-mono text-xs text-slate'>
+                  {t('policy.gapRow', {
+                    population: district.population.toLocaleString(),
+                    units: district.units.toLocaleString(),
+                  })}
+                </span>
+              </div>
+              <div className='mt-1 flex items-center gap-2'>
+                <div className='h-1.5 flex-1 rounded-full bg-lilac-dim'>
+                  <div
+                    className='h-1.5 rounded-full bg-violet'
+                    style={{
+                      width: `${Math.round((district.underservedResidents / worstGap) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span className='w-24 shrink-0 text-right font-mono text-xs text-violet-dark'>
+                  {district.underservedResidents.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className='space-y-3'>
+        <div className='rounded-2xl border border-violet/30 bg-violet/5 p-5'>
+          <TriangleAlert className='size-5 text-violet-dark' />
+          <p className='mt-2 font-mono text-2xl font-bold text-violet-dark'>{zeroSupply.length}</p>
+          <p className='mt-1 text-sm font-medium text-plum'>{t('policy.zeroSupplyTitle')}</p>
+          <p className='mt-1 text-xs text-slate'>{t('policy.zeroSupplyDescription')}</p>
+          <div className='mt-3 flex flex-wrap gap-1.5'>
+            {zeroSupply.slice(0, 6).map((district) => (
+              <span
+                key={district.emdCode}
+                className='rounded-full border border-violet/30 bg-white px-2.5 py-1 text-xs font-medium text-violet-dark'
+              >
+                {district.emdName}
+                <span className='ml-1 font-mono opacity-70'>
+                  {Math.round(district.population / 1000)}k
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className='rounded-2xl border border-slate-light/30 bg-white p-5'>
+          <MapPin className='size-5 text-violet' />
+          <p className='mt-2 text-sm font-medium text-plum'>{t('policy.amenityTitle')}</p>
+          <p className='mt-1 text-xs text-slate'>{t('policy.amenityDescription')}</p>
+          <div className='mt-3 space-y-2'>
+            {worst.slice(0, 4).map((district) => (
+              <div
+                key={district.emdCode}
+                className='flex items-baseline justify-between gap-2 text-xs'
+              >
+                <span className='truncate text-plum'>{district.emdName}</span>
+                <span className='shrink-0 font-mono text-slate'>
+                  {t('policy.amenityRow', {
+                    count: district.amenityTotal.toLocaleString(),
+                    per: district.amenitiesPerThousand.toFixed(1),
+                  })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Policy() {
   const { t } = useTranslation();
-  const housing = useHousingSearch({}, true);
+  const housing = useHousingSearch({ limit: HOUSING_QUERY_LIMIT }, true);
+  const supply = useDistrictSupply();
   const metrics = useMemo(() => {
     const rows = housing.data ?? [];
     const byType = rows.reduce<Record<HousingType, number>>(
@@ -94,6 +196,12 @@ export function Policy() {
           />
         </div>
       </Reveal>
+
+      {supply.data && supply.data.length > 0 && (
+        <Reveal delay={0.08}>
+          <SupplyGapSection districts={supply.data} />
+        </Reveal>
+      )}
 
       <div className='mt-6 grid gap-6 lg:grid-cols-2'>
         <Reveal delay={0.1}>

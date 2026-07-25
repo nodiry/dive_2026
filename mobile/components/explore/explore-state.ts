@@ -9,6 +9,7 @@ export interface ExploreFilters {
   depositMaxManwon: string;
   roomCount: string;
   builtAfter: string;
+  busStopNearby: boolean;
 }
 
 export const EMPTY_FILTERS: ExploreFilters = {
@@ -17,6 +18,7 @@ export const EMPTY_FILTERS: ExploreFilters = {
   depositMaxManwon: '',
   roomCount: '',
   builtAfter: '',
+  busStopNearby: false,
 };
 
 export const HOUSING_TYPES: HousingType[] = [
@@ -27,6 +29,9 @@ export const HOUSING_TYPES: HousingType[] = [
 ];
 
 export const DEFAULT_RADIUS = 500;
+
+/** The map wants every match, not a page; the API caps this at 5000. */
+export const HOUSING_QUERY_LIMIT = 2000;
 
 /** Blank and zero both mean "not filtering", so neither may reach the API. */
 export function positiveNumber(value: string, multiplier = 1): number | undefined {
@@ -42,6 +47,8 @@ export function toHousingQuery(filters: ExploreFilters): HousingSearchQuery {
     depositMax: number(filters.depositMaxManwon, 10000),
     roomCount: number(filters.roomCount),
     builtAfter: number(filters.builtAfter),
+    busStopNearby: filters.busStopNearby || undefined,
+    limit: HOUSING_QUERY_LIMIT,
   };
 }
 

@@ -220,6 +220,15 @@ export function FilterSheet({
           </View>
         </Section>
 
+        <View style={styles.wrap}>
+          <Chip
+            icon="bus-outline"
+            label={t('explore.busStopNearby')}
+            selected={filters.busStopNearby}
+            onPress={() => set('busStopNearby', !filters.busStopNearby)}
+          />
+        </View>
+
         <View style={styles.row}>
           <NumberField
             label={t('explore.depositMaxLabel')}

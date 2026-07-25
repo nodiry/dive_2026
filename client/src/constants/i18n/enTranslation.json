@@ -1,7 +1,7 @@
 {
   "languageLabel": "Language",
   "nav": {
-    "backToExplore": "Dongne Tamsaek",
+    "backToExplore": "Haru",
     "savedLabel": "Saved",
     "aboutLabel": "About",
     "login": "Log in",
@@ -109,7 +109,8 @@
     "no": "No",
     "liveNote": "Results recalculate automatically as you adjust.",
     "perWeekCount_other": "{{count}}x per week",
-    "perWeekCount_one": "{{count}}x per week"
+    "perWeekCount_one": "{{count}}x per week",
+    "openOnMap": "See this on the map"
   },
   "policy": {
     "navLabel": "Policy report",
@@ -132,7 +133,16 @@
     "action2": "Structure elevator and parking fields from notices so exclusions are explainable.",
     "action3": "Publish neighborhood scores and source years alongside listing details.",
     "loading": "Calculating policy indicators.",
-    "error": "Policy indicators could not be loaded."
+    "error": "Policy indicators could not be loaded.",
+    "gapTitle": "Largest supply gaps by 법정동",
+    "gapUnit": "underserved residents",
+    "gapDescription": "Residents from the 선도소프트 100m population grid, compared against BMC's own stock. Each bar is how many people that 동 would house if it matched the citywide supply rate.",
+    "gapRow": "{{population}} residents · {{units}} units",
+    "zeroSupplyTitle": "Zero-supply neighborhoods",
+    "zeroSupplyDescription": "Over 10,000 residents and not a single public rental unit.",
+    "amenityTitle": "Amenity access, same areas",
+    "amenityDescription": "Coffee, convenience, Korean food, pharmacy and salon counts for the most under-supplied 동. Thin on both means higher priority.",
+    "amenityRow": "{{count}} places · {{per}} per 1k"
   },
   "footer": "DIVE 2026 · Busan Metropolitan City (BMC) × Sundosoft · Commercial-district & preference-based public rental housing recommendation service",
   "explore": {
@@ -178,7 +188,10 @@
     "densityToggle": "Population",
     "densityLow": "Low",
     "densityHigh": "High",
-    "densitySource": "Registered population"
+    "densitySource": "Sundosoft 100m population grid",
+    "busStopNearby": "Near a bus stop",
+    "amenityToggle": "Amenities",
+    "amenitySource": "Sundosoft franchise grid"
   },
   "personas": {
     "youngSingle": "Young single",
@@ -225,14 +238,42 @@
   },
   "about": {
     "title": "About",
-    "intro": "Dongne Tamsaek started from Busan's shrinking population and the ~50% decline rate for public housing lottery winners. We show the surrounding neighborhood first, not just deposit and floor size.",
+    "intro": "Haru started from Busan's shrinking population and the ~50% decline rate for public housing lottery winners. We show the surrounding neighborhood first, not just deposit and floor size.",
     "problemHeading": "Why we built this",
-    "problemBody": "Supply-side notices (size, deposit) alone don't tell citizens whether a listing is actually a neighborhood they'd want to live in. Checking nearby cafés, gyms, or convenience stores meant searching separately for every listing. Dongne Tamsaek recommends housing by combining hard conditions with real commercial-district context.",
+    "problemBody": "Supply-side notices (size, deposit) alone don't tell citizens whether a listing is actually a neighborhood they'd want to live in. Checking nearby cafés, gyms, or convenience stores meant searching separately for every listing. Haru recommends housing by combining hard conditions with real commercial-district context.",
     "partnersHeading": "Partners",
     "bmcName": "Busan Metropolitan City (BMC)",
     "bmcBlurb": "A public housing and urban development corporation. Provided public rental housing data and a citizen housing-demand channel.",
     "sundosoftName": "Sundosoft Co., Ltd.",
-    "sundosoftBlurb": "A GIS and data analytics company. Provided fused commercial-district/population data and spatial analysis expertise."
+    "sundosoftBlurb": "A GIS and data analytics company. Provided fused commercial-district/population data and spatial analysis expertise.",
+    "dataHeading": "What we built it from",
+    "dataIntro": "Exactly where each dataset from BMC and Sundosoft is used in the product. Figures are what is currently loaded in the database.",
+    "sources": {
+      "housing": {
+        "name": "Public rental housing info, deposit & rent",
+        "use": "The searchable stock behind every result, plus the budget-room score and must-have filters."
+      },
+      "storeBuilding": {
+        "name": "Store-building fusion data",
+        "use": "Yearly store counts per 법정동, which drive the rising/declining commercial-trend badge."
+      },
+      "population": {
+        "name": "Population & top-5 industry fusion data",
+        "use": "100m grid population interpolated onto 법정동 for the density map and the supply-gap analysis."
+      },
+      "useArea": {
+        "name": "Commercial-residential fusion data",
+        "use": "Zoning designation and the per-cell bus-stop flag, shown as transit access on housing detail."
+      },
+      "poi": {
+        "name": "Commercial district registry (SEMAS)",
+        "use": "Category matching for preference recommendations and the neighborhood profile. The upstream source of Sundosoft 01."
+      },
+      "boundaries": {
+        "name": "법정동 boundaries, zoning, buildings",
+        "use": "The reference geometry for every spatial aggregate and the zoning mix calculation."
+      }
+    }
   },
   "detail": {
     "loading": "Loading...",
@@ -264,7 +305,8 @@
     "share": "Share",
     "shareCopied": "Link copied. Paste it to send to a friend.",
     "shareFailed": "Couldn't copy the link. Copy the address bar URL instead.",
-    "openKakaoMap": "Kakao Map"
+    "openKakaoMap": "Kakao Map",
+    "busStopAreas": "Bus-stop areas"
   },
   "housingType": {
     "purchased": "Purchased Rental Housing",
@@ -287,7 +329,12 @@
     "newChat": "New chat",
     "historyTitle": "History",
     "deleteChat": "Delete chat",
-    "historyEmpty": "No conversations yet."
+    "historyEmpty": "No conversations yet.",
+    "attachImage": "Attach an image",
+    "imageAttached": "Sent with your message. Not stored.",
+    "imageRemove": "Remove attachment",
+    "imageTooLarge": "That image is too large. Please keep it under 4MB.",
+    "suggestionsLabel": "Try asking"
   },
   "housingCard": {
     "deposit": "Deposit",
@@ -331,7 +378,7 @@
     "matchNone": "None",
     "totalUnits_one": "{{count}} unit",
     "totalUnits_other": "{{count}} units",
-    "walkMinutes": "{{minutes}} min walk"
+    "walkMinutes": "{{minutes}} min (direct)"
   },
   "poiMajorCategories": {
     "retail": "Retail",
@@ -386,5 +433,14 @@
     "광고 대행업": "Advertising agency",
     "사진촬영업": "Photo studio",
     "해산물 구이/찜": "Grilled seafood"
+  },
+  "game": {
+    "startButton": "Start the 하루 card game",
+    "startHint": "Pick five cards and we will find rentals that fit. You can also type /game in the chat.",
+    "startPrompt": "/game",
+    "building": "Building your deck",
+    "scoring": "Finding homes from your cards",
+    "resultTitle": "Your cards",
+    "matches": "Rentals matching this taste"
   }
 }

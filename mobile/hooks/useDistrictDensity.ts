@@ -10,3 +10,11 @@ export function useDistrictDensity(enabled: boolean) {
     staleTime: Infinity,
   });
 }
+
+export function useDistrictSupply() {
+  return useQuery({
+    queryKey: ['districts', 'supply'],
+    queryFn: districtsAPI.getSupply,
+    staleTime: Infinity,
+  });
+}

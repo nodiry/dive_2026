@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException
 from src.database import SessionDep
 from src.housing import service as housing_service
 from src.housing.schemas import (
+    DEFAULT_HOUSING_LIMIT,
+    MAX_HOUSING_LIMIT,
     HousingSearchQuery,
     HousingSummary,
     HousingType,
@@ -24,6 +26,8 @@ async def get_housing_list(
     parkingRequired: bool | None = None,
     district: str | None = None,
     type: HousingType | None = None,
+    busStopNearby: bool | None = None,
+    limit: int = DEFAULT_HOUSING_LIMIT,
 ) -> list[HousingSummary]:
     query = HousingSearchQuery(
         deposit_max=depositMax,
@@ -35,6 +39,8 @@ async def get_housing_list(
         parking_required=parkingRequired,
         district=district,
         type=type,
+        bus_stop_nearby=busStopNearby,
+        limit=min(max(limit, 1), MAX_HOUSING_LIMIT),
     )
     return await housing_service.search_housing(session, query)
 

@@ -1,108 +1,104 @@
 # Session Context (handoff)
 
-Working notes for continuing work on this repo with low/fresh context.
-Read together with `README.md`, `docs/CODE.md`, `docs/TECHNICAL.md`,
-`docs/STYLE_GUIDE.md` (all updated and accurate as of 2026-07-25).
+Working notes for continuing this repo with fresh context. Read with
+`README.md`, `docs/ARCHITECTURE.md`, `docs/STYLE_GUIDE.md`, `docs/NEW_DATA.md`.
+Accurate as of 2026-07-26 (event day, build ends 14:00).
 
 ## What this is
 
-DIVE 2026 hackathon (BMC × Sundosoft track): 상권·취향 기반 공공임대주택
-추천 서비스. On-site build 7/25 14:00 → 7/26 14:00. Judging rubric favors
-explainable scoring + polished UI + partner-data usage (see
-`docs/REQUIREMENTS.md`).
+DIVE 2026 hackathon (BMC × 선도소프트): 상권·취향 기반 공공임대주택 추천
+서비스, branded **하루** (Haru). Deliverable is a web app + mobile app.
+Rubric (100): 문제정의 15, 제공데이터 활용 15, 창의성 15, 데이터기반 문제해결 20,
+서비스 완성도 20, 정책 활용성 15 — see `docs/REQUIREMENTS.md`.
 
-## Team & workflow
+## Stack
 
-- The user (zhen) owns frontend direction and works through Claude; two
-  teammates commit directly (they recently: moved shared zod schemas from
-  `packages/shared` INTO `client/src/shared` with alias `@shared`; rebuilt
-  trails as routed paths with walk-times; added POI category icons;
-  changed `justfile` install to `cd client && bun install`).
-- User preferences: no em dashes in user-facing copy; custom Select
-  component everywhere (native `<select>` banned); follow ob-frontend
-  conventions (see below); discuss design options before big rewrites.
+- `api/` FastAPI + SQLModel async + alembic + uv, PostGIS on :5433, api :3000.
+  Domains: `housing, poi, gis, recommendation, auth, saved, ai, game`.
+  ETL in `api/scripts/` (host-run, needs GDAL). `just` recipes for everything.
+- `client/` Vite + React 19 + Tailwind 4, zustand, TanStack Query, react-i18next,
+  motion. Runs on HOST (`bun run dev`, :5173 — the Kakao-whitelisted origin).
+- `mobile/` Expo SDK 54 + expo-router, Reanimated 4, Kakao in a WebView.
+  Runs in Expo Go. Fonts: Pretendard bundled in `assets/fonts`.
+- Alembic head: `c6873a3d23cb`. Run `just seed` then `just geocode` after a
+  fresh DB; `just onboard` does everything (drop the 선도소프트 zip at repo root).
 
-## Stack snapshot
+## Data actually loaded (verified in the running DB)
 
-- Backend `api/`: FastAPI + SQLModel async + alembic (geoalchemy2-aware
-  env.py) + uv; domain layout `src/{housing,poi,recommendation,gis}` with
-  models/schemas/service/router per domain. ETL in `api/scripts/` on raw
-  asyncpg (host-run, needs GDAL). `just` recipes for everything.
-- DB: `imresamu/postgis:16-3.4` (arm64) on :5433. api container :3000
-  (slim, no gdal/alembic; `pull_policy: build`; src bind-mounted).
-- Frontend `client/`: Vite/React19/Tailwind4, zustand stores, TanStack
-  Query + axios (zod-validated in `src/api/*`), react-i18next
-  (`constants/i18n/{ko,en}Translation.json`), motion, path aliases,
-  prettier single-quotes. Runs on HOST (`bun run dev`, :5173 = Kakao
-  whitelisted). Client docker service behind `full` profile.
-- ob-frontend conventions source: `client/CS-ONBOARDING/ob-frontend`
-  (gitignored reference clone).
+| Table | Rows | Source |
+|---|---|---|
+| `housing_project` | 355 | BMC CSVs, all geocoded, 15 구/군 |
+| `commercial_poi` | 155,103 | SEMAS 상가정보 CSV |
+| `industry_population_grid` | 79,935 | 선도소프트 **02** 인구-5대업종 (100m cells) |
+| `use_area_cell` | 29,441 | 선도소프트 **03** 상권-주거 (5,793 with a bus stop) |
+| `district_store_trend` | 764 | 선도소프트 **01** 상가-건물, 4 years |
+| `admin_boundary` | 192 | 법정동 + population/youth_share interpolated from 02 |
 
-## Current feature state (all working)
+All three partner datasets are queried by shipped features. `building`
+(379k rows) is loaded but unused.
 
-- Explore: full-map hero; single-row navbar (brand, mode toggle, inert
-  search pill reserved for future AI prompt-to-filters, 찜/about/lang);
-  floating FilterPanel top-left (live filters, no search buttons
-  anywhere — criteria debounced 350ms, preference auto-runs 450ms);
-  right ListPanel synced to map viewport; clustered price-bubble pins
-  (cluster click filters list, chip to clear); personas; weight sliders
-  with animated re-ranking; radius circle + routed dotted trails
-  (primary) + faint dotted connectors (tier-2) + POI pins in two tiers
-  (hero 30px ringed w/ hover tooltip name·distance·walk-time; others
-  22px); pin clicks stopPropagation (else map click clears selection);
-  Busan pan clamp + setMaxLevel(10); initial view Suyeong level 6, first
-  fit-all skipped.
-- Detail: stat tiles, staticView locator map (no drag/zoom), neighborhood
-  profile card (POI density bars + zoning mix TagStrip) matching map
-  height (absolute-inset column trick).
-- Population density heat layer (NEW, just built): toggle 인구 밀도
-  bottom-left of map + heat-ramp legend. Backend:
-  `admin_boundary.population` column (alembic rev e8939c897461),
-  `scripts/seed_population.py` (CSV `code,population`; 8-digit 법정동
-  exact or 5-digit 구 distributed by area),
-  `samples/population/busan_population.csv` = official busan.go.kr
-  figures 2024-12-31 (구-level, all 192 polygons seeded),
-  `GET /api/districts/density` (name/pop/area/density/centroid/rings,
-  simplified). Frontend: canvas heat overlay in KakaoMap (grayscale
-  radial blobs at centroids, area-scaled radius, density^0.55 intensity,
-  colorized via 256-LUT lavender→violet→gold), redraws on map idle,
-  fades out on zoom_start. The canvas lives INSIDE the map as a
-  CustomOverlay (zIndex 5, anchored at map center, sized to container)
-  so it paints above tiles but below pins — a sibling canvas was
-  invisible because Kakao's z-indexed panes join the wrapper's stacking
-  context and painted over it (it flashed before tiles loaded).
+## Features (all working)
 
-## Pending / queue
+**Web** — Explore (map hero, 조건/취향 modes, personas, weight sliders, POI
+pins + trails, clustering, population **and** amenity heat layers, district
+outline); Detail (map/roadview, stat tiles, neighborhood profile, 상권 trend
+badge, 2030 share, bus-stop chip, share button + Kakao Map link); AI chat
+(Gemini tool-calling, inline map card, fullscreen map, image upload, markdown
+incl. tables, **card game**); Life Match (하루스탯 + teammate's dual-path
+LifeDeck + "지도에서 보기" bridge into Explore); Policy (supply-vs-demand gap
+by 동, zero-supply callout, readiness audit); 찜, About (data provenance), auth.
 
-1. **Checkpoint commit — overdue and critical** (huge uncommitted work;
-   suggested message exists in history: frontend redesign + phases +
-   density layer; teammates committing concurrently).
-2. Compare view (2–3 찜 homes side by side) — phase 5, not started.
-3. AI prompt-to-filters via the navbar pill — awaiting teammate decision
-   (rule-based vs LLM); AI only needs to output the existing filter-state
-   shape.
-4. Event-day full-city dataset swap: re-run `just seed` + `just geocode`
-   when BMC releases files (ETL is data-agnostic; geocoding rate-limited).
-5. Optional: finer population CSV (법정동-level) drop-in upgrade;
-   neighborhood profile radius could follow the user's radius slider.
+**Mobile** — full parity: drawer nav, Explore with both heat layers, AI chat
+with image upload + card game, Detail with share + all chips, Policy with the
+supply gap, Life Match, 찜, auth.
+
+**The card game** (`/api/games`, `api/src/game/`): Gemini authors a 5-card deck
+constrained to the 20 traits + 27 icons the app already scores, so a run ends
+in real housing recommendations. Triggered by `/game [theme]`, by the keywords
+게임/테스트/game/quiz, or by the button on the empty chat screen. Progress saves
+per card; `ai_message.game_id` replays the deck when a chat is reopened.
+
+## Judged weak spots (honest)
+
+1. **The mobile app has never run on a physical device.** It typechecks and
+   bundles for iOS/Android; nothing more is known. Highest remaining risk.
+2. Walking distances are straight-line haversine, now honestly labelled
+   직선 N분. Kakao directions would make them real.
+3. Store-trend totals swing 113k → 160k → 150k → 159k across 2021-24, so some
+   "상권 축소" badges are collection artifacts. The 3-year window mitigates it.
+4. No tests anywhere.
+5. `industry_population_grid` is aggregated per 동 for the map and Policy; the
+   per-cell demographic bands are still unused.
+6. CORS falls back to `["*"]` with `allow_credentials=True` when
+   `FRONTEND_ORIGINS` is unset — invalid combo, will break auth on Azure.
+   **Not fixed at the user's instruction.**
 
 ## Gotchas worth remembering
 
-- sqlmodel select typed ≤4 entities → use `sqlalchemy.select` for wider
-  (with `# ty: ignore[deprecated]` on session.execute for Row tuples);
-  wrap model attrs in `col()`.
-- geoalchemy2 auto-creates `idx_*_geom` GiST indexes — alembic env.py
-  filters them + include_name whitelists only our tables (tiger!).
-- Kakao: no maxBounds (clamp on center_changed), no heatmap layer (hence
-  canvas), map 'click' synthesized from mousedown/mouseup (stop the whole
-  pointer sequence on overlays), CustomOverlay tooltips must be
-  position:absolute or the pin shifts.
-- `commercial_poi.category` = English slug (mapped at ingest);
-  `category_name` = Korean 소분류 ("카페") — recommendations match on
-  category_name.
-- admin_boundary codes are 법정동 (8-digit), NOT 행정동 — MOIS 행정동 CSVs
-  don't join directly.
-- DB URLs need `postgresql+asyncpg://` dialect (host .env localhost:5433,
-  compose db:5432). ogr2ogr URL strips the `+asyncpg`.
-- Heat/choropleth data honesty: current density is 구-level uniform across
-  each 구's 동s — say so if judges ask; upgrade path is a finer CSV.
+- Kakao CustomOverlay content must NOT be `position:absolute` or the anchor
+  offset computes to 0 (this made the heat canvas paint in one quadrant).
+  It also needs `display:block` or the canvas picks up baseline space.
+- Heat ramp normalizes on the **p95** of density, not the max: the median 동 is
+  ~8k/km² against a ~50k max, so max-anchoring left the whole city cool.
+- 선도소프트 shapefiles are UTF-8 (`.cpg`); the government ones are EUC-KR.
+  `stage_zipped_shapefile(..., encoding=)` handles both.
+- Alembic autogenerate proposes renaming every index in the schema (SQLModel
+  naming change). Strip that noise from new migrations, keep only your table.
+- `HousingCard` renders a `<div role=button>` (not a Link) whenever `onSelect`
+  or `onToggleSave` is passed — pass `onSelect` or clicking does nothing.
+- Tailwind v4 preflight sets `button { cursor: default }`; a base rule in
+  `styles/index.css` restores the pointer app-wide.
+- In a React Native flex column, an icon without `shrink-0` loses **height**
+  when content overflows, turning circles into ovals.
+- Uploaded images are passed inline to Gemini and never stored (PII).
+- `mobile/shared/schemas.ts` is a hand-copy of `client/src/shared/schemas.ts`.
+  Update both.
+
+## Pending
+
+1. **Commit.** A large uncommitted changeset sits on `main` (game feature,
+   supply endpoint, dataset 03, mobile parity, rebrand). Teammates push to the
+   same branch; pull with a scoped `git stash push -- <paths>` then pop.
+2. Run the mobile app on a device.
+3. Optional: route the primary trail, feed transit into more of the scoring,
+   compare view (phase 5, never started).

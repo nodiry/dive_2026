@@ -32,6 +32,7 @@ def ogr2ogr_to_staging(
     staging_table: str,
     source_srs: str | None = None,
     select: list[str] | None = None,
+    encoding: str = "EUC-KR",
 ) -> None:
     args = [
         "ogr2ogr",
@@ -54,13 +55,19 @@ def ogr2ogr_to_staging(
     if select:
         args += ["-select", ",".join(select)]
 
-    env = {**os.environ, "SHAPE_ENCODING": "EUC-KR"}
+    # The 선도소프트 layers ship .cpg=UTF8; the government SHPs are EUC-KR.
+    env = {**os.environ, "SHAPE_ENCODING": encoding}
     result = subprocess.run(args, env=env, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"ogr2ogr failed for {staging_table}:\n{result.stderr}")
 
 
-def stage_zipped_shapefile(zip_path: Path, staging_table: str, select: list[str] | None = None) -> None:
+def stage_zipped_shapefile(
+    zip_path: Path,
+    staging_table: str,
+    select: list[str] | None = None,
+    encoding: str = "EUC-KR",
+) -> None:
     """
     Extract a zip holding one shapefile set and stage it. Inner filenames in
     the 선도소프트 zips are EUC-KR-mangled in some years — extract via Python
@@ -73,4 +80,4 @@ def stage_zipped_shapefile(zip_path: Path, staging_table: str, select: list[str]
         shp = next(Path(tmp).rglob("*.shp"), None)
         if shp is None:
             raise RuntimeError(f"no .shp found inside {zip_path}")
-        ogr2ogr_to_staging(shp, staging_table, select=select)
+        ogr2ogr_to_staging(shp, staging_table, select=select, encoding=encoding)

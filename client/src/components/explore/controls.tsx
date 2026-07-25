@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { BusFront, ChevronDown, ChevronUp } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -286,6 +286,22 @@ export function PanelCriteriaFields() {
             ]}
           />
         </Field>
+      </div>
+      <div className='col-span-2'>
+        <button
+          type='button'
+          aria-pressed={filters.busStopNearby}
+          onClick={() => setFilters({ ...filters, busStopNearby: !filters.busStopNearby })}
+          className={cn(
+            'flex w-full items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+            filters.busStopNearby
+              ? 'border-violet/40 bg-violet/10 text-violet-dark'
+              : 'border-slate-light/40 bg-white text-slate hover:border-violet/40',
+          )}
+        >
+          <BusFront className='size-4' />
+          {t('explore.busStopNearby')}
+        </button>
       </div>
     </div>
   );

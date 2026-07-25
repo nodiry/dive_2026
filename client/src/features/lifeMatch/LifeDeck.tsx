@@ -28,7 +28,7 @@ import {
   WalletCards,
   type LucideIcon,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Select from '@components/ui/Select';
@@ -187,7 +187,7 @@ function deckLocale(language: string): DeckLocale {
   return language.toLowerCase().startsWith('ko') ? 'ko' : 'en';
 }
 
-function DeckIcon({ icon, className }: { icon: DeckIconKey; className?: string }) {
+export function DeckIcon({ icon, className }: { icon: DeckIconKey; className?: string }) {
   const Icon = ICONS[icon];
   return (
     <Icon
@@ -252,12 +252,10 @@ function RealitySection({
     <section
       className={cn(
         'rounded-3xl border bg-white p-5 transition-colors sm:p-6',
-        highlighted
-          ? 'border-violet/55 shadow-[0_18px_45px_rgba(109,74,255,0.12)]'
-          : 'border-slate-light/25',
+        highlighted ? 'border-violet/60 shadow-lg' : 'border-slate-light/30',
       )}
     >
-      <h3 className='font-mono text-xs tracking-[0.14em] text-slate uppercase'>{title}</h3>
+      <h3 className='font-mono text-xs tracking-wide text-slate uppercase'>{title}</h3>
       <div className='mt-5 space-y-5'>{children}</div>
     </section>
   );
@@ -332,12 +330,10 @@ export function LifeDeck({
         data-testid='life-deck-mode'
         className='relative isolate overflow-hidden px-4 py-12 sm:px-6 sm:py-16'
       >
-        <div className='pointer-events-none absolute top-24 left-1/2 -z-10 size-[34rem] -translate-x-1/2 rounded-full bg-violet/6 blur-3xl' />
+        <div className='pointer-events-none absolute top-24 left-1/2 -z-10 size-[34rem] -translate-x-1/2 rounded-full bg-violet/5 blur-3xl' />
         <header className='mx-auto max-w-4xl text-center'>
-          <p className='font-mono text-xs tracking-[0.22em] text-violet uppercase'>
-            {copy.eyebrow}
-          </p>
-          <h1 className='mt-5 text-4xl leading-[1.08] font-black tracking-[-0.055em] text-plum sm:text-6xl'>
+          <p className='font-mono text-xs tracking-wide text-violet uppercase'>{copy.eyebrow}</p>
+          <h1 className='mt-5 text-3xl leading-tight font-extrabold tracking-tight text-plum sm:text-4xl'>
             {copy.titleBefore}
             <span className='text-violet'>{copy.titleClear}</span>
             {copy.titleMiddle}
@@ -363,13 +359,13 @@ export function LifeDeck({
                 whileHover={{ y: -5 }}
                 onClick={() => chooseMode(choice)}
                 className={cn(
-                  'group flex min-h-[430px] w-[82vw] shrink-0 snap-center flex-col rounded-[2rem] border p-7 text-left shadow-sm transition-shadow sm:w-auto sm:p-9',
+                  'group flex min-h-[430px] w-[82vw] shrink-0 snap-center flex-col rounded-3xl border p-7 text-left shadow-sm transition-shadow sm:w-auto sm:p-9',
                   dark
-                    ? 'border-plum-light bg-plum text-lilac hover:shadow-[0_24px_70px_rgba(38,28,59,0.25)]'
-                    : 'border-slate-light/25 bg-white text-plum hover:shadow-[0_24px_70px_rgba(109,74,255,0.12)]',
+                    ? 'border-plum-light bg-plum text-lilac hover:shadow-lg'
+                    : 'border-slate-light/30 bg-white text-plum hover:shadow-lg',
                 )}
               >
-                <div className='flex w-full items-center justify-between font-mono text-[11px] tracking-[0.12em] uppercase opacity-65'>
+                <div className='flex w-full items-center justify-between font-mono text-xs tracking-wide uppercase opacity-65'>
                   <span>PATH 0{index + 1}</span>
                   <span>07 CARDS</span>
                 </div>
@@ -377,8 +373,8 @@ export function LifeDeck({
                   className={cn(
                     'mt-12 flex size-24 items-center justify-center rounded-full border sm:mt-16 sm:size-28',
                     dark
-                      ? 'border-lilac/20 bg-lilac/8 text-gold'
-                      : 'border-violet/20 bg-violet/8 text-violet',
+                      ? 'border-lilac/20 bg-lilac/10 text-gold'
+                      : 'border-violet/20 bg-violet/10 text-violet',
                   )}
                 >
                   <DeckIcon
@@ -392,11 +388,11 @@ export function LifeDeck({
                   >
                     {localize(modeCopy.eyebrow, locale)}
                   </p>
-                  <h2 className='mt-2 text-3xl font-black tracking-[-0.04em]'>
+                  <h2 className='mt-2 text-3xl font-extrabold tracking-tight'>
                     {localize(modeCopy.title, locale)}
                   </h2>
                   <p
-                    className={cn('mt-3 text-sm leading-6', dark ? 'text-lilac/68' : 'text-slate')}
+                    className={cn('mt-3 text-sm leading-6', dark ? 'text-lilac/70' : 'text-slate')}
                   >
                     {localize(modeCopy.description, locale)}
                   </p>
@@ -445,7 +441,7 @@ export function LifeDeck({
                 animate={{ width: `${progress}%` }}
               />
             </div>
-            <span className='hidden font-mono text-[11px] tracking-[0.1em] text-slate uppercase sm:block'>
+            <span className='hidden font-mono text-xs tracking-wide text-slate uppercase sm:block'>
               {mode === 'routine' ? copy.direct : copy.inferred}
             </span>
           </div>
@@ -453,20 +449,20 @@ export function LifeDeck({
           <header className='mx-auto mt-10 max-w-3xl text-center'>
             <span
               className={cn(
-                'inline-flex rounded-full px-3 py-1 font-mono text-[11px] tracking-[0.1em] uppercase',
+                'inline-flex rounded-full px-3 py-1 font-mono text-xs tracking-wide uppercase',
                 mode === 'routine' ? 'bg-violet/10 text-violet-dark' : 'bg-plum text-lilac',
               )}
             >
               {localize(MODE_COPY[mode].title, locale)} ·{' '}
               {mode === 'routine' ? copy.direct : copy.inferred}
             </span>
-            <p className='mt-5 font-mono text-xs tracking-[0.16em] text-gold uppercase'>
+            <p className='mt-5 font-mono text-xs tracking-wide text-gold uppercase'>
               {localize(question.kicker, locale)}
             </p>
             <h2
               ref={headingRef}
               tabIndex={-1}
-              className='mt-3 text-3xl leading-tight font-black tracking-[-0.04em] text-plum outline-none sm:text-5xl'
+              className='mt-3 text-3xl leading-tight font-extrabold tracking-tight text-plum outline-none sm:text-4xl'
             >
               {localize(question.title, locale)}
             </h2>
@@ -492,13 +488,13 @@ export function LifeDeck({
                   animate={{ opacity: muted ? 0.5 : 1, y: selected ? -6 : 0 }}
                   transition={{ delay: index * 0.035, duration: 0.24 }}
                   className={cn(
-                    'relative min-h-72 overflow-hidden rounded-[1.6rem] border p-5 text-left transition-colors',
+                    'relative min-h-72 overflow-hidden rounded-2xl border p-5 text-left transition-colors',
                     selected
-                      ? 'border-plum bg-plum text-lilac shadow-[0_20px_55px_rgba(38,28,59,0.23)]'
-                      : 'border-slate-light/25 bg-white text-plum hover:border-violet/40',
+                      ? 'border-plum bg-plum text-lilac shadow-lg'
+                      : 'border-slate-light/30 bg-white text-plum hover:border-violet/40',
                   )}
                 >
-                  <span className='flex items-center justify-between font-mono text-[10px] tracking-[0.12em] uppercase opacity-60'>
+                  <span className='flex items-center justify-between font-mono text-xs tracking-wide uppercase opacity-60'>
                     <span>
                       {String(questionIndex + 1).padStart(2, '0')} ·{' '}
                       {String(index + 1).padStart(2, '0')}
@@ -513,8 +509,8 @@ export function LifeDeck({
                     className={cn(
                       'mt-7 flex size-16 items-center justify-center rounded-full border',
                       selected
-                        ? 'border-lilac/15 bg-lilac/8 text-gold'
-                        : 'border-violet/18 bg-violet/7 text-violet',
+                        ? 'border-lilac/15 bg-lilac/10 text-gold'
+                        : 'border-violet/20 bg-violet/5 text-violet',
                     )}
                   >
                     <DeckIcon
@@ -522,47 +518,51 @@ export function LifeDeck({
                       className='size-8'
                     />
                   </div>
-                  <AnimatePresence mode='wait'>
-                    {selected ? (
-                      <motion.div
-                        key='meaning'
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className='mt-6'
-                      >
-                        <p className='text-lg leading-snug font-bold'>
-                          {localize(option.title, locale)}
-                        </p>
-                        <p className='mt-2 text-sm leading-6 text-lilac/68'>
-                          {localize(option.meaning, locale)}
-                        </p>
-                        <div className='mt-4 flex flex-wrap gap-1.5'>
-                          {option.chips.map((chip) => (
-                            <span
-                              key={localize(chip, locale)}
-                              className='rounded-full border border-lilac/16 px-2.5 py-1 font-mono text-[10px] text-lilac/78'
-                            >
-                              {localize(chip, locale)}
-                            </span>
-                          ))}
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key='front'
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className='mt-8'
-                      >
-                        <h3 className='text-lg leading-snug font-bold'>
-                          {localize(option.title, locale)}
-                        </h3>
-                        <p className='mt-2 text-sm leading-6 text-slate'>
-                          {localize(option.caption, locale)}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/*
+                    Both faces stay mounted and stacked in one grid cell, so the
+                    card is always as tall as the taller of the two. Swapping
+                    them on select would resize the card (the meaning copy runs
+                    longer than the caption and adds chips), and since these are
+                    grid items that resize propagates to the whole row.
+                  */}
+                  <div className='mt-6 grid'>
+                    <motion.div
+                      aria-hidden={!selected}
+                      animate={{ opacity: selected ? 1 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className='col-start-1 row-start-1'
+                    >
+                      <p className='text-lg leading-snug font-bold'>
+                        {localize(option.title, locale)}
+                      </p>
+                      <p className='mt-2 text-sm leading-6 text-lilac/70'>
+                        {localize(option.meaning, locale)}
+                      </p>
+                      <div className='mt-4 flex flex-wrap gap-1.5'>
+                        {option.chips.map((chip) => (
+                          <span
+                            key={localize(chip, locale)}
+                            className='rounded-full border border-lilac/15 px-2.5 py-1 font-mono text-xs text-lilac/80'
+                          >
+                            {localize(chip, locale)}
+                          </span>
+                        ))}
+                      </div>
+                    </motion.div>
+                    <motion.div
+                      aria-hidden={selected}
+                      animate={{ opacity: selected ? 0 : 1 }}
+                      transition={{ duration: 0.2 }}
+                      className='col-start-1 row-start-1'
+                    >
+                      <h3 className='text-lg leading-snug font-bold'>
+                        {localize(option.title, locale)}
+                      </h3>
+                      <p className='mt-2 text-sm leading-6 text-slate'>
+                        {localize(option.caption, locale)}
+                      </p>
+                    </motion.div>
+                  </div>
                 </motion.button>
               );
             })}
@@ -572,7 +572,7 @@ export function LifeDeck({
             <button
               type='button'
               onClick={goBack}
-              className='flex items-center justify-center gap-2 rounded-full border border-slate-light/35 bg-white px-5 py-2.5 text-sm font-semibold text-plum hover:border-violet/40'
+              className='flex items-center justify-center gap-2 rounded-full border border-slate-light/30 bg-white px-5 py-2.5 text-sm font-semibold text-plum hover:border-violet/40'
             >
               <ArrowLeft className='size-4' />
               {copy.back}
@@ -609,10 +609,10 @@ export function LifeDeck({
         className='px-4 py-10 sm:px-6 sm:py-14'
       >
         <header className='mx-auto max-w-3xl text-center'>
-          <p className='font-mono text-xs tracking-[0.2em] text-violet uppercase'>
+          <p className='font-mono text-xs tracking-wide text-violet uppercase'>
             {copy.resultEyebrow}
           </p>
-          <h2 className='mt-4 text-4xl font-black tracking-[-0.05em] text-plum sm:text-5xl'>
+          <h2 className='mt-4 text-3xl font-extrabold tracking-tight text-plum sm:text-4xl'>
             {copy.resultTitle}
           </h2>
         </header>
@@ -621,29 +621,27 @@ export function LifeDeck({
           <motion.article
             initial={{ opacity: 0, rotateY: -12, y: 18 }}
             animate={{ opacity: 1, rotateY: 0, y: 0 }}
-            className='flex min-h-[440px] flex-col rounded-[2rem] border border-plum-light bg-plum p-8 text-lilac shadow-[0_28px_80px_rgba(38,28,59,0.28)]'
+            className='flex min-h-[440px] flex-col rounded-3xl border border-plum-light bg-plum p-8 text-lilac shadow-lg'
           >
-            <div className='flex justify-between font-mono text-[10px] tracking-[0.14em] uppercase opacity-55'>
+            <div className='flex justify-between font-mono text-xs tracking-wide uppercase opacity-55'>
               <span>MAJOR ARCANA · VII</span>
-              <span>동네탐색.</span>
+              <span>하루.</span>
             </div>
-            <div className='mt-12 flex size-28 items-center justify-center rounded-full border border-lilac/16 bg-lilac/7 text-gold'>
+            <div className='mt-12 flex size-28 items-center justify-center rounded-full border border-lilac/15 bg-lilac/5 text-gold'>
               <DeckIcon
                 icon={archetype.icon}
                 className='size-14'
               />
             </div>
             <div className='mt-auto pt-12'>
-              <h3 className='text-3xl font-black tracking-[-0.04em]'>
+              <h3 className='text-3xl font-extrabold tracking-tight'>
                 {localize(archetype.name, locale)}
               </h3>
-              <p className='mt-1 font-mono text-[11px] tracking-[0.12em] text-gold'>
-                {archetype.english}
-              </p>
+              <p className='mt-1 font-mono text-xs tracking-wide text-gold'>{archetype.english}</p>
               <p className='mt-5 text-sm leading-7 text-lilac/70'>
                 {localize(archetype.description, locale)}
               </p>
-              <p className='mt-5 text-xs text-lilac/55'>
+              <p className='mt-5 text-xs text-lilac/60'>
                 {copy.secondary}{' '}
                 <strong className='text-gold'>{localize(secondary.name, locale)}</strong> ·{' '}
                 {result.secondaryPercent}%
@@ -651,7 +649,7 @@ export function LifeDeck({
             </div>
           </motion.article>
 
-          <div className='rounded-[2rem] border border-slate-light/25 bg-white p-6 sm:p-8'>
+          <div className='rounded-3xl border border-slate-light/30 bg-white p-6 sm:p-8'>
             <div className='flex items-start gap-3 rounded-2xl bg-lilac p-4'>
               <span className='flex size-9 shrink-0 items-center justify-center rounded-full bg-violet text-white'>
                 {mode === 'routine' ? (
@@ -694,14 +692,14 @@ export function LifeDeck({
             </div>
 
             <section className='mt-8 border-t border-slate-light/20 pt-6'>
-              <h4 className='font-mono text-xs tracking-[0.12em] text-slate uppercase'>
+              <h4 className='font-mono text-xs tracking-wide text-slate uppercase'>
                 {copy.selectedScenes}
               </h4>
               <div className='mt-3 flex flex-wrap gap-2'>
                 {answerTitles.map((title) => (
                   <span
                     key={title}
-                    className='rounded-full border border-slate-light/25 bg-lilac px-3 py-1.5 text-xs text-plum'
+                    className='rounded-full border border-slate-light/30 bg-lilac px-3 py-1.5 text-xs text-plum'
                   >
                     {title}
                   </span>
@@ -713,7 +711,7 @@ export function LifeDeck({
               <button
                 type='button'
                 onClick={goBack}
-                className='flex items-center justify-center gap-2 rounded-full border border-slate-light/35 px-5 py-2.5 text-sm font-semibold text-plum'
+                className='flex items-center justify-center gap-2 rounded-full border border-slate-light/30 px-5 py-2.5 text-sm font-semibold text-plum'
               >
                 <ArrowLeft className='size-4' />
                 {copy.back}
@@ -746,10 +744,10 @@ export function LifeDeck({
         className='px-4 py-10 sm:px-6 sm:py-14'
       >
         <header className='mx-auto max-w-3xl text-center'>
-          <p className='font-mono text-xs tracking-[0.2em] text-violet uppercase'>
+          <p className='font-mono text-xs tracking-wide text-violet uppercase'>
             {copy.realityEyebrow}
           </p>
-          <h2 className='mt-4 text-4xl font-black tracking-[-0.05em] text-plum sm:text-5xl'>
+          <h2 className='mt-4 text-3xl font-extrabold tracking-tight text-plum sm:text-4xl'>
             {copy.realityTitle}
           </h2>
           <p className='mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate'>
@@ -889,7 +887,7 @@ export function LifeDeck({
           <button
             type='button'
             onClick={goBack}
-            className='flex items-center justify-center gap-2 rounded-full border border-slate-light/35 bg-white px-5 py-3 text-sm font-semibold text-plum'
+            className='flex items-center justify-center gap-2 rounded-full border border-slate-light/30 bg-white px-5 py-3 text-sm font-semibold text-plum'
           >
             <ArrowLeft className='size-4' />
             {copy.back}
@@ -928,23 +926,23 @@ export function LifeDeckSummary({
   return (
     <section
       data-testid='life-deck-summary'
-      className='overflow-hidden rounded-[2rem] border border-plum-light bg-plum text-lilac shadow-[0_20px_60px_rgba(38,28,59,0.2)]'
+      className='overflow-hidden rounded-3xl border border-plum-light bg-plum text-lilac shadow-lg'
     >
       <div className='grid gap-6 p-6 sm:p-8 lg:grid-cols-[auto_1fr_auto] lg:items-center'>
-        <div className='flex size-20 items-center justify-center rounded-full border border-lilac/15 bg-lilac/7 text-gold'>
+        <div className='flex size-20 items-center justify-center rounded-full border border-lilac/15 bg-lilac/5 text-gold'>
           <DeckIcon
             icon={archetype.icon}
             className='size-10'
           />
         </div>
         <div>
-          <p className='font-mono text-[10px] tracking-[0.16em] text-gold uppercase'>
+          <p className='font-mono text-xs tracking-wide text-gold uppercase'>
             {copy.resultEyebrow}
           </p>
-          <h2 className='mt-1 text-2xl font-black tracking-[-0.035em]'>
+          <h2 className='mt-1 text-2xl font-extrabold tracking-tight'>
             {localize(archetype.name, locale)}
           </h2>
-          <p className='mt-2 max-w-2xl text-sm leading-6 text-lilac/65'>
+          <p className='mt-2 max-w-2xl text-sm leading-6 text-lilac/60'>
             {localize(archetype.description, locale)}
           </p>
           <div className='mt-4 flex flex-wrap gap-2 text-xs'>
@@ -960,12 +958,12 @@ export function LifeDeckSummary({
           <button
             type='button'
             onClick={onRetake}
-            className='inline-flex items-center gap-2 rounded-full border border-lilac/20 px-4 py-2 text-xs font-bold text-lilac hover:bg-lilac/8'
+            className='inline-flex items-center gap-2 rounded-full border border-lilac/20 px-4 py-2 text-xs font-bold text-lilac hover:bg-lilac/10'
           >
             <RotateCcw className='size-3.5' />
             {copy.retake}
           </button>
-          <p className='mt-3 max-w-xs text-xs leading-5 text-lilac/45'>{copy.adjust}</p>
+          <p className='mt-3 max-w-xs text-xs leading-5 text-lilac/40'>{copy.adjust}</p>
         </div>
       </div>
     </section>

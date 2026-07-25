@@ -8,13 +8,17 @@ import type { ChatMessage, HousingSummary } from '@/shared/schemas';
 
 export interface TranscriptMessage extends ChatMessage {
   housing?: HousingSummary[];
+  /** Data URL of what the user attached, echoed into their own bubble. */
+  image?: string;
+  /** A generated 하루 deck this reply spawned. */
+  gameId?: string;
 }
 
 interface ChatValue {
   messages: TranscriptMessage[];
   conversationId: string | null;
   busy: boolean;
-  send: (text: string) => void;
+  send: (text: string, image?: string) => void;
   newChat: () => void;
   openConversation: (id: string) => Promise<void>;
 }
@@ -41,12 +45,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [isLoggedIn, newChat]);
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, image?: string) => {
       const trimmed = text.trim();
       if (!trimmed || aiSearch.isPending || loadingConversation) return;
-      setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
+      setMessages((prev) => [...prev, { role: 'user', text: trimmed, image }]);
       aiSearch.mutate(
-        { message: trimmed, conversationId: conversationId ?? undefined },
+        { message: trimmed, conversationId: conversationId ?? undefined, image },
         {
           onSuccess: (data) => {
             setConversationId(data.conversationId);
@@ -56,6 +60,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 role: 'assistant',
                 text: data.reply,
                 housing: data.housing.length > 0 ? data.housing : undefined,
+                gameId: data.gameId ?? undefined,
               },
             ]);
           },
@@ -80,6 +85,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             role: message.role,
             text: message.text,
             housing: message.housing.length > 0 ? message.housing : undefined,
+            gameId: message.gameId ?? undefined,
           })),
         );
       } catch {

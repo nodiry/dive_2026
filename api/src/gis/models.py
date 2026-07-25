@@ -54,3 +54,20 @@ class DistrictStoreTrend(SQLModel, table=True):
     emd_code: str = Field(index=True)
     year: int
     store_count: int
+
+
+class UseAreaCell(SQLModel, table=True):
+    """
+    One cell of the 선도소프트 상권-주거 융합데이터 (dataset 03): the zoning
+    designation plus a bus-stop flag, pre-joined by the partner. `bus_stop`
+    is the per-cell BSST_YN, which is the only transit signal in any of the
+    provided data.
+    """
+
+    __tablename__ = "use_area_cell"
+
+    id: int | None = Field(default=None, primary_key=True)
+    zone_code: str | None = None
+    zone_name: str | None = None
+    bus_stop: bool = Field(default=False, index=True)
+    geom: str = Field(sa_column=Column(Geography("MULTIPOLYGON", srid=4326), nullable=False))

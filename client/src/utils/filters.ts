@@ -10,6 +10,7 @@ export interface CriteriaFilters {
   parkingRequired: boolean;
   district: string;
   type: string;
+  busStopNearby: boolean;
 }
 
 export const EMPTY_CRITERIA_FILTERS: CriteriaFilters = {
@@ -22,7 +23,15 @@ export const EMPTY_CRITERIA_FILTERS: CriteriaFilters = {
   parkingRequired: false,
   district: '',
   type: '',
+  busStopNearby: false,
 };
+
+/**
+ * The map needs every matching project, not a page of them: pins are the
+ * whole point of Explore and the policy report aggregates over the full set.
+ * The API caps this at 5000 and defaults to 2000 on its own.
+ */
+export const HOUSING_QUERY_LIMIT = 2000;
 
 export const HOUSING_TYPE_VALUES: HousingType[] = [
   'purchased',
@@ -42,5 +51,7 @@ export function toHousingSearchQuery(filters: CriteriaFilters): HousingSearchQue
     parkingRequired: filters.parkingRequired || undefined,
     district: filters.district || undefined,
     type: filters.type ? (filters.type as HousingType) : undefined,
+    busStopNearby: filters.busStopNearby || undefined,
+    limit: HOUSING_QUERY_LIMIT,
   };
 }

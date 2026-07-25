@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "동네탐색",
+    "name": "하루",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dongnetamsaek",
+    "scheme": "haru",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F5F3F8",
     "newArchEnabled": true,

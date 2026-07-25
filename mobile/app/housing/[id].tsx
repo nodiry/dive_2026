@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Share, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HousingMap, RoadviewPanel } from '@/components/map/housing-map';
@@ -11,7 +11,7 @@ import { MeterBar, StatTile, TagStrip, TypeBadge } from '@/components/ui/data';
 import { PressableScale } from '@/components/ui/press';
 import { Card, EmptyState, Section, Skeleton } from '@/components/ui/surfaces';
 import { Txt } from '@/components/ui/txt';
-import { Colors, FloatingShadow, Radius, Spacing, Tint } from '@/constants/theme';
+import { Colors, FloatingShadow, FontFamily, FontSize, MONO, Radius, Spacing, Tint } from '@/constants/theme';
 import { useHousingDetail, useNeighborhood } from '@/hooks/useHousing';
 import { useSavedHousing } from '@/hooks/useSaved';
 import { formatArea, formatWon } from '@/utils/format';
@@ -31,6 +31,21 @@ export default function HousingDetailScreen() {
   const [view, setView] = useState<'map' | 'roadview'>('map');
 
   const geocoded = housing?.lat != null && housing?.lng != null;
+  const kakaoMapUrl = geocoded
+    ? `https://map.kakao.com/link/map/${encodeURIComponent(housing?.projectName ?? '')},${housing?.lat},${housing?.lng}`
+    : null;
+
+  const shareHousing = async () => {
+    if (!housing) return;
+    // The native sheet takes one string on Android, so the Kakao Map link
+    // rides inside the message rather than as a separate url field.
+    const lines = [housing.projectName, housing.address, kakaoMapUrl].filter(Boolean).join('\n');
+    try {
+      await Share.share({ title: housing.projectName, message: lines });
+    } catch {
+      // A dismissed share sheet is not an error worth surfacing.
+    }
+  };
   const neighborhood = useNeighborhood(housingId, Boolean(geocoded));
   const noData = t('card.noData');
 
@@ -105,6 +120,16 @@ export default function HousingDetailScreen() {
               </Txt>
             </View>
           )}
+
+          {kakaoMapUrl ? (
+            <PressableScale
+              onPress={() => void Linking.openURL(kakaoMapUrl)}
+              style={[styles.kakaoLink, { top: insets.top + 56 }]}
+            >
+              <Ionicons name="open-outline" size={13} color={Colors.violetDark} />
+              <Txt style={styles.kakaoLinkText}>{t('detail.openKakaoMap')}</Txt>
+            </PressableScale>
+          ) : null}
 
           {geocoded ? (
             <View style={[styles.viewToggle, { top: insets.top + Spacing.sm }]}>
@@ -188,6 +213,68 @@ export default function HousingDetailScreen() {
                       ))}
                     </View>
 
+                    {neighborhood.data.trendLabel != null ||
+                    neighborhood.data.youthShare != null ||
+                    neighborhood.data.busStopCells > 0 ? (
+                      <View style={styles.signals}>
+                        <Txt variant="label" style={styles.zonesLabel}>
+                          {`${t('detail.signalsLabel')}${
+                            neighborhood.data.emdName ? ` · ${neighborhood.data.emdName}` : ''
+                          }`}
+                        </Txt>
+                        <View style={styles.signalRow}>
+                          {neighborhood.data.trendLabel != null ? (
+                            <View
+                              style={[
+                                styles.signalChip,
+                                neighborhood.data.trendLabel === 'rising' && styles.signalRising,
+                                neighborhood.data.trendLabel === 'declining' &&
+                                  styles.signalDeclining,
+                              ]}
+                            >
+                              <Ionicons
+                                name={
+                                  neighborhood.data.trendLabel === 'rising'
+                                    ? 'trending-up'
+                                    : neighborhood.data.trendLabel === 'declining'
+                                      ? 'trending-down'
+                                      : 'remove'
+                                }
+                                size={13}
+                                color={
+                                  neighborhood.data.trendLabel === 'declining'
+                                    ? Colors.gold
+                                    : neighborhood.data.trendLabel === 'rising'
+                                      ? Colors.violetDark
+                                      : Colors.slate
+                                }
+                              />
+                              <Txt style={styles.signalText}>
+                                {t(`detail.trend.${neighborhood.data.trendLabel}`)}
+                              </Txt>
+                            </View>
+                          ) : null}
+                          {neighborhood.data.youthShare != null ? (
+                            <View style={styles.signalChip}>
+                              <Txt style={styles.signalText}>{t('detail.youthShare')}</Txt>
+                              <Txt style={styles.signalValue}>
+                                {`${Math.round(neighborhood.data.youthShare * 100)}%`}
+                              </Txt>
+                            </View>
+                          ) : null}
+                          {neighborhood.data.busStopCells > 0 ? (
+                            <View style={styles.signalChip}>
+                              <Ionicons name="bus-outline" size={13} color={Colors.violet} />
+                              <Txt style={styles.signalText}>{t('detail.busStopAreas')}</Txt>
+                              <Txt style={styles.signalValue}>
+                                {neighborhood.data.busStopCells}
+                              </Txt>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    ) : null}
+
                     <View style={styles.zones}>
                       <Txt variant="label" style={styles.zonesLabel}>
                         {t('detail.zoneSection')}
@@ -212,6 +299,14 @@ export default function HousingDetailScreen() {
       </ScrollView>
 
       <FloatingBack onPress={goBack} top={insets.top + Spacing.sm} />
+
+      <PressableScale
+        onPress={shareHousing}
+        accessibilityLabel={t('detail.share')}
+        style={[styles.floatingAction, { top: insets.top + Spacing.sm, right: Spacing.md }]}
+      >
+        <Ionicons name="share-outline" size={19} color={Colors.plum} />
+      </PressableScale>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + Spacing.md }]}>
         <Button
@@ -242,6 +337,33 @@ const styles = StyleSheet.create({
   heroEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   heroEmptyText: { textAlign: 'center' },
   viewToggle: { position: 'absolute', right: Spacing.md, width: 168, ...FloatingShadow },
+  floatingAction: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    backgroundColor: Tint.floating,
+    borderWidth: 1,
+    borderColor: Tint.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...FloatingShadow,
+  },
+  kakaoLink: {
+    position: 'absolute',
+    right: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    backgroundColor: Tint.floating,
+    borderWidth: 1,
+    borderColor: Tint.border,
+    ...FloatingShadow,
+  },
+  kakaoLinkText: { fontFamily: FontFamily.semibold, fontSize: FontSize.xs, color: Colors.violetDark },
   back: {
     position: 'absolute',
     left: Spacing.md,
@@ -271,6 +393,23 @@ const styles = StyleSheet.create({
   bars: { gap: Spacing.sm, marginTop: Spacing.sm },
   zones: { marginTop: Spacing.lg, paddingTop: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.lilacDim },
   zonesLabel: { marginBottom: Spacing.sm },
+  signals: { marginTop: Spacing.lg, paddingTop: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.lilacDim },
+  signalRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  signalChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Tint.border,
+    backgroundColor: Colors.lilac,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  signalRising: { borderColor: Tint.borderViolet, backgroundColor: Colors.lilacDim },
+  signalDeclining: { borderColor: Colors.gold, backgroundColor: Tint.gold },
+  signalText: { fontFamily: FontFamily.semibold, fontSize: FontSize.xs, color: Colors.plum },
+  signalValue: { fontFamily: MONO, fontSize: FontSize.xs, color: Colors.violetDark },
   bottomBar: {
     position: 'absolute',
     left: 0,

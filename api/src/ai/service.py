@@ -1,3 +1,6 @@
+import base64
+import binascii
+import re
 from uuid import UUID
 
 from google import genai
@@ -9,6 +12,7 @@ from src.ai import tools as ai_tools
 from src.ai.models import AIConversation, AIMessage, AIMessageRole
 from src.ai.schemas import ChatMessage
 from src.config import app_config
+from src.game import service as game_service
 from src.housing.models import HousingProject
 from src.housing.schemas import HousingSummary
 from src.housing.service import to_summaries
@@ -27,12 +31,14 @@ TITLE_MAX_LENGTH = 60
 # on this key.
 MODEL = "gemini-flash-lite-latest"
 MAX_TOOL_ROUNDS = 5
+# Gemini's inline-data ceiling is ~7MB per request; stay under it.
+MAX_IMAGE_BYTES = 6_000_000
 
 SYSTEM_PROMPT = """
-You are 동네탐색 (Dongne Tamsaek)'s AI search assistant — a public rental
+You are 하루 (Haru)'s AI search assistant — a public rental
 housing recommendation service for Busan Metropolitan City (BMC), built for
 the DIVE 2026 hackathon with 선도소프트 (Sundosoft). When asked who owns,
-made, or built you, say you're part of the 동네탐색 service, not a general
+made, or built you, say you're part of the 하루 service, not a general
 assistant.
 
 Help users find public rental housing in Busan (매입임대/재개발임대/통합공공임대/
@@ -42,6 +48,16 @@ cafes, gyms, restaurants, convenience stores, etc) — pick the matching tool,
 or both if the request mixes the two. Never invent housing data or numbers;
 only state what a tool result actually returned. If a tool returns no
 results, say so plainly and suggest loosening a condition.
+
+When the user attaches an image, read it and use it: a 모집공고 screenshot, a
+pay slip, a lease, a resume. Pull out what matters for housing (budget,
+household size, workplace, district, deadlines), say plainly what you read,
+then call a tool with those values. Never guess at text you cannot read.
+
+If the user asks for a game, a quiz, a test, or says 게임/테스트, do not try to
+run it yourself in chat: a 하루 deck has already been created for them and is
+rendering in the UI. Just introduce it in one or two sentences and tell them
+to pick their cards.
 
 Reply in the same language the user wrote in (Korean or English).
 
@@ -68,14 +84,38 @@ def _to_contents(history: list[ChatMessage]) -> list[types.Content]:
     return [types.Content(role="model" if m.role == "assistant" else "user", parts=[types.Part(text=m.text)]) for m in history]
 
 
+def _image_part(data_url: str) -> types.Part | None:
+    """
+    Turn a browser data URL into an inline image part. Anything we can't parse
+    is dropped rather than raised: a bad attachment shouldn't fail the whole
+    turn when the user also typed a question.
+    """
+    match = re.match(r"data:(image/[a-zA-Z0-9.+-]+);base64,(.+)$", data_url.strip(), re.S)
+    if not match:
+        return None
+    mime, payload = match.group(1), match.group(2)
+    try:
+        raw = base64.b64decode(payload, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    if not raw or len(raw) > MAX_IMAGE_BYTES:
+        return None
+    return types.Part.from_bytes(data=raw, mime_type=mime)
+
+
 async def generate_reply(
-    session: AsyncSession, history: list[ChatMessage], user_message: str
+    session: AsyncSession, history: list[ChatMessage], user_message: str, image: str | None = None
 ) -> tuple[str, list[HousingSummary]]:
     client = _client()
     tools = await ai_tools.build_tools(session)
     config = types.GenerateContentConfig(tools=tools, system_instruction=SYSTEM_PROMPT)
 
-    contents = _to_contents(history) + [types.Content(role="user", parts=[types.Part(text=user_message)])]
+    parts: list[types.Part] = [types.Part(text=user_message)]
+    if image:
+        attachment = _image_part(image)
+        if attachment is not None:
+            parts.append(attachment)
+    contents = _to_contents(history) + [types.Content(role="user", parts=parts)]
     # Keyed by id, not appended, so a housing project surfaced by more than
     # one tool call in the same turn only renders once in the UI.
     all_housing: dict[int, HousingSummary] = {}
@@ -120,6 +160,29 @@ class ConversationNotFound(Exception):
     pass
 
 
+# "/game" is the explicit command; the keywords catch natural phrasing in both
+# languages ("게임 하고 싶어", "give me a quiz"). Checked server-side rather than
+# left to the model so the deck is guaranteed to exist before the reply
+# mentions it.
+GAME_COMMAND = "/game"
+GAME_KEYWORDS = ("게임", "테스트", "game", "quiz")
+
+
+def wants_game(message: str) -> bool:
+    lowered = message.strip().lower()
+    if lowered.startswith(GAME_COMMAND):
+        return True
+    return any(keyword in lowered for keyword in GAME_KEYWORDS)
+
+
+def game_theme(message: str) -> str:
+    """Everything after /game is the theme; a bare keyword has none."""
+    stripped = message.strip()
+    if stripped.lower().startswith(GAME_COMMAND):
+        return stripped[len(GAME_COMMAND) :].strip()
+    return stripped
+
+
 async def list_conversations(session: AsyncSession, user_id: int) -> list[AIConversation]:
     result = await session.exec(
         select(AIConversation).where(AIConversation.user_id == user_id).order_by(col(AIConversation.created_at).desc())
@@ -157,8 +220,12 @@ def _to_chat_history(messages: list[AIMessage]) -> list[ChatMessage]:
 
 
 async def chat(
-    session: AsyncSession, user_id: int, conversation_id: UUID | None, user_message: str
-) -> tuple[AIConversation, str, list[HousingSummary]]:
+    session: AsyncSession,
+    user_id: int,
+    conversation_id: UUID | None,
+    user_message: str,
+    image: str | None = None,
+) -> tuple[AIConversation, str, list[HousingSummary], UUID | None]:
     """One turn against a persisted conversation: loads (or creates) it,
     replays its stored history to the model, and stores both new messages."""
     if conversation_id is not None:
@@ -171,7 +238,17 @@ async def chat(
         await session.refresh(conversation)
         history = []
 
-    reply, housing = await generate_reply(session, history, user_message)
+    game_id: UUID | None = None
+    if wants_game(user_message):
+        # Generated before the reply so the model can introduce a deck that
+        # actually exists; a generation failure falls back to a normal turn.
+        try:
+            game = await game_service.create_game(session, user_id, game_theme(user_message), conversation.id)
+            game_id = game.id
+        except Exception:
+            game_id = None
+
+    reply, housing = await generate_reply(session, history, user_message, image)
 
     session.add(AIMessage(chat_id=conversation.id, role=AIMessageRole.USER, content=user_message))
     session.add(
@@ -180,11 +257,12 @@ async def chat(
             role=AIMessageRole.MODEL,
             content=reply,
             housing_ids=[h.id for h in housing] or None,
+            game_id=game_id,
         )
     )
     await session.commit()
 
-    return conversation, reply, housing
+    return conversation, reply, housing, game_id
 
 
 async def housing_by_ids(session: AsyncSession, ids: set[int]) -> dict[int, HousingSummary]:

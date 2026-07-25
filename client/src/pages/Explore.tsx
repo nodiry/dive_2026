@@ -1,8 +1,8 @@
 import type { HousingSummary, LifestylePreference } from '@shared';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Layers, LocateFixed, Minus, Plus } from 'lucide-react';
+import { Layers, LocateFixed, Minus, Plus, Store } from 'lucide-react';
 import { ExploreNavbar } from '@components/explore/ExploreNavbar';
 import { FilterPanel } from '@components/explore/FilterPanel';
 import { ListItem, ListMessage, ListPanel, ListSkeleton } from '@components/explore/ListPanel';
@@ -27,7 +27,11 @@ import {
 } from '@constants/districts';
 import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
 import { useDebouncedValue } from '@hooks/useDebouncedValue';
-import { useDistrictBoundaries, useDistrictDensity } from '@hooks/useDistrictDensity';
+import {
+  useDistrictBoundaries,
+  useDistrictDensity,
+  useDistrictSupply,
+} from '@hooks/useDistrictDensity';
 import { useHousingSearch } from '@hooks/useHousing';
 import { useLifestyleRecommendation } from '@hooks/useRecommendation';
 import { useSavedHousing } from '@hooks/useSaved';
@@ -96,9 +100,33 @@ export function Explore() {
   const clearSelectedHousing = useExploreStore((s) => s.clearSelectedHousing);
   const setHoveredHousing = useExploreStore((s) => s.setHoveredHousing);
 
-  const densityMode = useExploreStore((s) => s.densityMode);
-  const toggleDensityMode = useExploreStore((s) => s.toggleDensityMode);
-  const { data: densityRegions } = useDistrictDensity(densityMode);
+  const mapLayer = useExploreStore((s) => s.mapLayer);
+  const setMapLayer = useExploreStore((s) => s.setMapLayer);
+  const { data: densityRegions } = useDistrictDensity(mapLayer !== 'none');
+  const { data: supplyRegions } = useDistrictSupply();
+
+  // The amenity layer reuses the population heat canvas with a different value
+  // per 동: franchise counts per km² instead of residents per km². Both
+  // endpoints key on emdCode, so the geometry comes from one and the metric
+  // from the other with no extra request.
+  const amenityRegions = useMemo(() => {
+    if (mapLayer !== 'amenity' || !densityRegions || !supplyRegions) return null;
+    const amenityByCode = new Map(supplyRegions.map((d) => [d.emdCode, d.amenityTotal]));
+    return densityRegions
+      .filter((region) => amenityByCode.has(region.emdCode))
+      .map((region) => ({
+        ...region,
+        densityPerKm2: (amenityByCode.get(region.emdCode) ?? 0) / Math.max(region.areaKm2, 0.0001),
+      }));
+  }, [mapLayer, densityRegions, supplyRegions]);
+
+  const activeRegions =
+    mapLayer === 'amenity'
+      ? amenityRegions
+      : mapLayer === 'population'
+        ? (densityRegions ?? null)
+        : null;
+
   const { data: districtBoundaries } = useDistrictBoundaries(Boolean(filters.district));
   const districtBoundary = filters.district
     ? (districtBoundaries?.find(
@@ -241,7 +269,7 @@ export function Explore() {
     selected: h.id === selectedHousingId || h.id === hoveredHousingId,
   }));
 
-  // Only the nearest POI per category is "the destination" (routed +
+  // Only the nearest POI per category is "the destination" (animated +
   // animated below) — the rest are just anchors on the map with their
   // category icon, per category up to POIS_PER_CATEGORY server-side.
   const poiMarkers: PoiMarker[] = selectedPreferenceResult
@@ -349,7 +377,7 @@ export function Explore() {
       }
       activeClusterIds={clusterIds}
       onBoundsChange={setMapBounds}
-      densityRegions={densityMode ? (densityRegions ?? null) : null}
+      densityRegions={activeRegions}
       districtBoundary={districtBoundary}
       controlsRef={mapControlsRef}
       userLocation={userLocation}
@@ -391,21 +419,28 @@ export function Explore() {
         </div>
 
         <div className='pointer-events-none absolute bottom-4 left-3 z-10 flex items-center gap-2'>
-          <button
-            type='button'
-            aria-pressed={densityMode}
-            onClick={toggleDensityMode}
-            className={cn(
-              'pointer-events-auto flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium shadow-lg backdrop-blur transition-all',
-              densityMode
-                ? 'border-plum bg-plum text-lilac'
-                : 'border-slate-light/30 bg-lilac/95 text-plum hover:border-violet/40',
-            )}
-          >
-            <Layers className='size-4' />
-            {t('explore.densityToggle')}
-          </button>
-          {densityMode && (
+          {(['population', 'amenity'] as const).map((layer) => (
+            <button
+              key={layer}
+              type='button'
+              aria-pressed={mapLayer === layer}
+              onClick={() => setMapLayer(layer)}
+              className={cn(
+                'pointer-events-auto flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium shadow-lg backdrop-blur transition-all',
+                mapLayer === layer
+                  ? 'border-plum bg-plum text-lilac'
+                  : 'border-slate-light/30 bg-lilac/95 text-plum hover:border-violet/40',
+              )}
+            >
+              {layer === 'population' ? (
+                <Layers className='size-4' />
+              ) : (
+                <Store className='size-4' />
+              )}
+              {t(layer === 'population' ? 'explore.densityToggle' : 'explore.amenityToggle')}
+            </button>
+          ))}
+          {mapLayer !== 'none' && (
             <div className='pointer-events-auto flex items-center gap-1.5 rounded-full border border-slate-light/30 bg-lilac/95 px-3 py-1.5 shadow-lg backdrop-blur'>
               <span className='text-xs text-slate'>{t('explore.densityLow')}</span>
               {['#a99bd8', '#8a76c9', '#6d4aff', '#d9a441', '#c98a1f'].map((c) => (
@@ -418,7 +453,7 @@ export function Explore() {
               ))}
               <span className='text-xs text-slate'>{t('explore.densityHigh')}</span>
               <span className='ml-1 font-mono text-xs text-slate-light'>
-                {t('explore.densitySource')}
+                {t(mapLayer === 'amenity' ? 'explore.amenitySource' : 'explore.densitySource')}
               </span>
             </div>
           )}

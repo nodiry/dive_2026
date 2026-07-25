@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LifeDeck, LifeDeckSummary } from '@/components/life-match/life-deck';
 import { MatchCard, MatchSummaryBar } from '@/components/life-match/match-card';
 import { HousingMap, type MapHandle } from '@/components/map/housing-map';
 import { ScreenHeader } from '@/components/nav/screen-header';
@@ -13,6 +14,11 @@ import { Card, EmptyState, Section, Skeleton } from '@/components/ui/surfaces';
 import { Txt } from '@/components/ui/txt';
 import { DISTRICTS } from '@/constants/districts';
 import { Colors, FontSize, Radius, Spacing, Tint } from '@/constants/theme';
+import type { LifeDeckResult } from '@/features/life-match/deck-model';
+import {
+  readLifeMatchSession,
+  writeLifeMatchSession,
+} from '@/features/life-match/deck-session';
 import {
   DEFAULT_LIFE_PROFILE,
   DEFAULT_WEEKLY_ROUTINE,
@@ -25,14 +31,19 @@ import {
   deriveLifeStats,
   type DestinationId,
   type LifeProfile,
+  type LifeStats,
   type WeeklyRoutine,
 } from '@/features/life-match/model';
 import { useLifestyleRecommendation } from '@/hooks/useRecommendation';
 import type { LifestyleRecommendationRequest, LifestyleRecommendationResult } from '@/shared/schemas';
 import { formatWon } from '@/utils/format';
 
-function buildRequest(profile: LifeProfile, routine: WeeklyRoutine): LifestyleRecommendationRequest {
-  const stats = deriveLifeStats(routine);
+function buildRequest(
+  profile: LifeProfile,
+  routine: WeeklyRoutine,
+  lifeStats?: LifeStats,
+): LifestyleRecommendationRequest {
+  const stats = lifeStats ?? deriveLifeStats(routine);
   const destination = DESTINATIONS[profile.destinationId];
   return {
     preferences: buildLifestylePreferences(profile, routine, stats),
@@ -53,11 +64,21 @@ function buildRequest(profile: LifeProfile, routine: WeeklyRoutine): LifestyleRe
   };
 }
 
+/**
+ * The deck discovers a starting routine, then hands it to the live
+ * recommendation screen. Detailed adjustments recalculate the ranked matches
+ * with the same debounced behavior as Explore.
+ */
 export default function LifeMatchScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [profile, setProfile] = useState<LifeProfile>(DEFAULT_LIFE_PROFILE);
-  const [routine, setRoutine] = useState<WeeklyRoutine>({ ...DEFAULT_WEEKLY_ROUTINE });
+  const session = useState(readLifeMatchSession)[0];
+  const [stage, setStage] = useState<'deck' | 'results'>(session ? 'results' : 'deck');
+  const [profile, setProfile] = useState<LifeProfile>(session?.profile ?? DEFAULT_LIFE_PROFILE);
+  const [routine, setRoutine] = useState<WeeklyRoutine>(
+    session?.routine ?? { ...DEFAULT_WEEKLY_ROUTINE },
+  );
+  const [discovery, setDiscovery] = useState<LifeDeckResult | null>(session?.discovery ?? null);
   const [results, setResults] = useState<LifestyleRecommendationResult[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const mapRef = useRef<MapHandle>(null);
@@ -71,19 +92,32 @@ export default function LifeMatchScreen() {
   });
 
   useEffect(() => {
+    if (stage !== 'results') return;
+    if (discovery) writeLifeMatchSession({ profile, routine, discovery });
     const delay = firstRun.current ? 0 : 600;
     firstRun.current = false;
     const timer = setTimeout(() => {
       const seq = sequence.current + 1;
       sequence.current = seq;
-      mutateRef.current(buildRequest(profile, routine), {
+      mutateRef.current(buildRequest(profile, routine, discovery?.lifeStats), {
         onSuccess: (data) => {
           if (seq === sequence.current) setResults(data);
         },
       });
     }, delay);
     return () => clearTimeout(timer);
-  }, [profile, routine]);
+  }, [discovery, profile, routine, stage]);
+
+  const recommendationReset = recommendation.reset;
+
+  // Routine edits after the deck keep the archetype but re-derive its stats, so
+  // the summary card and the ranking never disagree about the same week.
+  const updateRoutine = (next: WeeklyRoutine) => {
+    setRoutine(next);
+    setDiscovery((current) =>
+      current ? { ...current, routine: next, lifeStats: deriveLifeStats(next) } : current,
+    );
+  };
 
   const stats = deriveLifeStats(routine);
   const set = <K extends keyof LifeProfile>(key: K, value: LifeProfile[K]) =>
@@ -118,6 +152,27 @@ export default function LifeMatchScreen() {
     if (pinKey) mapRef.current?.fit();
   }, [pinKey]);
 
+  if (stage === 'deck') {
+    return (
+      <View style={styles.screen}>
+        <ScreenHeader title={t('lifeMatch.navLabel')} />
+        <LifeDeck
+          initialProfile={profile}
+          onComplete={(nextDiscovery, nextProfile) => {
+            sequence.current += 1;
+            recommendationReset();
+            setResults([]);
+            setDiscovery(nextDiscovery);
+            setProfile(nextProfile);
+            setRoutine(nextDiscovery.routine);
+            firstRun.current = true;
+            setStage('results');
+          }}
+        />
+      </View>
+    );
+  }
+
   const toggles: [keyof LifeProfile, string][] = [
     ['elevatorRequired', t('lifeMatch.elevator')],
     ['parkingRequired', t('lifeMatch.parking')],
@@ -132,6 +187,18 @@ export default function LifeMatchScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {discovery ? (
+          <LifeDeckSummary
+            result={discovery}
+            onRetake={() => {
+              sequence.current += 1;
+              recommendationReset();
+              setResults([]);
+              setStage('deck');
+            }}
+          />
+        ) : null}
+
         <Txt variant="title">{t('lifeMatch.title')}</Txt>
         <Txt variant="body" color="slate" style={styles.intro}>
           {t('lifeMatch.intro')}
@@ -145,7 +212,7 @@ export default function LifeMatchScreen() {
                 <Chip
                   key={key}
                   label={t(`lifeMatch.presets.${key}`)}
-                  onPress={() => setRoutine({ ...ROUTINE_PRESETS[key] })}
+                  onPress={() => updateRoutine({ ...ROUTINE_PRESETS[key] })}
                 />
               ))}
             </View>
@@ -155,7 +222,7 @@ export default function LifeMatchScreen() {
                   key={key}
                   label={t(`lifeMatch.activities.${key}`)}
                   value={routine[key]}
-                  onChange={(value) => setRoutine((current) => ({ ...current, [key]: value }))}
+                  onChange={(value) => updateRoutine({ ...routine, [key]: value })}
                 />
               ))}
             </View>

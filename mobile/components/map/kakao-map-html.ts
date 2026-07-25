@@ -162,13 +162,18 @@ export function buildKakaoMapHtml(options: {
   var MAX_LEVEL = 10;
   var CLUSTER_PX = 74;
   var GLYPHS = ${safeJson(GLYPHS)};
+  // Density is long-tailed (median ~8k/km² against a ~50k max), so the ramp is
+  // anchored on the 95th percentile and clamped; anchoring on the max leaves
+  // the whole city cool and never reaches gold.
   var HEAT_STOPS = [
     [0.0, 'rgba(138,118,201,0)'],
-    [0.25, 'rgba(138,118,201,0.26)'],
-    [0.55, 'rgba(109,74,255,0.34)'],
-    [0.8, 'rgba(217,164,65,0.4)'],
-    [1.0, 'rgba(201,138,31,0.46)']
+    [0.25, 'rgba(138,118,201,0.32)'],
+    [0.55, 'rgba(109,74,255,0.5)'],
+    [0.8, 'rgba(217,164,65,0.62)'],
+    [1.0, 'rgba(201,138,31,0.75)']
   ];
+  var HEAT_PERCENTILE = 0.95;
+  var HEAT_CURVE = 0.6;
   var state = ${safeJson(initial)};
   var map = null;
   var overlays = [];
@@ -380,16 +385,18 @@ export function buildKakaoMapHtml(options: {
     var shifted = proj.containerPointFromCoords(new kakao.maps.LatLng(center.getLat(), center.getLng() + 0.01));
     var metersPerPx = (0.01 * 111320 * Math.cos(center.getLat() * Math.PI / 180)) /
       Math.max(Math.abs(shifted.x - centerPt.x), 1);
-    var maxDensity = Math.max.apply(null, regions.map(function (r) { return r.densityPerKm2; }));
+    var densities = regions.map(function (r) { return r.densityPerKm2; })
+      .sort(function (a, b) { return a - b; });
+    var reference = densities[Math.floor((densities.length - 1) * HEAT_PERCENTILE)] || 1;
 
     regions.forEach(function (region) {
       var pt = proj.containerPointFromCoords(new kakao.maps.LatLng(region.centroidLat, region.centroidLng));
       var radiusMeters = Math.sqrt(region.areaKm2 / Math.PI) * 1000 * 1.5;
       var radiusPx = Math.min(Math.max(radiusMeters / metersPerPx, 20), 420);
       if (pt.x < -radiusPx || pt.y < -radiusPx || pt.x > width + radiusPx || pt.y > height + radiusPx) return;
-      var intensity = Math.pow(region.densityPerKm2 / maxDensity, 0.55);
+      var intensity = Math.pow(Math.min(1, region.densityPerKm2 / reference), HEAT_CURVE);
       var gradient = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radiusPx);
-      gradient.addColorStop(0, 'rgba(0,0,0,' + (0.85 * intensity) + ')');
+      gradient.addColorStop(0, 'rgba(0,0,0,' + intensity + ')');
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(pt.x - radiusPx, pt.y - radiusPx, radiusPx * 2, radiusPx * 2);

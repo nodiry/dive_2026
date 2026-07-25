@@ -43,7 +43,7 @@ export interface PoiMarker {
   /** Hex color, e.g. from constants/poi.ts — data-driven, so this can't be a static Tailwind class. */
   color?: string;
   icon?: LucideIcon;
-  /** The nearest match in its category — the one actually routed/animated. Others render as plain smaller anchors. */
+  /** The nearest match in its category — the one actually animated. Others render as plain smaller anchors. */
   highlighted?: boolean;
 }
 
@@ -113,11 +113,27 @@ export interface DistrictBoundary {
 // lookup for colorizing the grayscale heat accumulation.
 const HEAT_STOPS: [number, string][] = [
   [0.0, 'rgba(138, 118, 201, 0)'],
-  [0.25, 'rgba(138, 118, 201, 0.26)'],
-  [0.55, 'rgba(109, 74, 255, 0.34)'],
-  [0.8, 'rgba(217, 164, 65, 0.4)'],
-  [1.0, 'rgba(201, 138, 31, 0.46)'],
+  [0.25, 'rgba(138, 118, 201, 0.32)'],
+  [0.55, 'rgba(109, 74, 255, 0.5)'],
+  [0.8, 'rgba(217, 164, 65, 0.62)'],
+  [1.0, 'rgba(201, 138, 31, 0.75)'],
 ];
+
+/**
+ * Density is long-tailed: with the 선도소프트 grid interpolated onto 법정동 the
+ * median is ~8k/km² against a ~50k max, so anchoring the ramp on the maximum
+ * normalizes the whole city into the cool band and the gold end is
+ * unreachable. Anchor on a high percentile and clamp instead, so the top
+ * decile actually reads hot.
+ */
+const HEAT_REFERENCE_PERCENTILE = 0.95;
+const HEAT_CURVE = 0.6;
+
+function heatReference(regions: DensityRegion[]): number {
+  const sorted = regions.map((r) => r.densityPerKm2).sort((a, b) => a - b);
+  const index = Math.floor((sorted.length - 1) * HEAT_REFERENCE_PERCENTILE);
+  return sorted[index] || 1;
+}
 
 let heatLutCache: Uint8ClampedArray | null = null;
 
@@ -739,7 +755,7 @@ export function KakaoMap({
       (0.01 * 111320 * Math.cos((center.getLat() * Math.PI) / 180)) /
       Math.max(Math.abs(shifted.x - centerPt.x), 1);
 
-    const maxDensity = Math.max(...densityRegions.map((r) => r.densityPerKm2));
+    const reference = heatReference(densityRegions);
 
     for (const region of densityRegions) {
       const pt = proj.containerPointFromCoords(
@@ -755,9 +771,9 @@ export function KakaoMap({
       ) {
         continue;
       }
-      const intensity = Math.pow(region.densityPerKm2 / maxDensity, 0.55);
+      const intensity = Math.pow(Math.min(1, region.densityPerKm2 / reference), HEAT_CURVE);
       const gradient = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radiusPx);
-      gradient.addColorStop(0, `rgba(0, 0, 0, ${0.85 * intensity})`);
+      gradient.addColorStop(0, `rgba(0, 0, 0, ${intensity})`);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(pt.x - radiusPx, pt.y - radiusPx, radiusPx * 2, radiusPx * 2);

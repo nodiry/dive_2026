@@ -30,7 +30,7 @@ export function PageShell() {
             to='/'
             className='shrink-0 text-lg font-extrabold tracking-tight text-plum select-none'
           >
-            동네탐색<span className='text-violet'>.</span>
+            하루<span className='text-violet'>.</span>
           </Link>
           <Link
             to='/'

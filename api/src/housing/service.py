@@ -6,7 +6,7 @@ from sqlalchemy import select as sa_select
 from sqlmodel import cast, col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.gis.models import AdminBoundary, CommercialZone, DistrictStoreTrend
+from src.gis.models import AdminBoundary, CommercialZone, DistrictStoreTrend, UseAreaCell
 from src.housing.models import HousingPrice, HousingProject, HousingUnit
 from src.housing.schemas import (
     HousingSearchQuery,
@@ -17,6 +17,9 @@ from src.housing.schemas import (
     NeighborhoodZone,
 )
 from src.poi.models import CommercialPoi
+
+# Walking distance to a bus-stop-flagged cell for the 버스정류장 인접 filter.
+TRANSIT_FILTER_RADIUS_M = 400
 
 
 def affordable_projects(deposit_max: float):
@@ -140,12 +143,21 @@ async def search_housing(session: AsyncSession, query: HousingSearchQuery) -> li
             )
             .exists()
         )
+    if query.bus_stop_nearby:
+        stmt = stmt.where(
+            select(col(UseAreaCell.id))
+            .where(
+                col(UseAreaCell.bus_stop).is_(True),
+                func.ST_DWithin(col(HousingProject.geom), col(UseAreaCell.geom), TRANSIT_FILTER_RADIUS_M),
+            )
+            .exists()
+        )
     if query.deposit_max is not None:
         stmt = stmt.where(col(HousingProject.id).in_(affordable_projects(query.deposit_max)))
     if query.rent_max is not None:
         stmt = stmt.where(col(HousingProject.id).in_(rent_affordable_projects(query.rent_max)))
 
-    result = await session.exec(stmt.order_by(col(HousingProject.id)).limit(100))
+    result = await session.exec(stmt.order_by(col(HousingProject.id)).limit(query.limit))
     return await to_summaries(session, list(result.all()))
 
 
@@ -247,6 +259,15 @@ async def get_neighborhood_profile(session: AsyncSession, housing_id: int, radiu
         ).all()
         store_trend = [NeighborhoodTrendPoint(year=year, count=count) for year, count in trend_rows]
 
+    bus_stop_cells = (
+        await session.exec(
+            select(func.count(col(UseAreaCell.id))).where(
+                col(UseAreaCell.bus_stop).is_(True),
+                func.ST_DWithin(col(UseAreaCell.geom), point, radius_meters),
+            )
+        )
+    ).one()
+
     return NeighborhoodProfile(
         radius_meters=radius_meters,
         poi_total=sum(c.count for c in categories),
@@ -256,4 +277,5 @@ async def get_neighborhood_profile(session: AsyncSession, housing_id: int, radiu
         store_trend=store_trend,
         trend_label=_trend_label(store_trend),
         youth_share=youth_share,
+        bus_stop_cells=int(bus_stop_cells or 0),
     )

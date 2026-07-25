@@ -57,6 +57,8 @@ export const HousingSearchQuery = z.object({
   parkingRequired: z.coerce.boolean().optional(),
   district: z.string().optional(), // 구/군, e.g. "수영구"
   type: HousingType.optional(),
+  busStopNearby: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().positive().max(5000).optional(), // server default 2000
 });
 export type HousingSearchQuery = z.infer<typeof HousingSearchQuery>;
 
@@ -214,6 +216,7 @@ export const NeighborhoodProfile = z.object({
   storeTrend: z.array(NeighborhoodTrendPoint).optional().default([]),
   trendLabel: z.enum(['rising', 'stable', 'declining']).nullable().optional(),
   youthShare: z.number().nullable().optional(),
+  busStopCells: z.number().optional().default(0),
 });
 export type NeighborhoodProfile = z.infer<typeof NeighborhoodProfile>;
 
@@ -240,6 +243,38 @@ export const DistrictBoundary = z.object({
   rings: z.array(z.array(z.array(z.number()))),
 });
 export type DistrictBoundary = z.infer<typeof DistrictBoundary>;
+
+export const DistrictAmenities = z.object({
+  coffee: z.number(),
+  convenience: z.number(),
+  koreanFood: z.number(),
+  pharmacy: z.number(),
+  salon: z.number(),
+});
+export type DistrictAmenities = z.infer<typeof DistrictAmenities>;
+
+/**
+ * Public-housing supply measured against where people actually live, per
+ * 법정동: BMC stock joined to the 선도소프트 population/industry grid.
+ * See /api/districts/supply.
+ */
+export const DistrictSupply = z.object({
+  emdCode: z.string(),
+  emdName: z.string(),
+  population: z.number(),
+  youthShare: z.number().nullable(),
+  areaKm2: z.number(),
+  densityPerKm2: z.number(),
+  projects: z.number(),
+  units: z.number(),
+  unitsPerThousand: z.number(),
+  amenities: DistrictAmenities,
+  amenityTotal: z.number(),
+  amenitiesPerThousand: z.number(),
+  underservedResidents: z.number(),
+  supplyGap: z.number(),
+});
+export type DistrictSupply = z.infer<typeof DistrictSupply>;
 
 export const User = z.object({
   id: z.number(),
@@ -276,6 +311,8 @@ export type ChatMessage = z.infer<typeof ChatMessage>;
 export const AiSearchRequest = z.object({
   message: z.string().min(1).max(1000),
   conversationId: z.string().uuid().optional(),
+  /** Data URL of a document the user attached; never persisted server-side. */
+  image: z.string().optional(),
 });
 export type AiSearchRequest = z.infer<typeof AiSearchRequest>;
 
@@ -283,6 +320,8 @@ export const AiSearchResponse = z.object({
   reply: z.string(),
   housing: z.array(HousingSummary),
   conversationId: z.string().uuid(),
+  /** Present when the turn spawned a 하루 deck to play. */
+  gameId: z.string().uuid().nullable().optional(),
 });
 export type AiSearchResponse = z.infer<typeof AiSearchResponse>;
 
@@ -295,6 +334,8 @@ export type AiConversationSummary = z.infer<typeof AiConversationSummary>;
 
 export const AiConversationMessage = ChatMessage.extend({
   housing: z.array(HousingSummary).default([]),
+  /** The 하루 deck this reply spawned, replayed when the chat is reopened. */
+  gameId: z.string().uuid().nullable().optional(),
 });
 export type AiConversationMessage = z.infer<typeof AiConversationMessage>;
 
@@ -304,3 +345,54 @@ export const AiConversationDetail = z.object({
   messages: z.array(AiConversationMessage),
 });
 export type AiConversationDetail = z.infer<typeof AiConversationDetail>;
+
+/** A model-authored 하루 deck: same trait vocabulary the Life Match engine scores. */
+export const GameText = z.object({ ko: z.string(), en: z.string() });
+export type GameText = z.infer<typeof GameText>;
+
+export const GameOption = z.object({
+  id: z.string(),
+  title: GameText,
+  caption: GameText,
+  meaning: GameText,
+  icon: z.string(),
+  chips: z.array(GameText).default([]),
+  traits: z.record(z.string(), z.number()).default({}),
+});
+export type GameOption = z.infer<typeof GameOption>;
+
+export const GameQuestion = z.object({
+  id: z.string(),
+  kicker: GameText,
+  title: GameText,
+  description: GameText,
+  options: z.array(GameOption),
+});
+export type GameQuestion = z.infer<typeof GameQuestion>;
+
+export const GameResult = z.object({
+  stats: z.object({ fun: z.number(), work: z.number(), rest: z.number() }),
+  topTraits: z.array(z.string()),
+  categories: z.array(z.string()),
+  summary: GameText,
+  housing: z.array(HousingSummary),
+});
+export type GameResult = z.infer<typeof GameResult>;
+
+export const GameSession = z.object({
+  id: z.string().uuid(),
+  theme: z.string(),
+  questions: z.array(GameQuestion),
+  answers: z.record(z.string(), z.string()).nullable(),
+  result: GameResult.nullable(),
+  createdAt: z.string(),
+});
+export type GameSession = z.infer<typeof GameSession>;
+
+export const GameSummary = z.object({
+  id: z.string().uuid(),
+  theme: z.string(),
+  completed: z.boolean(),
+  createdAt: z.string(),
+});
+export type GameSummary = z.infer<typeof GameSummary>;

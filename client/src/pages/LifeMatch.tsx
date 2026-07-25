@@ -199,6 +199,7 @@ export function LifeMatch() {
           <LifeMatchResults
             results={results}
             profile={profile}
+            routine={routine}
             pending={recommendation.isPending}
             error={recommendation.isError}
             onProfileChange={setProfile}

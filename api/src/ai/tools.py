@@ -4,6 +4,7 @@ from typing import Any
 from google.genai import types
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from src.gis import service as gis_service
 from src.housing import service as housing_service
 from src.housing.schemas import HousingSearchQuery, HousingSummary
 from src.poi import service as poi_service
@@ -70,13 +71,66 @@ RECOMMEND_LIFESTYLE_TOOL_TEMPLATE: dict[str, Any] = {
 }
 
 
+SUPPLY_GAP_TOOL: dict[str, Any] = {
+    "name": "supply_gap",
+    "description": (
+        "Answer city-level questions about where BMC public rental supply falls short of "
+        "where people actually live, per 법정동: population from the 선도소프트 100m grid, "
+        "BMC unit counts, and nearby franchise amenity counts. Use this for policy or "
+        "planning questions ('which neighborhoods need more supply', 'why is there nothing "
+        "in 명지동', 'where do many people live with no public housing') rather than for "
+        "finding a home for one person. Returns no housing cards, only figures to explain."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "emdName": {
+                "type": "string",
+                "description": "Optional 법정동 name to report on, e.g. 명지동. Omit for the worst-gap ranking.",
+            },
+            "limit": {"type": "integer", "default": 5},
+        },
+    },
+}
+
+
+def _describe_supply(districts: list[Any], emd_name: str | None, limit: int) -> str:
+    if not districts:
+        return "No district supply figures available."
+
+    if emd_name:
+        match = next((d for d in districts if d.emd_name and emd_name in d.emd_name), None)
+        if match is None:
+            return f"No 법정동 matching '{emd_name}'."
+        youth = f"{round(match.youth_share * 100)}%" if match.youth_share is not None else "unknown"
+        return (
+            f"{match.emd_name}: population {match.population:,}, "
+            f"BMC projects {match.projects}, units {match.units:,} "
+            f"({match.units_per_thousand} per 1,000 residents vs the city rate), "
+            f"underserved residents {match.underserved_residents:,}, supply gap {match.supply_gap}/100, "
+            f"nearby franchise amenities {match.amenity_total:,} "
+            f"({match.amenities_per_thousand} per 1,000), 20s-30s share {youth}."
+        )
+
+    lines = [
+        f"- {d.emd_name}: {d.population:,} residents, {d.units:,} BMC units "
+        f"({d.units_per_thousand}/1k), {d.underserved_residents:,} underserved, gap {d.supply_gap}/100"
+        for d in districts[:limit]
+    ]
+    zero = [d.emd_name for d in districts if d.units == 0 and d.population >= 10000]
+    summary = "Largest public-housing supply gaps by 법정동:\n" + "\n".join(lines)
+    if zero:
+        summary += f"\nNeighborhoods over 10,000 residents with zero BMC units: {', '.join(zero[:8])}."
+    return summary
+
+
 async def build_tools(session: AsyncSession) -> list[Any]:
     categories = await poi_service.list_poi_categories(session, limit=60)
 
     recommend_tool = copy.deepcopy(RECOMMEND_LIFESTYLE_TOOL_TEMPLATE)
     recommend_tool["parameters"]["properties"]["categories"]["items"]["enum"] = [c.category_name for c in categories]
 
-    return [types.Tool(function_declarations=[SEARCH_HOUSING_TOOL, recommend_tool])]
+    return [types.Tool(function_declarations=[SEARCH_HOUSING_TOOL, recommend_tool, SUPPLY_GAP_TOOL])]
 
 
 def _describe_housing(results: list[HousingSummary]) -> str:
@@ -119,5 +173,9 @@ async def dispatch_tool(session: AsyncSession, name: str, args: dict[str, Any]) 
         ranked = await recommendation_service.recommend_lifestyle(session, req)
         results = [r.housing for r in ranked[:limit]]
         return _describe_housing(results), results
+
+    if name == "supply_gap":
+        districts = await gis_service.list_supply(session)
+        return _describe_supply(districts, args.get("emdName"), min(int(args.get("limit") or 5), 10)), []
 
     return f"Unknown tool '{name}'.", []

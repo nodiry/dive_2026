@@ -23,6 +23,9 @@ class AIMessage(Base, table=True):
     # Housing surfaced by this (model) reply — ids only, rehydrated to full
     # summaries on read so history restores its map widgets.
     housing_ids: list[int] | None = Field(default=None, sa_type=JSON)
+    # The 하루 deck this reply spawned, so reopening the chat replays it
+    # instead of losing the game to the live response.
+    game_id: UUID | None = Field(default=None, foreign_key="game_session.id", ondelete="SET NULL")
     sent_date: datetime = Field(default_factory=utcnow, sa_type=DateTime(timezone=True), nullable=False)
 
     chat: "AIConversation" = Relationship(back_populates="messages")

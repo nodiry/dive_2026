@@ -1,4 +1,12 @@
-import { ExternalLink, Heart, Minus, Share2, TrendingDown, TrendingUp } from 'lucide-react';
+import {
+  BusFront,
+  ExternalLink,
+  Heart,
+  Minus,
+  Share2,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -90,7 +98,7 @@ function NeighborhoodSection({ housingId, className }: { housingId: number; clas
         )}
       </div>
 
-      {(profile.trendLabel != null || profile.youthShare != null) && (
+      {(profile.trendLabel != null || profile.youthShare != null || profile.busStopCells > 0) && (
         <div className='border-t border-slate-light/20 pt-4'>
           <span className='mb-2.5 block font-mono text-xs tracking-wide text-slate uppercase'>
             {t('detail.signalsLabel')}
@@ -101,7 +109,8 @@ function NeighborhoodSection({ housingId, className }: { housingId: number; clas
               <span
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1 text-xs font-semibold',
-                  profile.trendLabel === 'rising' && 'border-violet/40 bg-lilac-dim text-violet-dark',
+                  profile.trendLabel === 'rising' &&
+                    'border-violet/40 bg-lilac-dim text-violet-dark',
                   profile.trendLabel === 'declining' && 'border-gold/50 bg-gold/10 text-gold',
                   profile.trendLabel === 'stable' && 'border-slate-light/40 bg-lilac text-slate',
                 )}
@@ -124,6 +133,16 @@ function NeighborhoodSection({ housingId, className }: { housingId: number; clas
                 <span className='font-mono text-violet-dark'>
                   {Math.round(profile.youthShare * 100)}%
                 </span>
+              </span>
+            )}
+            {profile.busStopCells > 0 && (
+              <span className='inline-flex items-center gap-1.5 rounded-full border-2 border-slate-light/40 bg-lilac px-3 py-1 text-xs font-semibold text-plum'>
+                <BusFront
+                  size={14}
+                  className='text-violet'
+                />
+                {t('detail.busStopAreas')}
+                <span className='font-mono text-violet-dark'>{profile.busStopCells}</span>
               </span>
             )}
           </div>

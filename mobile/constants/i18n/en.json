@@ -1,5 +1,5 @@
 {
-  "brand": "Dongne Tamsaek",
+  "brand": "Haru",
   "tagline": "See the neighborhood first, then choose your home.",
   "menu": {
     "explore": "Explore map",
@@ -54,11 +54,14 @@
     "densityToggle": "Population",
     "densityLow": "Low",
     "densityHigh": "High",
-    "densitySource": "Registered population",
+    "densitySource": "Sundosoft 100m population grid",
     "locate": "My location",
     "detailLink": "Details",
     "tapAgainHint": "Tap again to open the full details",
-    "hideList": "Hide list"
+    "hideList": "Hide list",
+    "busStopNearby": "Near a bus stop",
+    "amenityToggle": "Amenities",
+    "amenitySource": "Sundosoft franchise grid"
   },
   "card": {
     "deposit": "Deposit",
@@ -92,7 +95,17 @@
     "radiusNote": "Within {{meters}}m",
     "loginToSave": "Log in to save",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "signalsLabel": "District signals",
+    "trend": {
+      "rising": "Commercial district growing",
+      "stable": "Commercial district stable",
+      "declining": "Commercial district shrinking"
+    },
+    "youthShare": "Residents in 20s-30s",
+    "busStopAreas": "Bus-stop areas",
+    "share": "Share",
+    "openKakaoMap": "Kakao Map"
   },
   "saved": {
     "title": "Saved",
@@ -115,7 +128,9 @@
     "suggestion3": "Any rentals with 2+ rooms and parking?",
     "expandMap": "Expand map",
     "closeMap": "Close map",
-    "viewMap": "View map"
+    "viewMap": "View map",
+    "attachImage": "Attach an image",
+    "imageAttached": "Sent with your message. Not stored."
   },
   "lifeMatch": {
     "navLabel": "Life Match",
@@ -216,13 +231,18 @@
     "action2": "Structure elevator and parking fields from notices so exclusions are explainable.",
     "action3": "Publish neighborhood scores and source years alongside listing details.",
     "loading": "Calculating policy indicators",
-    "error": "Policy indicators could not be loaded."
+    "error": "Policy indicators could not be loaded.",
+    "gapTitle": "Largest supply gaps by 법정동",
+    "gapDescription": "Residents from the 선도소프트 100m population grid against BMC's stock. Each bar is how many people that 동 would house at the citywide supply rate.",
+    "gapRow": "{{population}} residents · {{units}} units",
+    "zeroSupplyTitle": "Zero-supply neighborhoods",
+    "zeroSupplyDescription": "Over 10,000 residents and not a single public rental unit."
   },
   "about": {
     "title": "About",
-    "intro": "Dongne Tamsaek started from Busan's shrinking population and the roughly 50% decline rate for public housing lottery winners. We show the surrounding neighborhood first, not just deposit and floor size.",
+    "intro": "Haru started from Busan's shrinking population and the roughly 50% decline rate for public housing lottery winners. We show the surrounding neighborhood first, not just deposit and floor size.",
     "problemHeading": "Why we built this",
-    "problemBody": "Supply-side notices alone don't tell citizens whether a listing sits in a neighborhood they'd want to live in. Checking nearby cafes, gyms, or convenience stores meant searching separately for every listing. Dongne Tamsaek recommends housing by combining hard conditions with real commercial-district context.",
+    "problemBody": "Supply-side notices alone don't tell citizens whether a listing sits in a neighborhood they'd want to live in. Checking nearby cafes, gyms, or convenience stores meant searching separately for every listing. Haru recommends housing by combining hard conditions with real commercial-district context.",
     "partnersHeading": "Partners",
     "bmcName": "Busan Metropolitan City (BMC)",
     "bmcBlurb": "A public housing and urban development corporation. Provided public rental housing data and a citizen housing-demand channel.",
@@ -271,7 +291,7 @@
     "matchCount": "{{value}} places · {{meters}}m",
     "matchNone": "None",
     "totalUnits": "{{value}} units",
-    "walkMinutes": "{{minutes}} min walk",
+    "walkMinutes": "{{minutes}} min (direct)",
     "area": "{{value}}㎡"
   },
   "map": {
@@ -350,5 +370,13 @@
     "광고 대행업": "Advertising agency",
     "사진촬영업": "Photo studio",
     "해산물 구이/찜": "Grilled seafood"
+  },
+  "game": {
+    "startButton": "Start the 하루 card game",
+    "startHint": "Pick cards and we will find rentals that fit.",
+    "building": "Building your deck",
+    "scoring": "Finding homes from your cards",
+    "resultTitle": "Your cards",
+    "matches": "Rentals matching this taste"
   }
 }

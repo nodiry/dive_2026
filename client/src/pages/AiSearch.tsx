@@ -1,5 +1,15 @@
 import type { ChatMessage, HousingSummary } from '@shared';
-import { ArrowRight, Bot, Maximize2, Plus, Trash2, User as UserIcon, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Bot,
+  Maximize2,
+  Paperclip,
+  Plus,
+  Sparkles,
+  Trash2,
+  User as UserIcon,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
@@ -9,15 +19,25 @@ import { aiAPI } from '@api/ai';
 import { inputClass } from '@components/explore/controls';
 import { HousingCard } from '@components/HousingCard';
 import { KakaoMap, type MapFocus, type MapMarker } from '@components/KakaoMap';
+import { ChatGame } from '@features/game/ChatGame';
 import { useAiConversations, useAiSearch, useDeleteAiConversation } from '@hooks/useAiSearch';
 import { useSavedHousing } from '@hooks/useSaved';
+import { useToastStore } from '@stores/useToastStore';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
 
 interface TranscriptMessage extends ChatMessage {
+  /** Data URL of what the user attached, echoed back into their own bubble. */
+  image?: string;
+  /** A generated 하루 deck this reply spawned. */
+  gameId?: string;
   /** Attached to the assistant reply that produced them — rendered as an inline map widget. */
   housing?: HousingSummary[];
 }
+
+// Gemini's inline-data ceiling is ~7MB; stop well short of it in the browser
+// so the user gets a clear message instead of a 400 from the API.
+const MAX_ATTACHMENT_BYTES = 4_000_000;
 
 const markdownComponents = {
   p: (props: React.ComponentPropsWithoutRef<'p'>) => (
@@ -243,7 +263,16 @@ function ChatBubble({ message, onExpand }: { message: TranscriptMessage; onExpan
           )}
         >
           {isUser ? (
-            message.text
+            <>
+              {message.image && (
+                <img
+                  src={message.image}
+                  alt=''
+                  className='mb-2 max-h-48 rounded-2xl border border-lilac/20 object-cover'
+                />
+              )}
+              {message.text}
+            </>
           ) : (
             <>
               <div className='px-4 py-2.5'>
@@ -260,6 +289,7 @@ function ChatBubble({ message, onExpand }: { message: TranscriptMessage; onExpan
                   onExpand={onExpand}
                 />
               )}
+              {message.gameId && <ChatGame gameId={message.gameId} />}
             </>
           )}
         </div>
@@ -293,9 +323,12 @@ export function AiSearch() {
   const [expandedHousing, setExpandedHousing] = useState<HousingSummary[] | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingConversation, setLoadingConversation] = useState(false);
+  const [image, setImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const sentInitialRef = useRef(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
+  const showError = useToastStore((s) => s.showError);
   const aiSearch = useAiSearch();
   const conversations = useAiConversations(true);
   const deleteConversation = useDeleteAiConversation();
@@ -304,11 +337,20 @@ export function AiSearch() {
     const trimmed = text.trim();
     if (!trimmed || aiSearch.isPending || loadingConversation) return;
 
-    setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
+    const attachment = image;
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', text: trimmed, image: attachment ?? undefined },
+    ]);
     setInput('');
+    setImage(null);
 
     aiSearch.mutate(
-      { message: trimmed, conversationId: targetConversationId ?? undefined },
+      {
+        message: trimmed,
+        conversationId: targetConversationId ?? undefined,
+        image: attachment ?? undefined,
+      },
       {
         onSuccess: (data) => {
           setConversationId(data.conversationId);
@@ -321,6 +363,7 @@ export function AiSearch() {
               role: 'assistant',
               text: data.reply,
               housing: data.housing.length > 0 ? data.housing : undefined,
+              gameId: data.gameId ?? undefined,
             },
           ]);
         },
@@ -331,12 +374,29 @@ export function AiSearch() {
     );
   }
 
+  function attachImage(file: File | undefined) {
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      showError(t('aiSearch.imageTooLarge'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setImage(typeof reader.result === 'string' ? reader.result : null);
+    reader.readAsDataURL(file);
+  }
+
+  function startGame() {
+    if (aiSearch.isPending || loadingConversation) return;
+    sendMessage(t('game.startPrompt'));
+  }
+
   function startNewChat() {
     if (aiSearch.isPending || loadingConversation) return;
     setConversationId(null);
     setMessages([]);
     setExpandedHousing(null);
     setInput('');
+    setImage(null);
     setSearchParams({}, { replace: true });
   }
 
@@ -354,6 +414,7 @@ export function AiSearch() {
           role: m.role,
           text: m.text,
           housing: m.housing.length > 0 ? m.housing : undefined,
+          gameId: m.gameId ?? undefined,
         })),
       );
     } catch {
@@ -487,21 +548,42 @@ export function AiSearch() {
                 ))}
               </div>
             ) : empty ? (
-              <div className='flex flex-1 flex-col items-center justify-center py-16 text-center'>
-                <div className='flex size-12 items-center justify-center rounded-full bg-violet/10 text-violet-dark'>
-                  <Bot className='size-6' />
-                </div>
-                <h1 className='mt-4 text-2xl font-bold text-plum'>{t('aiSearch.title')}</h1>
-                <p className='mt-1 max-w-md text-sm text-slate'>{t('aiSearch.empty')}</p>
-                <div className='mt-6 flex flex-wrap justify-center gap-2'>
+              <div className='flex flex-1 flex-col justify-center py-16'>
+                {/* One flex column with a single gap: every element is the
+                    same distance from its neighbour, including the rule and
+                    the prompt rows, so nothing needs its own margin. */}
+                <div className='mx-auto flex w-full max-w-lg flex-col items-start gap-4'>
+                  <Bot className='size-7 text-violet' />
+                  <h1 className='text-3xl font-extrabold tracking-tight text-plum'>
+                    {t('aiSearch.title')}
+                  </h1>
+                  <p className='text-sm leading-6 text-slate'>{t('aiSearch.empty')}</p>
+
+                  <button
+                    type='button'
+                    onClick={startGame}
+                    disabled={aiSearch.isPending}
+                    className='flex items-center gap-2 rounded-full bg-violet px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-dark disabled:pointer-events-none disabled:opacity-40'
+                  >
+                    <Sparkles className='size-4' />
+                    {t('game.startButton')}
+                  </button>
+                  <p className='text-xs leading-5 text-slate-light'>{t('game.startHint')}</p>
+
+                  <div className='h-px w-full bg-slate-light/20' />
+
+                  <span className='font-mono text-xs tracking-wide text-slate uppercase'>
+                    {t('aiSearch.suggestionsLabel')}
+                  </span>
                   {suggestions.map((suggestion) => (
                     <button
                       key={suggestion}
                       type='button'
                       onClick={() => sendMessage(suggestion)}
-                      className='rounded-full border border-slate-light/40 bg-white px-4 py-2 text-sm text-slate transition-colors hover:border-violet/40 hover:text-violet-dark'
+                      className='group flex w-full items-center gap-3 text-left text-sm text-plum transition-colors hover:text-violet-dark'
                     >
-                      {suggestion}
+                      <span className='min-w-0 flex-1'>{suggestion}</span>
+                      <ArrowRight className='size-4 shrink-0 text-slate-light transition-colors group-hover:text-violet' />
                     </button>
                   ))}
                 </div>
@@ -523,10 +605,47 @@ export function AiSearch() {
         </div>
 
         <div className='border-t border-slate-light/20 bg-lilac/95 backdrop-blur'>
+          {image && (
+            <div className='mx-auto flex w-full max-w-5xl items-center gap-2 px-6 pt-3'>
+              <img
+                src={image}
+                alt=''
+                className='size-11 rounded-2xl border border-slate-light/30 object-cover'
+              />
+              <span className='text-xs text-slate'>{t('aiSearch.imageAttached')}</span>
+              <button
+                type='button'
+                onClick={() => setImage(null)}
+                aria-label={t('aiSearch.imageRemove')}
+                className='rounded-full p-1 text-slate-light transition-colors hover:text-violet'
+              >
+                <X className='size-4' />
+              </button>
+            </div>
+          )}
           <form
             onSubmit={handleSubmit}
             className='mx-auto flex w-full max-w-5xl items-center gap-2 px-6 py-3.5'
           >
+            <input
+              ref={fileInputRef}
+              type='file'
+              accept='image/*'
+              className='hidden'
+              onChange={(e) => {
+                attachImage(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+            <button
+              type='button'
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={t('aiSearch.attachImage')}
+              title={t('aiSearch.attachImage')}
+              className='flex shrink-0 items-center justify-center rounded-full border border-slate-light/40 bg-white p-2.5 text-slate transition-colors hover:border-violet/40 hover:text-violet-dark'
+            >
+              <Paperclip className='size-4' />
+            </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}

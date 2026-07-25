@@ -1,19 +1,27 @@
 import type { LifestyleRecommendationResult } from '@shared';
-import { CheckCircle2, MapPin, TriangleAlert, X } from 'lucide-react';
+import { CheckCircle2, MapPin, MapPinned, TriangleAlert, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { KakaoMap, type HousingMarker, type MapFocus } from '@components/KakaoMap';
-import { housingDetailPath } from '@constants/path';
+import { ROUTES, housingDetailPath } from '@constants/path';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
-import type { LifeProfile } from './model';
+import {
+  buildLifestylePreferences,
+  deriveLifeStats,
+  type LifeProfile,
+  type WeeklyRoutine,
+} from './model';
+import { useExploreStore } from '@stores/useExploreStore';
+import type { CategoryWeights } from '@constants/poi';
 
 interface LifeMatchResultsProps {
   results: LifestyleRecommendationResult[];
   profile: LifeProfile;
+  routine: WeeklyRoutine;
   pending: boolean;
   error: boolean;
   onProfileChange: (profile: LifeProfile) => void;
@@ -362,11 +370,30 @@ function HousingMatchModal({
 export function LifeMatchResults({
   results,
   profile,
+  routine,
   pending,
   error,
   onProfileChange,
 }: LifeMatchResultsProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const applyWeights = useExploreStore((s) => s.applyWeights);
+
+  /**
+   * The bridge between the two preference surfaces: Life Match is the deep
+   * pass (log your week), Explore's 취향 mode is the quick one. Rather than
+   * two tools answering the same question, this hands the derived weights to
+   * the map so the flow reads as refine-then-see.
+   */
+  function openOnMap() {
+    const stats = deriveLifeStats(routine);
+    const weights: CategoryWeights = {};
+    for (const preference of buildLifestylePreferences(profile, routine, stats)) {
+      weights[preference.categoryName] = Math.min(1, preference.weight * 4);
+    }
+    applyWeights(weights, 700);
+    navigate(ROUTES.Root);
+  }
   const [openResult, setOpenResult] = useState<LifestyleRecommendationResult | null>(null);
   const [selectedHousingId, setSelectedHousingId] = useState<number | null>(null);
   const topResults = results.slice(0, 3);
@@ -421,8 +448,18 @@ export function LifeMatchResults({
 
   return (
     <div>
-      <div className='flex items-baseline justify-between gap-3'>
+      <div className='flex flex-wrap items-baseline justify-between gap-3'>
         <h2 className='font-medium text-plum'>{t('lifeMatch.resultTitle')}</h2>
+        {results.length > 0 && (
+          <button
+            type='button'
+            onClick={openOnMap}
+            className='flex items-center gap-1.5 rounded-full bg-violet px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-dark'
+          >
+            <MapPinned className='size-4' />
+            {t('lifeMatch.openOnMap')}
+          </button>
+        )}
         {pending ? (
           <span className='font-mono text-xs text-slate'>{t('lifeMatch.recalculating')}</span>
         ) : (

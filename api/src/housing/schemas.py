@@ -62,6 +62,12 @@ class HousingSummary(ApiModel):
         )
 
 
+# Full-city stock is a few hundred projects, so the default clears it; the cap
+# only exists so a bad caller can't ask us to serialize the whole table.
+DEFAULT_HOUSING_LIMIT = 2000
+MAX_HOUSING_LIMIT = 5000
+
+
 class HousingSearchQuery(ApiModel):
     deposit_max: float | None = None
     rent_max: float | None = None
@@ -72,6 +78,8 @@ class HousingSearchQuery(ApiModel):
     parking_required: bool | None = None
     district: str | None = None
     type: HousingType | None = None
+    bus_stop_nearby: bool | None = None
+    limit: int = DEFAULT_HOUSING_LIMIT
 
 
 class NeighborhoodCategory(ApiModel):
@@ -100,3 +108,6 @@ class NeighborhoodProfile(ApiModel):
     store_trend: list[NeighborhoodTrendPoint] = []
     trend_label: Literal["rising", "stable", "declining"] | None = None
     youth_share: float | None = None
+    # Cells inside the radius flagged BSST_YN in the 선도소프트 상권-주거 data;
+    # the only public-transit signal in any of the provided datasets.
+    bus_stop_cells: int = 0

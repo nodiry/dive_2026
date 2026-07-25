@@ -80,6 +80,8 @@ class NeighborhoodEvidence(ApiModel):
     commercial_ratio: float | None
     green_ratio: float | None
     source: Literal["zoning", "unavailable"]
+    # Cells flagged BSST_YN within the radius (선도소프트 상권-주거 data).
+    bus_stop_cells: int = 0
 
 
 RoutineActivity = Literal["commute", "focus", "cafe", "exercise", "dining", "culture", "walking", "homeRest"]

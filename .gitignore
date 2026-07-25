@@ -27,3 +27,6 @@ __pycache__
 .ruff_cache
 .pytest_cache
 CS-ONBOARDING
+.env.azure
+/api-seed-source.tar.gz
+/dive2026-*-azure.tar

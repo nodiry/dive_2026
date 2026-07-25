@@ -91,6 +91,7 @@ container. `ENVIRONMENT=local` enables `/docs`.
 housing_project   id, type ('purchased'|'redevelopment'|'integrated'|'happy'),
                   project_name, address, geom geography(Point) [NULL until geocoded],
                   built_date, total_units, source_district
+                  (355 projects city-wide from the 2026-06-30 BMC handout)
 housing_unit      project_id FK, dong, ho, room_count, area_m2, has_elevator, parking_spots
 housing_price     project_id FK, unit_type, deposit, rent, registered_at,
                   segment jsonb (shape varies per housing type, see docs/DATA_MODEL.md)

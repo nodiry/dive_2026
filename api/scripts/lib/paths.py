@@ -15,8 +15,13 @@ _default = Path(__file__).resolve().parents[3] / "samples"
 SAMPLES_DIR = Path(os.environ.get("SAMPLES_DIR", str(_default)))
 
 
+# The 2026-06-30 BMC handout folder — seed_housing reads its CSVs in place,
+# original Korean folder/file names untouched.
+BMC_DIR = SAMPLES_DIR / "2026_DIVE_해커톤_제공데이터_부산도시공사"
+
+
 def require_samples_dir() -> None:
-    marker = SAMPLES_DIR / "housing" / "purchased_units.csv"
+    marker = BMC_DIR / "매입임대주택 상세 정보 및 평균보증금, 평균임대료" / "매입임대 주택정보_20260630.csv"
     if not marker.exists():
         print(
             "\nsamples/ not found (or incomplete) at the repo root.\n"

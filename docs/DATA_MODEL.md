@@ -6,26 +6,42 @@ result of actually loading them and fixing what broke. (The backend has been por
 SQLModel/alembic. The data gotchas below survived all of it; only file
 paths moved.)
 
-**Where the data lives:** `samples/` at the repo root — gitignored (it's
-~560MB unzipped). `samples.zip` (~98MB) is committed to the repo and
-`just onboard` unzips it automatically. Every path below is relative to `samples/`.
+**Where the data lives:** `samples/` at the repo root — gitignored.
+`samples.zip` is committed to the repo and `just onboard` unzips it
+automatically. The zip holds everything the seeds need; the heavy
+not-yet-ingested extras (Part 5, Part 4) are manual drop-ins. Every path
+below is relative to `samples/`.
 
 ```
 samples/
-  housing/        6 BMC CSVs (Part 1)
-  poi/            business_busan.csv (Part 2)
-  gis/            admin_boundary/, zoning/, zoning_unverified/, building/ (Part 3)
-  population_grid_UNPLACEABLE/   (Part 4 — currently unusable, see below)
+  2026_DIVE_해커톤_제공데이터_부산도시공사/   6 BMC CSVs, 2026-06-30 handout (Part 1)
+  2026_DIVE_해커톤_제공데이터_선도소프트/     컬럼정의서.xlsx in the zip; the 01/02/03
+                                              융합데이터 year-zips are a manual drop-in (Part 5)
+  [참고자료]부산도시공사 모집공고/            recruitment-notice hwp/pdf, reference only
+  [참고자료]선도소프트 원천데이터 링크/       원천데이터 링크.txt — the 5 raw-source links
+  poi/            business_busan.csv (Part 2 — raw source behind link #2)
+  gis/            admin_boundary/, zoning/, zoning_unverified/, building/ (Part 3 — links #1/#4/#5)
+  population_grid_UNPLACEABLE/   (Part 4 — unusable, manual drop-in, link #3)
 ```
 
-## Part 1 — BMC housing CSVs (`samples/housing/`)
+## Part 1 — BMC housing CSVs (`samples/2026_DIVE_해커톤_제공데이터_부산도시공사/`)
 
-### Gotcha #1: encoding
+The 2026-06-30 city-wide handout: two Korean-named subfolders, read in
+place with their original names (`매입임대주택 상세 정보 및 평균보증금,
+평균임대료/` and `통합공공임대, 행복주택, 재개발임대주택 상세 정보 및
+보증금, 임대료/`). It supersedes the old Suyeong-gu/Gijang-gun-only sample
+that lived in `samples/housing/` — same six files logically, ~8x the rows
+(city-wide), several renamed columns, new date formats, and new encodings.
+The old cut's rows are a strict subset (verified: every old project key
+exists in the new files), so re-seeding over an old database upserts
+cleanly and keeps existing geocodes.
 
-All 6 CSVs are **EUC-KR encoded, not UTF-8**. Reading them with the wrong
-encoding silently mangles every Korean field into replacement characters —
-always read them via `api/scripts/lib/csv_utils.py#read_csv`, which defaults to
-`encoding="euc-kr"`.
+### Gotcha #1: encoding — mixed *within* the handout
+
+Five of the six CSVs are **UTF-8 with a BOM**, but `매입임대 표준보증금 및
+임대료_20260630.csv` is **CP949**. `read_csv` defaults to
+`encoding="auto"` (tries `utf-8-sig`, falls back to `cp949`) — never assume
+one encoding per dataset, or even per folder.
 
 ### Gotcha #2: purchased-housing addresses don't match between its two files
 
@@ -48,10 +64,13 @@ original TS version.
 
 | BMC label | `housing_project.type` | Unit info file | Price file |
 |---|---|---|---|
-| 매입임대 (purchased) | `purchased` | `purchased_units.csv` | `purchased_price.csv` |
-| 재개발임대 (redevelopment) | `redevelopment` | `combined_units.csv` (filtered by `임대주택유형`) | `redevelopment_price.csv` |
-| 통합공공임대 (integrated) | `integrated` | same combined file | `integrated_price.csv` |
-| 행복주택 (happy) | `happy` | same combined file | `happy_price.csv` |
+| 매입임대 (purchased) | `purchased` | `매입임대 주택정보` | `매입임대 표준보증금 및 임대료` |
+| 재개발임대 (redevelopment) | `redevelopment` | `행복, 통합, 재개발 주택정보` (filtered by `임대주택유형`) | `재개발임대 표준보증금 및 임대료` |
+| 통합공공임대 (integrated) | `integrated` | same combined file | `통합공공임대 표준보증금 및 임대료` |
+| 행복주택 (happy) | `happy` | same combined file | `행복주택 표준보증금 및 임대료` |
+
+(Exact paths, including the `_20260630` suffix, are constants at the top of
+`api/scripts/seed_housing.py` — a future handout re-cut only touches those.)
 
 `redevelopment`/`integrated`/`happy` join cleanly on `사업지구` (price file) =
 `임대주택명` (unit file) — no normalization needed there, unlike `purchased`.
@@ -71,17 +90,26 @@ nullable columns:
 
 ### Other field mappings worth knowing
 
-- `사용승인일` / `준공일자` (both mean "built/completion date") are `YYYYMMDD`
-  strings (e.g. `20251130`) — parsed via `dateFromYYYYMMDD`.
-- `등록일` (registered date, price files only) is `MM-DD-YYYY HH:MM:SS` — parsed
-  via `timestampFromMMDDYYYY`. Don't confuse the field order with the built-date
-  format, they're different despite both being dates.
+- Several columns gained unit suffixes in the 2026-06-30 cut:
+  `전용면적(제곱미터)`, `표준보증금(원)`, `표준임대료(원)`, `가구인원수(명)`
+  (previously bare names), and the combined file's `주택형` became `평형타입`
+  (not read by the seed). The purchased-price file's columns are unchanged.
+- `사용승인일` / `준공일자` (both mean "built/completion date") are ISO
+  `YYYY-MM-DD` in the current cut (`YYYYMMDD` in older ones) — `parse_date`
+  accepts both.
+- `등록일` (registered date, price files only) is a bare ISO `YYYY-MM-DD` in
+  the current cut (`MM-DD-YYYY HH:MM:SS` in older ones) — `parse_timestamp`
+  accepts both.
 - `승강기설치구분` is the literal string `설치`/`미설치` (installed/not) →
-  boolean via `elevatorFromLabel`.
-- Numeric fields (`세대수`, `표준보증금`, `주차대수`, ...) are comma-grouped
-  strings like `"1,134"` — always go through `toNumber`, never `Number()`.
-- `순위` (rank, purchased-price file only) uses the literal string `NA` for
-  missing — `toNumber` treats `NA` as `null`.
+  boolean via `elevator_from_label`.
+- Numeric fields are plain digits in the current cut, comma-grouped
+  (`"1,134"`) in older ones, sometimes with trailing spaces — always go
+  through `to_number`.
+- `순위` (rank, purchased-price file only) is empty when missing (`NA` in
+  older cuts) — `to_number` treats both as `null`.
+- Re-seeding over an older cut can leave a renamed project's old row behind
+  with zero units — `ingest_housing` transfers its geocode to the
+  replacement row and deletes unit-less leftovers at the end.
 - `source_district` on `housing_project` is derived from the address itself
   (`부산광역시 (\S+구|군)` regex in `districtFromAddress`), not hardcoded to
   Suyeong-gu/Gijang-gun — keeps working once the full city-wide dataset lands.
@@ -225,3 +253,36 @@ honestly-empty `industry_population_grid` table. If you get the boundary file
 later, `api/scripts/seed_gis.py` is the place to add the ingestion — the
 `industry_population_grid` table (jsonb `industry_mix` + `population_density`
 per polygon) is already migrated and waiting, just empty.
+
+Because it's unusable, this folder is **excluded from `samples.zip`** — if
+you want it locally, download link #3 yourself into
+`samples/population_grid_UNPLACEABLE/`. Note the 선도소프트 POP_STORE
+shapefiles (Part 5) carry population *with* geometry and are the better
+route to filling `industry_population_grid`.
+
+### `samples/population/busan_population.csv` — not distributed anywhere
+
+`api/scripts/seed_population.py` (the admin-boundary population choropleth)
+defaults to `samples/population/busan_population.csv` (`code,population`
+rows, 법정동/구 codes). That file is in neither the old zip nor the new
+handout — whoever runs the population layer must supply it (KOSIS 주민등록
+인구 export) or pass a path explicitly:
+`uv run python -m scripts.seed_population <csv>`.
+
+## Part 5 — 선도소프트 융합데이터 (`samples/2026_DIVE_해커톤_제공데이터_선도소프트/`) — not ingested yet
+
+The 2026 handout's second half: three fusion datasets as per-year shapefile
+zips (2021–2024, ~143MB zipped, ~2.5GB unzipped — which is why they are
+**not in `samples.zip`**; copy the `01.`/`02.`/`03.` folders from the
+handout into this directory manually if you need them):
+
+| Folder | Contents | Notes |
+|---|---|---|
+| `01. 상가-건물 융합데이터/` | STORE_BUD shapefiles, 21–24년 | store↔building fusion; the raw 상가정보 behind it is already loaded as `commercial_poi` (Part 2) |
+| `02. 인구-5대업종 가맹점 융합데이터/` | POP_STORE shapefiles, 22–24년 | population + 5-industry stores **with geometry** — the natural filler for `industry_population_grid` |
+| `03. 상권-주거 융합데이터/` | STORE_USE_AREA shapefiles, 23–24년 | commercial-zone ↔ residence fusion |
+
+`컬럼정의서.xlsx` (the column dictionary for all three) is small and ships
+in `samples.zip`. Nothing in the backend reads these yet; when ingesting,
+follow the `seed_gis.py` ogr2ogr pattern and check each zip's inner `.cpg`
+— encodings vary by year, same trap as Part 1.

@@ -31,6 +31,13 @@
     @apply outline-2 outline-offset-2 outline-violet;
   }
 
+  /* Fast/double clicks on interactive elements shouldn't start a text
+     selection — map pins get the same via select-none in KakaoMap.tsx. */
+  button,
+  [role='button'] {
+    @apply select-none;
+  }
+
   /* Thin, rounded scrollbars in theme colors — everywhere, both engines. */
   * {
     scrollbar-width: thin;

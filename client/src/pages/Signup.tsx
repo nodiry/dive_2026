@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Field, inputClass } from '@components/explore/controls';
 import { ROUTES } from '@constants/path';
 import { useSignup } from '@hooks/useAuth';
@@ -12,6 +12,7 @@ import { cn } from '@utils/cn';
 export function Signup() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
   const setAuth = useAuthStore((s) => s.setAuth);
   const showSuccess = useToastStore((s) => s.showSuccess);
   const showError = useToastStore((s) => s.showError);
@@ -33,6 +34,15 @@ export function Signup() {
         },
         onError: (err) => showError(err.message),
       },
+    );
+  }
+
+  if (token && !signup.isPending) {
+    return (
+      <Navigate
+        to='/'
+        replace
+      />
     );
   }
 

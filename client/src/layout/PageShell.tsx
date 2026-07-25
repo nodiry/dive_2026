@@ -15,17 +15,17 @@ export function PageShell() {
 
   return (
     <div className='flex min-h-svh flex-col'>
-      <header className='relative z-30 flex items-center justify-between gap-3 border-b border-slate-light/30 bg-lilac/95 px-4 py-2 backdrop-blur sm:px-6'>
+      <header className='relative z-30 flex min-h-[3.25rem] items-center justify-between gap-3 border-b border-slate-light/30 bg-lilac/95 px-4 py-2 backdrop-blur sm:px-6'>
         <div className='flex min-w-0 shrink-0 items-center gap-3'>
           <Link
             to='/'
-            className='shrink-0 text-lg font-extrabold tracking-tight text-plum'
+            className='shrink-0 text-lg font-extrabold tracking-tight text-plum select-none'
           >
             동네탐색<span className='text-violet'>.</span>
           </Link>
           <Link
             to='/'
-            className='flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-plum/70 transition-colors hover:bg-plum/10'
+            className='flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-plum/70 select-none transition-colors hover:bg-plum/10'
           >
             <MapPinned className='size-4' />
             <span className='hidden sm:inline'>{t('nav.backToExplore')}</span>

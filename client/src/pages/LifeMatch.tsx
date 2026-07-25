@@ -1,4 +1,4 @@
-import type { LifestyleRecommendationRequest } from '@shared';
+import type { LifestyleRecommendationRequest, LifestyleRecommendationResult } from '@shared';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Reveal } from '@components/Reveal';
@@ -83,9 +83,15 @@ export function LifeMatch() {
   const [routine, setRoutine] = useState<WeeklyRoutine>(
     () => stored?.routine ?? { ...DEFAULT_WEEKLY_ROUTINE },
   );
+  const [results, setResults] = useState<LifestyleRecommendationResult[]>([]);
   const recommendation = useLifestyleRecommendation();
   const mutateRef = useRef(recommendation.mutate);
   const firstRunRef = useRef(true);
+  // Debounced live recalculation can have two requests in flight (slider
+  // drags faster than the API answers) — settle order isn't guaranteed, so
+  // only the newest request may write results, or a slow stale response
+  // would overwrite a fresher ranking.
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     mutateRef.current = recommendation.mutate;
@@ -95,7 +101,14 @@ export function LifeMatch() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, profile, routine }));
     const delay = firstRunRef.current ? 0 : 600;
     firstRunRef.current = false;
-    const timer = setTimeout(() => mutateRef.current(buildRequest(profile, routine)), delay);
+    const timer = setTimeout(() => {
+      const seq = ++requestSeqRef.current;
+      mutateRef.current(buildRequest(profile, routine), {
+        onSuccess: (data) => {
+          if (seq === requestSeqRef.current) setResults(data);
+        },
+      });
+    }, delay);
     return () => clearTimeout(timer);
   }, [profile, routine]);
 
@@ -123,7 +136,7 @@ export function LifeMatch() {
         </Reveal>
         <Reveal delay={0.1}>
           <LifeMatchResults
-            results={recommendation.data ?? []}
+            results={results}
             profile={profile}
             pending={recommendation.isPending}
             error={recommendation.isError}

@@ -59,7 +59,6 @@
       "walking": "Walking",
       "homeRest": "Resting at home"
     },
-    "perWeekCount": "{{count}}x per week",
     "statsTitle": "Life stats",
     "statsFormula": "FUN + WORK + REST = 100",
     "fun": "FUN",
@@ -108,7 +107,9 @@
     },
     "yes": "Yes",
     "no": "No",
-    "liveNote": "Results recalculate automatically as you adjust."
+    "liveNote": "Results recalculate automatically as you adjust.",
+    "perWeekCount_other": "{{count}}x per week",
+    "perWeekCount_one": "{{count}}x per week"
   },
   "policy": {
     "navLabel": "Policy report",
@@ -288,7 +289,11 @@
     "noCoordsDetail": "This housing hasn't been geocoded yet.",
     "errorTitle": "Couldn't load the map",
     "errorDetail": "Please try again shortly.",
-    "noRoadview": "Roadview is not available at this location."
+    "noRoadview": "Roadview is not available at this location.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "locate": "Go to my location",
+    "locateError": "Could not get your location."
   },
   "districts": {
     "강서구": "Gangseo-gu",

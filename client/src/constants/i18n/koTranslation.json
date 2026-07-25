@@ -59,7 +59,6 @@
       "walking": "산책",
       "homeRest": "집에서 휴식"
     },
-    "perWeekCount": "주 {{count}}회",
     "statsTitle": "라이프 스탯",
     "statsFormula": "FUN + WORK + REST = 100",
     "fun": "FUN",
@@ -108,7 +107,8 @@
     },
     "yes": "있음",
     "no": "없음",
-    "liveNote": "조건을 바꾸면 결과가 자동으로 다시 계산됩니다."
+    "liveNote": "조건을 바꾸면 결과가 자동으로 다시 계산됩니다.",
+    "perWeekCount_other": "주 {{count}}회"
   },
   "policy": {
     "navLabel": "정책 리포트",
@@ -288,7 +288,11 @@
     "noCoordsDetail": "이 주택은 아직 지오코딩되지 않았어요.",
     "errorTitle": "지도를 불러오지 못했습니다",
     "errorDetail": "잠시 후 다시 시도해주세요.",
-    "noRoadview": "이 위치에서는 로드뷰를 제공하지 않습니다."
+    "noRoadview": "이 위치에서는 로드뷰를 제공하지 않습니다.",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "locate": "내 위치로 이동",
+    "locateError": "위치 정보를 가져오지 못했습니다."
   },
   "districts": {
     "강서구": "강서구",

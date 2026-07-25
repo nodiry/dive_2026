@@ -86,6 +86,16 @@ export interface MapBounds {
   neLng: number;
 }
 
+/** Imperative handle for external map buttons (zoom cluster, geolocate, district focus). */
+export interface MapControls {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  /** Smooth-pan to a point at the current zoom (e.g. the user's location). */
+  panTo: (lat: number, lng: number) => void;
+  /** Jump to a district-scale view of a point (e.g. a selected 구). */
+  focusRegion: (lat: number, lng: number) => void;
+}
+
 export interface DensityRegion {
   emdName: string;
   densityPerKm2: number;
@@ -149,6 +159,12 @@ interface KakaoMapProps {
   background?: boolean;
   /** Background maps skip their first fit-to-markers (Explore opens on Suyeong); set this for bounded background maps that SHOULD fit their results immediately (e.g. the AI chat's map widget). */
   fitOnLoad?: boolean;
+  /** Free to drag/zoom, but clamped to Busan and zoom-capped like the background map — for inline result maps that shouldn't wander off to Seoul. */
+  bounded?: boolean;
+  /** Populated with the imperative MapControls handle once the map is ready. */
+  controlsRef?: React.RefObject<MapControls | null>;
+  /** The visitor's own geolocated position — rendered as a pulsing "you are here" dot, independent of the markers array. */
+  userLocation?: { lat: number; lng: number } | null;
   /** Locator mode: no dragging, no zooming — just centered on its marker. */
   staticView?: boolean;
   className?: string;
@@ -246,6 +262,9 @@ export function KakaoMap({
   fitKey,
   background = false,
   fitOnLoad = false,
+  bounded = false,
+  controlsRef,
+  userLocation = null,
   staticView = false,
   className = '',
 }: KakaoMapProps) {
@@ -266,6 +285,12 @@ export function KakaoMap({
   // Bumped after every pan/zoom settles so clusters recompute for the new scale.
   const [viewVersion, setViewVersion] = useState(0);
   const skippedInitialFitRef = useRef(false);
+  // Set by an explicit controlsRef.panTo/focusRegion call — the debounced
+  // search results that land moments later would otherwise re-trigger the
+  // fit-to-markers effect below and immediately undo that manual pan (e.g.
+  // clearing a district filter snapping back out to all of Busan right
+  // after landing on Seomyeon). Consumed once, then normal auto-fit resumes.
+  const suppressNextFitRef = useRef(false);
 
   useEffect(() => {
     markersRef.current = markers;
@@ -327,7 +352,7 @@ export function KakaoMap({
           if (heatCanvasRef.current) heatCanvasRef.current.style.opacity = '0';
         });
 
-        if (background) {
+        if (background || bounded) {
           kakao.maps.event.addListener(map, 'center_changed', () => {
             const c = map.getCenter();
             const lat = Math.min(Math.max(c.getLat(), BUSAN_BOUNDS.minLat), BUSAN_BOUNDS.maxLat);
@@ -345,13 +370,29 @@ export function KakaoMap({
           }
         }
 
+        if (controlsRef) {
+          controlsRef.current = {
+            zoomIn: () => map.setLevel(map.getLevel() - 1, { animate: true }),
+            zoomOut: () => map.setLevel(map.getLevel() + 1, { animate: true }),
+            panTo: (lat: number, lng: number) => {
+              suppressNextFitRef.current = true;
+              map.panTo(new kakao.maps.LatLng(lat, lng));
+            },
+            focusRegion: (lat: number, lng: number) => {
+              suppressNextFitRef.current = true;
+              map.setLevel(7, { animate: true });
+              map.panTo(new kakao.maps.LatLng(lat, lng));
+            },
+          };
+        }
+
         setStatus('ready');
       })
       .catch(() => setStatus('error'));
     return () => {
       cancelled = true;
     };
-  }, [background, staticView]);
+  }, [background, bounded, staticView]);
 
   // Redraw markers/clusters/trails whenever data or the viewport scale changes.
   useEffect(() => {
@@ -416,7 +457,7 @@ export function KakaoMap({
       if (cluster.members.length === 1) {
         const m = cluster.members[0];
         const wrap = document.createElement('div');
-        wrap.className = 'flex cursor-pointer flex-col items-center';
+        wrap.className = 'flex cursor-pointer flex-col items-center select-none';
         wrap.style.transform = `scale(${tagScale})`;
         wrap.style.transformOrigin = 'bottom center';
 
@@ -463,7 +504,7 @@ export function KakaoMap({
         wrap.style.transformOrigin = 'center';
 
         const el = document.createElement('div');
-        el.className = `flex size-11 cursor-pointer items-center justify-center rounded-full border-2 border-white font-mono text-sm font-bold shadow-lg transition-transform hover:scale-110 ${
+        el.className = `flex size-11 cursor-pointer items-center justify-center rounded-full border-2 border-white font-mono text-sm font-bold select-none shadow-lg transition-transform hover:scale-110 ${
           isActive
             ? 'bg-violet text-white ring-4 ring-violet/30'
             : containsSelected
@@ -492,7 +533,7 @@ export function KakaoMap({
       const size = m.highlighted ? 30 : 22;
 
       const wrap = document.createElement('div');
-      wrap.className = 'flex flex-col items-center';
+      wrap.className = 'flex select-none flex-col items-center';
 
       // A colored anchor with its category icon reads against the map's own
       // clutter far better than a flat dot; the highlighted (nearest) match
@@ -731,6 +772,30 @@ export function KakaoMap({
     canvas.style.opacity = '1';
   }, [status, densityRegions, viewVersion]);
 
+  // "You are here" indicator — its own effect (not folded into the
+  // marker/cluster redraw) so a geolocation ping doesn't force clusters to
+  // recompute. Non-interactive: it's a location readout, not a pin to click.
+  useEffect(() => {
+    const map = mapObjRef.current;
+    if (!map || status !== 'ready' || !userLocation || !isValidLatLng(userLocation)) return;
+    const { kakao } = window;
+
+    const el = document.createElement('div');
+    el.className = 'pointer-events-none relative flex size-4 items-center justify-center';
+    el.innerHTML =
+      '<span class="absolute inline-flex size-full animate-ping rounded-full bg-violet/50"></span>' +
+      '<span class="relative inline-flex size-3.5 rounded-full border-2 border-white bg-violet shadow-lg"></span>';
+
+    const overlay = new kakao.maps.CustomOverlay({
+      position: new kakao.maps.LatLng(userLocation.lat, userLocation.lng),
+      content: el,
+      zIndex: 25,
+    });
+    overlay.setMap(map);
+
+    return () => overlay.setMap(null);
+  }, [status, userLocation]);
+
   // Smooth-pan to the focused result when its key changes (card click / marker click).
   useEffect(() => {
     const map = mapObjRef.current;
@@ -751,6 +816,10 @@ export function KakaoMap({
     // fit-all on the first data arrival; only refit on later set changes.
     if (background && !fitOnLoad && !skippedInitialFitRef.current) {
       skippedInitialFitRef.current = true;
+      return;
+    }
+    if (suppressNextFitRef.current) {
+      suppressNextFitRef.current = false;
       return;
     }
     if (valid.length === 1) {

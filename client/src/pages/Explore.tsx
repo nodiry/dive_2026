@@ -1,8 +1,8 @@
 import type { HousingSummary, LifestylePreference } from '@shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Layers } from 'lucide-react';
+import { Layers, LocateFixed, Minus, Plus } from 'lucide-react';
 import { ExploreNavbar } from '@components/explore/ExploreNavbar';
 import { FilterPanel } from '@components/explore/FilterPanel';
 import { ListItem, ListMessage, ListPanel, ListSkeleton } from '@components/explore/ListPanel';
@@ -10,6 +10,7 @@ import { MapShell } from '@components/explore/MapShell';
 import { HousingCard } from '@components/HousingCard';
 import type {
   HousingMarker,
+  MapControls,
   MapBounds,
   MapCircle,
   MapFocus,
@@ -18,6 +19,7 @@ import type {
   PoiMarker,
 } from '@components/KakaoMap';
 import { TagStrip } from '@components/TagStrip';
+import { ALL_DISTRICTS_FOCUS, DISTRICT_CENTERS, type District } from '@constants/districts';
 import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
 import { useDebouncedValue } from '@hooks/useDebouncedValue';
 import { useDistrictDensity } from '@hooks/useDistrictDensity';
@@ -26,6 +28,7 @@ import { useLifestyleRecommendation } from '@hooks/useRecommendation';
 import { useSavedHousing } from '@hooks/useSaved';
 import { useAuthStore } from '@stores/useAuthStore';
 import { useExploreStore } from '@stores/useExploreStore';
+import { useToastStore } from '@stores/useToastStore';
 import { cn } from '@utils/cn';
 import { toHousingSearchQuery } from '@utils/filters';
 import { haversineMeters, walkingMinutes } from '@utils/geo';
@@ -94,6 +97,35 @@ export function Explore() {
 
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [clusterIds, setClusterIds] = useState<number[] | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const mapControlsRef = useRef<MapControls | null>(null);
+  const showError = useToastStore((s) => s.showError);
+
+  // Picking a district filter focuses the map on that region right away;
+  // clearing back to "전체" lands on Seomyeon rather than wherever the map
+  // happened to be (or Busan's mostly-empty geographic center).
+  useEffect(() => {
+    const center = filters.district
+      ? DISTRICT_CENTERS[filters.district as District]
+      : ALL_DISTRICTS_FOCUS;
+    if (center) mapControlsRef.current?.focusRegion(center.lat, center.lng);
+  }, [filters.district]);
+
+  function locateMe() {
+    if (!navigator.geolocation) {
+      showError(t('map.locateError'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        mapControlsRef.current?.panTo(latitude, longitude);
+      },
+      () => showError(t('map.locateError')),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }
 
   // Everything filters live: no search button anywhere. Criteria fields are
   // debounced into an always-on query; preference weights auto-run below.
@@ -301,12 +333,44 @@ export function Explore() {
       activeClusterIds={clusterIds}
       onBoundsChange={setMapBounds}
       densityRegions={densityMode ? (densityRegions ?? null) : null}
+      controlsRef={mapControlsRef}
+      userLocation={userLocation}
       fitKey={fitKey}
     >
       <ExploreNavbar />
 
       <div className='pointer-events-none relative min-h-0 flex-1'>
         <FilterPanel activeFilterCount={activeFilterCount} />
+
+        <div className='pointer-events-auto absolute top-3 right-[23.5rem] z-10 hidden items-center gap-1 rounded-full border border-slate-light/30 bg-lilac/95 p-1 shadow-lg backdrop-blur sm:flex'>
+          <button
+            type='button'
+            aria-label={t('map.zoomIn')}
+            title={t('map.zoomIn')}
+            onClick={() => mapControlsRef.current?.zoomIn()}
+            className='rounded-full p-2 text-plum transition-colors hover:bg-plum/10'
+          >
+            <Plus className='size-4' />
+          </button>
+          <button
+            type='button'
+            aria-label={t('map.zoomOut')}
+            title={t('map.zoomOut')}
+            onClick={() => mapControlsRef.current?.zoomOut()}
+            className='rounded-full p-2 text-plum transition-colors hover:bg-plum/10'
+          >
+            <Minus className='size-4' />
+          </button>
+          <button
+            type='button'
+            aria-label={t('map.locate')}
+            title={t('map.locate')}
+            onClick={locateMe}
+            className='rounded-full p-2 text-plum transition-colors hover:text-violet'
+          >
+            <LocateFixed className='size-4' />
+          </button>
+        </div>
 
         <div className='pointer-events-none absolute bottom-4 left-3 z-10 flex items-center gap-2'>
           <button

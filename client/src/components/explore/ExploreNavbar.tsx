@@ -28,11 +28,11 @@ export function ExploreNavbar() {
   }
 
   return (
-    <div className='pointer-events-auto relative z-30 flex items-center justify-between gap-3 border-b border-slate-light/30 bg-lilac/95 px-4 py-2 shadow-sm backdrop-blur sm:px-6'>
+    <div className='pointer-events-auto relative z-30 flex min-h-[3.25rem] items-center justify-between gap-3 border-b border-slate-light/30 bg-lilac/95 px-4 py-2 shadow-sm backdrop-blur sm:px-6'>
       <div className='flex min-w-0 shrink-0 items-center gap-3'>
         <Link
           to='/'
-          className='shrink-0 text-lg font-extrabold tracking-tight text-plum'
+          className='shrink-0 text-lg font-extrabold tracking-tight text-plum select-none'
         >
           동네탐색<span className='text-violet'>.</span>
         </Link>

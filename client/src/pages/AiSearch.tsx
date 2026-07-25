@@ -254,7 +254,7 @@ function ChatBubble({ message, onExpand }: { message: TranscriptMessage; onExpan
                   {message.text}
                 </ReactMarkdown>
               </div>
-              {message.housing && message.housing.length > 0 && (
+              {message.housing?.some((h) => h.lat != null && h.lng != null) && (
                 <MapResultCard
                   housing={message.housing}
                   onExpand={onExpand}
@@ -302,7 +302,7 @@ export function AiSearch() {
 
   function sendMessage(text: string, targetConversationId = conversationId) {
     const trimmed = text.trim();
-    if (!trimmed || aiSearch.isPending) return;
+    if (!trimmed || aiSearch.isPending || loadingConversation) return;
 
     setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
     setInput('');
@@ -332,7 +332,7 @@ export function AiSearch() {
   }
 
   function startNewChat() {
-    if (aiSearch.isPending) return;
+    if (aiSearch.isPending || loadingConversation) return;
     setConversationId(null);
     setMessages([]);
     setExpandedHousing(null);
@@ -341,7 +341,7 @@ export function AiSearch() {
   }
 
   async function openConversation(id: string) {
-    if (aiSearch.isPending || id === conversationId) return;
+    if (aiSearch.isPending || loadingConversation || id === conversationId) return;
     setConversationId(id);
     setSearchParams({ c: id }, { replace: true });
     setExpandedHousing(null);
@@ -357,6 +357,11 @@ export function AiSearch() {
         })),
       );
     } catch {
+      // Stale or foreign id (deleted chat, old URL, another account's link):
+      // fall back to a clean new chat instead of keeping a broken id that
+      // would 404 every subsequent send.
+      setConversationId(null);
+      setSearchParams({}, { replace: true });
       setMessages([{ role: 'assistant', text: t('aiSearch.error') }]);
     } finally {
       setLoadingConversation(false);
@@ -364,6 +369,7 @@ export function AiSearch() {
   }
 
   function removeConversation(id: string) {
+    if (aiSearch.isPending || loadingConversation) return;
     deleteConversation.mutate(id, {
       onSuccess: () => {
         if (id === conversationId) startNewChat();
@@ -524,6 +530,7 @@ export function AiSearch() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              maxLength={1000}
               placeholder={t('aiSearch.inputPlaceholder')}
               aria-label={t('aiSearch.inputPlaceholder')}
               className={cn(inputClass, 'flex-1')}

@@ -4,6 +4,7 @@ import {
   KakaoMap,
   type MapBounds,
   type MapCircle,
+  type MapControls,
   type MapFocus,
   type MapMarker,
   type MapTrail,
@@ -20,6 +21,9 @@ interface MapShellProps {
   activeClusterIds?: number[] | null;
   onBoundsChange?: (bounds: MapBounds) => void;
   densityRegions?: DensityRegion[] | null;
+  controlsRef?: React.RefObject<MapControls | null>;
+  /** The visitor's own geolocated position — rendered as a pulsing "you are here" dot. */
+  userLocation?: { lat: number; lng: number } | null;
   fitKey?: string | number;
   children?: ReactNode;
 }
@@ -42,6 +46,8 @@ export function MapShell({
   activeClusterIds,
   onBoundsChange,
   densityRegions,
+  controlsRef,
+  userLocation,
   fitKey,
   children,
 }: MapShellProps) {
@@ -60,6 +66,8 @@ export function MapShell({
         activeClusterIds={activeClusterIds}
         onBoundsChange={onBoundsChange}
         densityRegions={densityRegions}
+        controlsRef={controlsRef}
+        userLocation={userLocation}
         fitKey={fitKey}
       />
       <div className='pointer-events-none absolute inset-0 z-10 flex flex-col'>{children}</div>

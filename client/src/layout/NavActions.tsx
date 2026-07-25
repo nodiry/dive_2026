@@ -19,7 +19,7 @@ function IconNavLink({ to, label, children }: { to: string; label: string; child
       aria-label={label}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'group relative rounded-full p-2 transition-colors',
+        'group relative rounded-full p-2 select-none transition-colors',
         active ? 'text-violet' : 'text-slate-light hover:text-violet',
       )}
     >
@@ -76,7 +76,7 @@ export function NavActions() {
         to={ROUTES.LifeMatch}
         aria-current={location.pathname === ROUTES.LifeMatch ? 'page' : undefined}
         className={cn(
-          'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+          'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium select-none transition-colors',
           location.pathname === ROUTES.LifeMatch
             ? 'bg-violet/20 text-violet-dark'
             : 'bg-violet/10 text-violet-dark hover:bg-violet/20',

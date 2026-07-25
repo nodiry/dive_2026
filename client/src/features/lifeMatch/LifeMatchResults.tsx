@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { KakaoMap, type HousingMarker } from '@components/KakaoMap';
+import { Link } from 'react-router-dom';
+import { KakaoMap, type HousingMarker, type MapFocus } from '@components/KakaoMap';
+import { housingDetailPath } from '@constants/path';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
 import type { LifeProfile } from './model';
@@ -124,13 +126,21 @@ function MatchCard({
         </p>
       </div>
 
-      <button
-        type='button'
-        onClick={onOpen}
-        className='mt-4 w-full rounded-full border border-slate-light/40 px-5 py-2 text-sm font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
-      >
-        {t('lifeMatch.openDetail')}
-      </button>
+      <div className='mt-4 grid grid-cols-2 gap-2'>
+        <button
+          type='button'
+          onClick={onOpen}
+          className='rounded-full border border-slate-light/40 px-5 py-2 text-sm font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
+        >
+          {t('lifeMatch.openDetail')}
+        </button>
+        <Link
+          to={housingDetailPath(result.housing.id)}
+          className='rounded-full border border-slate-light/40 px-5 py-2 text-center text-sm font-medium text-plum transition-colors hover:border-violet/40 hover:text-violet-dark'
+        >
+          {t('explore.detailLink')}
+        </Link>
+      </div>
     </article>
   );
 }
@@ -374,6 +384,19 @@ export function LifeMatchResults({
     label: result.housing.projectName,
     selected: result.housing.id === activeSelectedHousingId,
   }));
+  const selectedResult = topResults.find((r) => r.housing.id === activeSelectedHousingId);
+  const focus: MapFocus | null =
+    selectedResult && selectedResult.housing.lat != null && selectedResult.housing.lng != null
+      ? {
+          lat: selectedResult.housing.lat,
+          lng: selectedResult.housing.lng,
+          key: selectedResult.housing.id,
+        }
+      : null;
+  const fitKey = topResults
+    .map((r) => r.housing.id)
+    .sort((a, b) => a - b)
+    .join(',');
   const numeric = (value: string) => Number(value) || 0;
   const relaxChips = [
     {
@@ -454,8 +477,12 @@ export function LifeMatchResults({
         <div className={cn('mt-3 space-y-4', pending && 'opacity-60 transition-opacity')}>
           <div className='overflow-hidden rounded-2xl border border-slate-light/30 bg-lilac-dim'>
             <KakaoMap
+              bounded
               className='aspect-[21/9] w-full'
               markers={markers}
+              focus={focus}
+              fitKey={fitKey}
+              onMarkerClick={(m) => m.kind === 'housing' && setSelectedHousingId(m.id)}
             />
           </div>
           <div className='space-y-3'>

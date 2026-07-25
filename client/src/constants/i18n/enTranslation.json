@@ -200,7 +200,10 @@
     "densitySource": "Sundosoft 100m population grid",
     "busStopNearby": "Near a bus stop",
     "amenityToggle": "Amenities",
-    "amenitySource": "Sundosoft franchise grid"
+    "amenitySource": "Sundosoft franchise grid",
+    "listCapped": "{{count}} more in this view. Zoom in or narrow your filters.",
+    "outsideView": "{{count}} results are outside the current view.",
+    "fitResults": "Fit all results"
   },
   "personas": {
     "youngSingle": "Young single",

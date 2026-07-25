@@ -8,6 +8,9 @@ export function useHousingSearch(query: HousingSearchQuery, enabled: boolean) {
     queryFn: () => housingAPI.search(query),
     enabled,
     placeholderData: keepPreviousData,
+    // The stock only changes when the DB is reseeded, so a tab-back must not
+    // refetch 355 rows and re-fit the map out from under the user.
+    staleTime: 5 * 60 * 1000,
   });
 }
 

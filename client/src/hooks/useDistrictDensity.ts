@@ -19,10 +19,16 @@ export function useDistrictDensity(enabled: boolean) {
   });
 }
 
-export function useDistrictSupply() {
+/**
+ * Gated by default: this one aggregates the 100m 선도소프트 grid per 법정동, so
+ * it is the most expensive query the app makes. Only ask for it on the screens
+ * that actually paint it.
+ */
+export function useDistrictSupply(enabled = true) {
   return useQuery({
     queryKey: ['districts', 'supply'],
     queryFn: districtsAPI.getSupply,
+    enabled,
     staleTime: Infinity,
   });
 }

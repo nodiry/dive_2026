@@ -199,7 +199,10 @@
     "densitySource": "선도소프트 인구 격자 100m",
     "busStopNearby": "버스정류장 인접",
     "amenityToggle": "편의시설 밀도",
-    "amenitySource": "선도소프트 5대업종 격자"
+    "amenitySource": "선도소프트 5대업종 격자",
+    "listCapped": "이 화면에 {{count}}곳이 더 있어요. 지도를 확대하거나 조건을 좁혀보세요.",
+    "outsideView": "{{count}}곳이 지금 화면 밖에 있어요.",
+    "fitResults": "결과 전체 보기"
   },
   "personas": {
     "youngSingle": "청년 1인가구",

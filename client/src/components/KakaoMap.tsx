@@ -94,6 +94,8 @@ export interface MapControls {
   panTo: (lat: number, lng: number) => void;
   /** Jump to a district-scale view of a point (e.g. a selected 구). */
   focusRegion: (lat: number, lng: number) => void;
+  /** Frame every current marker — for recovering from a pan that left the results behind. */
+  fitToResults: () => void;
 }
 
 export interface DensityRegion {
@@ -275,6 +277,77 @@ function pointAtFraction(
 }
 
 /**
+ * Frame every valid marker. Shared by the fitKey effect and the explicit
+ * fitToResults control so both pad the viewport identically (the background
+ * map has to clear the header, the right list panel, and the filter button).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
+function fitMapToMarkers(map: any, candidates: MapMarker[], background: boolean): void {
+  const { kakao } = window;
+  const valid = candidates.filter(isValidLatLng);
+  if (valid.length === 0) return;
+  if (valid.length === 1) {
+    map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
+    return;
+  }
+  const bounds = new kakao.maps.LatLngBounds();
+  for (const m of valid) bounds.extend(new kakao.maps.LatLng(m.lat, m.lng));
+  if (background) map.setBounds(bounds, 48, 396, 48, 48);
+  else map.setBounds(bounds);
+}
+
+const BUBBLE_BASE =
+  'flex items-center gap-1.5 rounded-full border-2 px-3.5 py-2 font-mono text-sm font-bold whitespace-nowrap shadow-lg transition-colors ';
+const TAIL_BASE = '-mt-1.5 size-3 rotate-45 border-r-2 border-b-2 ';
+const BADGE_BASE = 'flex size-5 items-center justify-center rounded-full text-[11px] text-white ';
+const CLUSTER_BASE =
+  'flex size-11 cursor-pointer items-center justify-center rounded-full border-2 border-white font-mono text-sm font-bold select-none shadow-lg transition-transform hover:scale-110 ';
+
+/**
+ * A drawn housing overlay and the nodes whose colors depend on selection.
+ * Kept so hover/selection can recolor in place instead of forcing the
+ * geometry pass (clustering + ~350 overlay rebuilds) to run again.
+ */
+type MarkerHandle =
+  | {
+      kind: 'single';
+      id: number;
+      bubble: HTMLElement;
+      tail: HTMLElement;
+      badge: HTMLElement | null;
+      rank?: number;
+    }
+  | { kind: 'cluster'; ids: number[]; el: HTMLElement; active: boolean };
+
+function paintSelection(handles: MarkerHandle[], activeIds: Set<number>): void {
+  for (const handle of handles) {
+    if (handle.kind === 'single') {
+      const on = activeIds.has(handle.id);
+      handle.bubble.className =
+        BUBBLE_BASE +
+        (on
+          ? 'border-violet bg-violet text-white'
+          : 'border-slate-light/40 bg-white text-plum hover:border-violet/60');
+      handle.tail.className =
+        TAIL_BASE + (on ? 'border-violet bg-violet' : 'border-slate-light/40 bg-white');
+      if (handle.badge) {
+        handle.badge.className =
+          BADGE_BASE + (handle.rank === 1 ? 'bg-gold' : on ? 'bg-white/30' : 'bg-plum');
+      }
+      continue;
+    }
+    const containsSelected = handle.ids.some((id) => activeIds.has(id));
+    handle.el.className =
+      CLUSTER_BASE +
+      (handle.active
+        ? 'bg-violet text-white ring-4 ring-violet/30'
+        : containsSelected
+          ? 'bg-violet text-white'
+          : 'bg-plum text-lilac');
+  }
+}
+
+/**
  * Every empty state here is deliberate, not a blank box: no key, no
  * geocoded coordinates, and load failure each get their own message.
  *
@@ -311,6 +384,8 @@ export function KakaoMap({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
   const heatOverlayRef = useRef<any>(null);
   const markersRef = useRef(markers);
+  const markerHandlesRef = useRef<MarkerHandle[]>([]);
+  const activeIdsRef = useRef<Set<number>>(new Set());
   const onMarkerClickRef = useRef(onMarkerClick);
   const onMapClickRef = useRef(onMapClick);
   const onClusterClickRef = useRef(onClusterClick);
@@ -336,7 +411,33 @@ export function KakaoMap({
 
   const validMarkers = markers.filter(isValidLatLng);
   const showEmptyPlaceholder = !background && validMarkers.length === 0;
-  const drawKey = JSON.stringify({ markers, trails, circle, activeClusterIds });
+
+  // Two keys, deliberately. `geometryKey` covers everything that changes what
+  // gets DRAWN; `selectedKey` covers what only changes an existing node's
+  // color. Folding selection into one key made every list hover re-cluster
+  // and rebuild ~350 overlays. Built by concatenation rather than
+  // JSON.stringify: the old serialized form was 46KB per render.
+  const geometryParts: string[] = [];
+  for (const m of markers) {
+    geometryParts.push(
+      m.kind === 'housing'
+        ? `h${m.id}:${m.lat}:${m.lng}:${m.priceLabel ?? m.label ?? ''}:${m.rank ?? ''}`
+        : `p${m.id}:${m.lat}:${m.lng}:${m.highlighted ? 1 : 0}:${m.color ?? ''}`,
+    );
+  }
+  for (const trail of trails) {
+    geometryParts.push(
+      `t${trail.id}:${trail.emphasis ?? ''}:${trail.path.length}:${trail.color ?? ''}`,
+    );
+  }
+  if (circle) geometryParts.push(`c${circle.lat}:${circle.lng}:${circle.radiusMeters}`);
+  if (activeClusterIds) geometryParts.push(`a${activeClusterIds.join('.')}`);
+  const geometryKey = geometryParts.join('|');
+
+  const selectedKey = markers
+    .filter((m): m is HousingMarker => m.kind === 'housing' && Boolean(m.selected))
+    .map((m) => m.id)
+    .join(',');
 
   // Mount the map instance once. Never re-run for data changes.
   useEffect(() => {
@@ -418,6 +519,10 @@ export function KakaoMap({
               map.setCenter(target);
               map.setLevel(7, { animate: true });
             },
+            fitToResults: () => {
+              suppressNextFitRef.current = true;
+              fitMapToMarkers(map, markersRef.current, background);
+            },
           };
         }
 
@@ -437,6 +542,7 @@ export function KakaoMap({
 
     for (const cleanup of cleanupFnsRef.current) cleanup();
     cleanupFnsRef.current = [];
+    markerHandlesRef.current = [];
 
     const addOverlay = (lat: number, lng: number, el: HTMLElement, yAnchor = 0.5, zIndex = 20) => {
       const overlay = new kakao.maps.CustomOverlay({
@@ -497,16 +603,9 @@ export function KakaoMap({
         wrap.style.transformOrigin = 'bottom center';
 
         const bubble = document.createElement('div');
-        bubble.className = `flex items-center gap-1.5 rounded-full border-2 px-3.5 py-2 font-mono text-sm font-bold whitespace-nowrap shadow-lg transition-colors ${
-          m.selected
-            ? 'border-violet bg-violet text-white'
-            : 'border-slate-light/40 bg-white text-plum hover:border-violet/60'
-        }`;
+        let badge: HTMLElement | null = null;
         if (m.rank !== undefined && m.rank <= 3) {
-          const badge = document.createElement('span');
-          badge.className = `flex size-5 items-center justify-center rounded-full text-[11px] text-white ${
-            m.rank === 1 ? 'bg-gold' : m.selected ? 'bg-white/30' : 'bg-plum'
-          }`;
+          badge = document.createElement('span');
           badge.textContent = String(m.rank);
           bubble.appendChild(badge);
         }
@@ -517,9 +616,16 @@ export function KakaoMap({
         // A rotated square, half-clipped by the bubble, reads as a pointer
         // tip anchored to the exact coordinate — the classic map-pin tail.
         const tail = document.createElement('div');
-        tail.className = `-mt-1.5 size-3 rotate-45 border-r-2 border-b-2 ${
-          m.selected ? 'border-violet bg-violet' : 'border-slate-light/40 bg-white'
-        }`;
+
+        // Colors come from the repaint pass, so hover never re-enters here.
+        markerHandlesRef.current.push({
+          kind: 'single',
+          id: m.id,
+          bubble,
+          tail,
+          badge,
+          rank: m.rank,
+        });
 
         wrap.appendChild(bubble);
         wrap.appendChild(tail);
@@ -529,7 +635,6 @@ export function KakaoMap({
         addOverlay(m.lat, m.lng, wrap, 1, 30);
       } else {
         const memberIds = cluster.members.map((m) => m.id);
-        const containsSelected = cluster.members.some((m) => m.selected);
         const isActive =
           activeClusterIds != null &&
           memberIds.length === activeClusterIds.length &&
@@ -539,14 +644,13 @@ export function KakaoMap({
         wrap.style.transformOrigin = 'center';
 
         const el = document.createElement('div');
-        el.className = `flex size-11 cursor-pointer items-center justify-center rounded-full border-2 border-white font-mono text-sm font-bold select-none shadow-lg transition-transform hover:scale-110 ${
-          isActive
-            ? 'bg-violet text-white ring-4 ring-violet/30'
-            : containsSelected
-              ? 'bg-violet text-white'
-              : 'bg-plum text-lilac'
-        }`;
         el.textContent = String(cluster.members.length);
+        markerHandlesRef.current.push({
+          kind: 'cluster',
+          ids: memberIds,
+          el,
+          active: isActive,
+        });
         el.title = cluster.members.map((m) => m.label).join(', ');
         stopPointerSequence(wrap);
         el.addEventListener('click', () => onClusterClickRef.current?.(memberIds));
@@ -699,12 +803,26 @@ export function KakaoMap({
       });
     }
 
+    paintSelection(markerHandlesRef.current, activeIdsRef.current);
+
     return () => {
       for (const cleanup of cleanupFnsRef.current) cleanup();
       cleanupFnsRef.current = [];
+      markerHandlesRef.current = [];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- drawKey is the stable serialized form of markers+trails+circle
-  }, [status, drawKey, viewVersion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- geometryKey is the stable serialized form of markers+trails+circle
+  }, [status, geometryKey, viewVersion]);
+
+  // Selection and hover only recolor nodes the pass above already created, so
+  // moving the mouse down the result list costs a couple of className writes
+  // instead of a full re-cluster and rebuild. Declared after the draw effect
+  // so a rebuild paints with the current selection.
+  useEffect(() => {
+    activeIdsRef.current = new Set(
+      selectedKey ? selectedKey.split(',').map((id) => Number(id)) : [],
+    );
+    paintSelection(markerHandlesRef.current, activeIdsRef.current);
+  }, [selectedKey]);
 
   // Population heat layer: grayscale radial gradients accumulated per 동
   // (weighted by density, sized by area), colorized through the heat ramp.
@@ -718,93 +836,135 @@ export function KakaoMap({
     if (!map || !container || status !== 'ready') return;
     const { kakao } = window;
 
-    if (!heatCanvasRef.current) {
-      const el = document.createElement('canvas');
-      el.className = 'pointer-events-none opacity-0 transition-opacity duration-300';
-      el.setAttribute('aria-hidden', 'true');
-      heatCanvasRef.current = el;
-      heatOverlayRef.current = new kakao.maps.CustomOverlay({
-        position: map.getCenter(),
-        content: el,
-        xAnchor: 0.5,
-        yAnchor: 0.5,
-        zIndex: 5,
-        clickable: false,
-      });
-    }
-    const canvas = heatCanvasRef.current;
-    const overlay = heatOverlayRef.current;
-
-    if (!densityRegions || densityRegions.length === 0) {
-      canvas.style.opacity = '0';
-      overlay.setMap(null);
-      return;
-    }
-
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    if (!width || !height) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-    overlay.setPosition(map.getCenter());
-    overlay.setMap(map);
-
-    const proj = map.getProjection();
-    const center = map.getCenter();
-    const centerPt = proj.containerPointFromCoords(center);
-    const shifted = proj.containerPointFromCoords(
-      new kakao.maps.LatLng(center.getLat(), center.getLng() + 0.01),
-    );
-    const metersPerPx =
-      (0.01 * 111320 * Math.cos((center.getLat() * Math.PI) / 180)) /
-      Math.max(Math.abs(shifted.x - centerPt.x), 1);
-
-    const reference = heatReference(densityRegions);
-
-    for (const region of densityRegions) {
-      const pt = proj.containerPointFromCoords(
-        new kakao.maps.LatLng(region.centroidLat, region.centroidLng),
-      );
-      const radiusMeters = Math.sqrt(region.areaKm2 / Math.PI) * 1000 * 1.5;
-      const radiusPx = Math.min(Math.max(radiusMeters / metersPerPx, 20), 420);
-      if (
-        pt.x < -radiusPx ||
-        pt.y < -radiusPx ||
-        pt.x > width + radiusPx ||
-        pt.y > height + radiusPx
-      ) {
-        continue;
+    const draw = () => {
+      if (!heatCanvasRef.current) {
+        const el = document.createElement('canvas');
+        el.className = 'pointer-events-none opacity-0 transition-opacity duration-300';
+        el.setAttribute('aria-hidden', 'true');
+        heatCanvasRef.current = el;
+        heatOverlayRef.current = new kakao.maps.CustomOverlay({
+          position: map.getCenter(),
+          content: el,
+          xAnchor: 0.5,
+          yAnchor: 0.5,
+          zIndex: 5,
+          clickable: false,
+        });
       }
-      const intensity = Math.pow(Math.min(1, region.densityPerKm2 / reference), HEAT_CURVE);
-      const gradient = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radiusPx);
-      gradient.addColorStop(0, `rgba(0, 0, 0, ${intensity})`);
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(pt.x - radiusPx, pt.y - radiusPx, radiusPx * 2, radiusPx * 2);
-    }
+      const canvas = heatCanvasRef.current;
+      const overlay = heatOverlayRef.current;
 
-    const lut = heatLut();
-    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = image.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const alpha = data[i + 3];
-      if (alpha === 0) continue;
-      const j = alpha * 4;
-      data[i] = lut[j];
-      data[i + 1] = lut[j + 1];
-      data[i + 2] = lut[j + 2];
-      data[i + 3] = lut[j + 3];
-    }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.putImageData(image, 0, 0);
-    canvas.style.opacity = '1';
+      if (!densityRegions || densityRegions.length === 0) {
+        canvas.style.opacity = '0';
+        overlay.setMap(null);
+        return;
+      }
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (!width || !height) return;
+      // Deliberately 1, not devicePixelRatio: this layer is a blurred density
+      // field with no edges to alias, and every extra device pixel is another
+      // iteration of the colorize pass below. At 1.5 a 1440x900 map costs 2.9M
+      // pixels per repaint for no visible gain.
+      const dpr = 1;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      overlay.setPosition(map.getCenter());
+      overlay.setMap(map);
+
+      const proj = map.getProjection();
+      const center = map.getCenter();
+      const centerPt = proj.containerPointFromCoords(center);
+      const shifted = proj.containerPointFromCoords(
+        new kakao.maps.LatLng(center.getLat(), center.getLng() + 0.01),
+      );
+      const metersPerPx =
+        (0.01 * 111320 * Math.cos((center.getLat() * Math.PI) / 180)) /
+        Math.max(Math.abs(shifted.x - centerPt.x), 1);
+
+      const reference = heatReference(densityRegions);
+
+      // The colorize pass only has to visit pixels a gradient actually touched,
+      // so track the union of the drawn rects. Zoomed into one 동 that is a
+      // couple of hundred pixels square instead of the whole viewport.
+      let dirtyMinX = Infinity;
+      let dirtyMinY = Infinity;
+      let dirtyMaxX = -Infinity;
+      let dirtyMaxY = -Infinity;
+
+      for (const region of densityRegions) {
+        const pt = proj.containerPointFromCoords(
+          new kakao.maps.LatLng(region.centroidLat, region.centroidLng),
+        );
+        const radiusMeters = Math.sqrt(region.areaKm2 / Math.PI) * 1000 * 1.5;
+        const radiusPx = Math.min(Math.max(radiusMeters / metersPerPx, 20), 420);
+        if (
+          pt.x < -radiusPx ||
+          pt.y < -radiusPx ||
+          pt.x > width + radiusPx ||
+          pt.y > height + radiusPx
+        ) {
+          continue;
+        }
+        const intensity = Math.pow(Math.min(1, region.densityPerKm2 / reference), HEAT_CURVE);
+        const gradient = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radiusPx);
+        gradient.addColorStop(0, `rgba(0, 0, 0, ${intensity})`);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(pt.x - radiusPx, pt.y - radiusPx, radiusPx * 2, radiusPx * 2);
+        dirtyMinX = Math.min(dirtyMinX, pt.x - radiusPx);
+        dirtyMinY = Math.min(dirtyMinY, pt.y - radiusPx);
+        dirtyMaxX = Math.max(dirtyMaxX, pt.x + radiusPx);
+        dirtyMaxY = Math.max(dirtyMaxY, pt.y + radiusPx);
+      }
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      // Every region was off-screen: nothing was painted, so there is nothing
+      // to colorize and reading back a blank rect would be wasted work.
+      if (dirtyMaxX < dirtyMinX) {
+        canvas.style.opacity = '1';
+        return;
+      }
+
+      const clampX = (v: number) => Math.min(Math.max(Math.floor(v * dpr), 0), canvas.width);
+      const clampY = (v: number) => Math.min(Math.max(Math.floor(v * dpr), 0), canvas.height);
+      const x = clampX(dirtyMinX);
+      const y = clampY(dirtyMinY);
+      const w = clampX(Math.ceil(dirtyMaxX)) - x;
+      const h = clampY(Math.ceil(dirtyMaxY)) - y;
+      if (w <= 0 || h <= 0) {
+        canvas.style.opacity = '1';
+        return;
+      }
+
+      const lut = heatLut();
+      const image = ctx.getImageData(x, y, w, h);
+      const data = image.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        if (alpha === 0) continue;
+        const j = alpha * 4;
+        data[i] = lut[j];
+        data[i + 1] = lut[j + 1];
+        data[i + 2] = lut[j + 2];
+        data[i + 3] = lut[j + 3];
+      }
+      ctx.putImageData(image, x, y);
+      canvas.style.opacity = '1';
+    };
+
+    // Coalesce into one frame: a zoom that settles into a pan can fire this
+    // effect twice before paint, and the repaint is the expensive part.
+    const raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
   }, [status, densityRegions, viewVersion]);
 
   // Selected 구/군 focus overlay. The translucent fill separates the chosen
@@ -928,7 +1088,6 @@ export function KakaoMap({
     // While a district is selected, its GIS boundary owns the viewport.
     // Debounced result updates must not immediately refit to the marker set.
     if (districtBoundary) return;
-    const { kakao } = window;
     const valid = markersRef.current.filter(isValidLatLng);
     if (valid.length === 0) return;
     // The background map opens on Suyeong-gu — don't override that with a
@@ -941,19 +1100,7 @@ export function KakaoMap({
       suppressNextFitRef.current = false;
       return;
     }
-    if (valid.length === 1) {
-      map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
-      return;
-    }
-    const bounds = new kakao.maps.LatLngBounds();
-    for (const m of valid) bounds.extend(new kakao.maps.LatLng(m.lat, m.lng));
-    if (background) {
-      // Padding (top, right, bottom, left) keeps pins clear of the header,
-      // the right list panel, and the floating filter button.
-      map.setBounds(bounds, 48, 396, 48, 48);
-    } else {
-      map.setBounds(bounds);
-    }
+    fitMapToMarkers(map, valid, background);
   }, [status, fitKey, background, districtBoundary]);
 
   const placeholder = (message: string, detail: string) => (

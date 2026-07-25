@@ -2,7 +2,7 @@ import type { HousingSummary, LifestylePreference } from '@shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Layers, LocateFixed, Minus, Plus, Store } from 'lucide-react';
+import { Layers, Loader2, LocateFixed, Minus, Plus, Store } from 'lucide-react';
 import { ExploreNavbar } from '@components/explore/ExploreNavbar';
 import { FilterPanel } from '@components/explore/FilterPanel';
 import { ListItem, ListMessage, ListPanel, ListSkeleton } from '@components/explore/ListPanel';
@@ -57,6 +57,45 @@ function aggregateTags(
   }));
 }
 
+/**
+ * The list is viewport-synced rather than paged, so it can be handed all 355
+ * projects at once. Every card is a layout-animated motion node, and a pan
+ * re-animates the whole set, so render a window of them and tell the user
+ * plainly what is not shown. The header count stays the true total.
+ */
+const LIST_RENDER_CAP = 60;
+
+function ListFooterNote({
+  moreInView,
+  outsideView,
+  onFit,
+}: {
+  moreInView: number;
+  outsideView: number;
+  onFit: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className='rounded-2xl border-2 border-dashed border-slate-light/40 bg-lilac-dim/90 p-4 text-sm text-slate'>
+      {moreInView > 0 && <p>{t('explore.listCapped', { count: moreInView })}</p>}
+      {outsideView > 0 && (
+        <>
+          <p className={moreInView > 0 ? 'mt-2' : undefined}>
+            {t('explore.outsideView', { count: outsideView })}
+          </p>
+          <button
+            type='button'
+            onClick={onFit}
+            className='mt-2 rounded-full border border-violet/40 bg-violet/10 px-3 py-1.5 text-xs font-medium text-violet-dark transition-colors hover:bg-violet/20'
+          >
+            {t('explore.fitResults')}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ScoreBar({ score, maxScore }: { score: number; maxScore: number }) {
   const ratio = maxScore > 0 ? Math.max(score / maxScore, 0.04) : 0;
   return (
@@ -103,7 +142,9 @@ export function Explore() {
   const mapLayer = useExploreStore((s) => s.mapLayer);
   const setMapLayer = useExploreStore((s) => s.setMapLayer);
   const { data: densityRegions } = useDistrictDensity(mapLayer !== 'none');
-  const { data: supplyRegions } = useDistrictSupply();
+  const { data: supplyRegions, isFetching: supplyFetching } = useDistrictSupply(
+    mapLayer === 'amenity',
+  );
 
   // The amenity layer reuses the population heat canvas with a different value
   // per 동: franchise counts per km² instead of residents per km². Both
@@ -343,6 +384,13 @@ export function Explore() {
   const listCount =
     panelView === 'saved' ? savedHousing.length : (listResults?.length ?? listHousing?.length ?? 0);
 
+  // Two different kinds of "not shown": trimmed by the render cap, and
+  // filtered out because the map was panned away from them. The second one is
+  // the confusing one, so it gets a way back.
+  const totalMatches = results?.length ?? baseHousing.length;
+  const moreInView = panelView === 'saved' ? 0 : Math.max(0, listCount - LIST_RENDER_CAP);
+  const outsideView = panelView === 'saved' ? 0 : Math.max(0, totalMatches - listCount);
+
   const activeFilterCount =
     Number(Boolean(filters.depositMaxManwon)) +
     Number(Boolean(filters.district)) +
@@ -421,27 +469,36 @@ export function Explore() {
         </div>
 
         <div className='pointer-events-none absolute bottom-4 left-3 z-10 flex items-center gap-2'>
-          {(['population', 'amenity'] as const).map((layer) => (
-            <button
-              key={layer}
-              type='button'
-              aria-pressed={mapLayer === layer}
-              onClick={() => setMapLayer(layer)}
-              className={cn(
-                'pointer-events-auto flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium shadow-lg backdrop-blur transition-all',
-                mapLayer === layer
-                  ? 'border-plum bg-plum text-lilac'
-                  : 'border-slate-light/30 bg-lilac/95 text-plum hover:border-violet/40',
-              )}
-            >
-              {layer === 'population' ? (
-                <Layers className='size-4' />
-              ) : (
-                <Store className='size-4' />
-              )}
-              {t(layer === 'population' ? 'explore.densityToggle' : 'explore.amenityToggle')}
-            </button>
-          ))}
+          {(['population', 'amenity'] as const).map((layer) => {
+            // The amenity metric aggregates the 100m grid per 동, so it can
+            // take a beat. Without this the button reads as pressed while
+            // nothing paints, which looks broken rather than busy.
+            const pending = layer === 'amenity' && mapLayer === 'amenity' && supplyFetching;
+            return (
+              <button
+                key={layer}
+                type='button'
+                aria-pressed={mapLayer === layer}
+                aria-busy={pending}
+                onClick={() => setMapLayer(layer)}
+                className={cn(
+                  'pointer-events-auto flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium shadow-lg backdrop-blur transition-all',
+                  mapLayer === layer
+                    ? 'border-plum bg-plum text-lilac'
+                    : 'border-slate-light/30 bg-lilac/95 text-plum hover:border-violet/40',
+                )}
+              >
+                {pending ? (
+                  <Loader2 className='size-4 animate-spin' />
+                ) : layer === 'population' ? (
+                  <Layers className='size-4' />
+                ) : (
+                  <Store className='size-4' />
+                )}
+                {t(layer === 'population' ? 'explore.densityToggle' : 'explore.amenityToggle')}
+              </button>
+            );
+          })}
           {mapLayer !== 'none' && (
             <div className='pointer-events-auto flex items-center gap-1.5 rounded-full border border-slate-light/30 bg-lilac/95 px-3 py-1.5 shadow-lg backdrop-blur'>
               <span className='text-xs text-slate'>{t('explore.densityLow')}</span>
@@ -544,7 +601,7 @@ export function Explore() {
                 <ListMessage>{t('explore.emptyResult')}</ListMessage>
               </ListItem>
             ) : (
-              listResults.map((result, i) => (
+              listResults.slice(0, LIST_RENDER_CAP).map((result, i) => (
                 <ListItem
                   key={`r-${result.housing.id}`}
                   index={i}
@@ -599,7 +656,7 @@ export function Explore() {
               <ListMessage>{t('explore.empty')}</ListMessage>
             </ListItem>
           ) : (
-            (listHousing ?? []).map((housing, i) => (
+            (listHousing ?? []).slice(0, LIST_RENDER_CAP).map((housing, i) => (
               <ListItem
                 key={`h-${housing.id}`}
                 index={i}
@@ -620,6 +677,19 @@ export function Explore() {
               </ListItem>
             ))
           )}
+
+          {moreInView > 0 || outsideView > 0 ? (
+            <ListItem
+              key='list-footer'
+              index={0}
+            >
+              <ListFooterNote
+                moreInView={moreInView}
+                outsideView={outsideView}
+                onFit={() => mapControlsRef.current?.fitToResults()}
+              />
+            </ListItem>
+          ) : null}
         </ListPanel>
       </div>
     </MapShell>

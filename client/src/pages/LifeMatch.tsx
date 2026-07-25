@@ -2,8 +2,10 @@ import type { LifestyleRecommendationRequest, LifestyleRecommendationResult } fr
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Reveal } from '@components/Reveal';
+import { LifeDeck, LifeDeckSummary } from '@features/lifeMatch/LifeDeck';
 import { LifeMatchResults } from '@features/lifeMatch/LifeMatchResults';
 import { LifeProfilePanel } from '@features/lifeMatch/LifeProfilePanel';
+import type { LifeDeckResult } from '@features/lifeMatch/lifeDeckModel';
 import {
   buildLifestylePreferences,
   DEFAULT_LIFE_PROFILE,
@@ -18,20 +20,25 @@ import { useLifestyleRecommendation } from '@hooks/useRecommendation';
 const STORAGE_KEY = 'dive2026-life-match-v1';
 
 interface StoredLifeMatch {
-  version: 1;
+  version: 1 | 2;
   profile: LifeProfile;
   routine: WeeklyRoutine;
+  discovery?: LifeDeckResult;
 }
 
-function readStoredLifeMatch(): Pick<StoredLifeMatch, 'profile' | 'routine'> | null {
+function readStoredLifeMatch(): StoredLifeMatch | null {
   try {
     const parsed = JSON.parse(
       localStorage.getItem(STORAGE_KEY) ?? 'null',
     ) as StoredLifeMatch | null;
-    if (parsed?.version !== 1 || !parsed.profile || !parsed.routine) return null;
+    if ((parsed?.version !== 1 && parsed?.version !== 2) || !parsed.profile || !parsed.routine) {
+      return null;
+    }
     return {
+      version: parsed.version,
       profile: { ...DEFAULT_LIFE_PROFILE, ...parsed.profile },
       routine: { ...DEFAULT_WEEKLY_ROUTINE, ...parsed.routine },
+      discovery: parsed.discovery,
     };
   } catch {
     return null;
@@ -47,8 +54,9 @@ function optionalNumber(value: string, multiplier = 1): number | undefined {
 function buildRequest(
   profile: LifeProfile,
   routine: WeeklyRoutine,
+  lifeStats?: LifeDeckResult['lifeStats'],
 ): LifestyleRecommendationRequest {
-  const stats = deriveLifeStats(routine);
+  const stats = lifeStats ?? deriveLifeStats(routine);
   const destination = DESTINATIONS[profile.destinationId as keyof typeof DESTINATIONS];
   return {
     preferences: buildLifestylePreferences(profile, routine, stats),
@@ -70,18 +78,24 @@ function buildRequest(
 }
 
 /**
- * One live screen, same philosophy as Explore: no wizard, no submit button.
- * The profile panel on the left mirrors the FilterPanel; the ranked matches
- * on the right recalculate (debounced) on every adjustment.
+ * The Life Deck discovers a starting routine, then hands it to the existing
+ * live recommendation screen. Detailed adjustments recalculate the ranked
+ * matches with the same debounced behavior as Explore.
  */
 export function LifeMatch() {
   const { t } = useTranslation();
   const stored = useState(readStoredLifeMatch)[0];
+  const [stage, setStage] = useState<'deck' | 'results'>(() =>
+    stored?.discovery ? 'results' : 'deck',
+  );
   const [profile, setProfile] = useState<LifeProfile>(
     () => stored?.profile ?? DEFAULT_LIFE_PROFILE,
   );
   const [routine, setRoutine] = useState<WeeklyRoutine>(
     () => stored?.routine ?? { ...DEFAULT_WEEKLY_ROUTINE },
+  );
+  const [discovery, setDiscovery] = useState<LifeDeckResult | null>(
+    () => stored?.discovery ?? null,
   );
   const [results, setResults] = useState<LifestyleRecommendationResult[]>([]);
   const recommendation = useLifestyleRecommendation();
@@ -98,22 +112,69 @@ export function LifeMatch() {
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, profile, routine }));
+    if (stage !== 'results') return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, profile, routine, discovery }));
     const delay = firstRunRef.current ? 0 : 600;
     firstRunRef.current = false;
     const timer = setTimeout(() => {
       const seq = ++requestSeqRef.current;
-      mutateRef.current(buildRequest(profile, routine), {
+      mutateRef.current(buildRequest(profile, routine, discovery?.lifeStats), {
         onSuccess: (data) => {
           if (seq === requestSeqRef.current) setResults(data);
         },
       });
     }, delay);
     return () => clearTimeout(timer);
-  }, [profile, routine]);
+  }, [discovery, profile, routine, stage]);
+
+  if (stage === 'deck') {
+    return (
+      <LifeDeck
+        initialProfile={profile}
+        onComplete={(nextDiscovery, nextProfile) => {
+          requestSeqRef.current += 1;
+          recommendation.reset();
+          setResults([]);
+          setDiscovery(nextDiscovery);
+          setProfile(nextProfile);
+          setRoutine(nextDiscovery.routine);
+          firstRunRef.current = true;
+          setStage('results');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+    );
+  }
+
+  const updateRoutine = (nextRoutine: WeeklyRoutine) => {
+    setRoutine(nextRoutine);
+    setDiscovery((current) =>
+      current
+        ? {
+            ...current,
+            routine: nextRoutine,
+            lifeStats: deriveLifeStats(nextRoutine),
+          }
+        : current,
+    );
+  };
 
   return (
     <div className='px-6 py-10 sm:px-8'>
+      {discovery && (
+        <div className='mx-auto mb-8 max-w-7xl'>
+          <LifeDeckSummary
+            result={discovery}
+            onRetake={() => {
+              requestSeqRef.current += 1;
+              recommendation.reset();
+              setResults([]);
+              setStage('deck');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        </div>
+      )}
       <Reveal>
         <p className='font-mono text-sm tracking-wide text-slate uppercase'>
           {t('lifeMatch.navLabel')}
@@ -131,7 +192,7 @@ export function LifeMatch() {
             profile={profile}
             routine={routine}
             onProfileChange={setProfile}
-            onRoutineChange={setRoutine}
+            onRoutineChange={updateRoutine}
           />
         </Reveal>
         <Reveal delay={0.1}>

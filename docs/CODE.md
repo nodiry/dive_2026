@@ -81,12 +81,16 @@ docs/                        # this folder; STYLE_GUIDE.md governs all UI work
 
 ## API surface
 
-- `GET /api/health` — liveness check, `{"ok": true}`.
+- `GET /health` and `GET /api/health` — liveness and application version:
+  `{status, version, software}`.
 - `GET /api/housing?depositMax=&rentMax=&minAreaM2=&roomCount=&elevatorRequired=&parkingRequired=&builtAfter=&district=&type=` —
-  condition-based search. All params optional; `depositMax` in won,
-  `builtAfter` a year, `district`/`type` exact match.
-- `GET /api/housing/:id` — single housing project detail, including units
-  and price rows.
+  condition-based project search. All params are optional; money is in won,
+  `builtAfter` is a year, and `district`/`type` are exact matches. Each
+  summary includes project-level minimum/maximum area and room counts plus
+  elevator and parking information.
+- `GET /api/housing/:id` — single housing project summary.
+- `GET /api/housing/:id/neighborhood?radiusMeters=500` — POI counts and
+  zoning shares in a 100–2000m clamped radius.
 - `POST /api/recommendations/lifestyle` — lifestyle-based ranking.
   Request body:
   ```json
@@ -101,7 +105,7 @@ docs/                        # this folder; STYLE_GUIDE.md governs all UI work
     "radiusMeters": 700
   }
   ```
-  Returns `[]` until housing is geocoded (`bun run geocode`) — that's
+  Returns `[]` until housing is geocoded (`just geocode`) — that's
   correct behavior, not a bug. Each result includes a per-category match
   breakdown (count + nearest distance, plus the top 5 nearest individual
   `pois` — name/lat/lng/distance, for map pins and the animated trail). The
@@ -111,22 +115,9 @@ docs/                        # this folder; STYLE_GUIDE.md governs all UI work
   powers the frontend's category picker. Deliberately not hardcoded —
   see `docs/DATA_MODEL.md` Part 2 for why the real taxonomy differs from
   the track deck's.
+
 All routes return camelCase JSON; validation errors return
 `{"error": "invalid request", "issues": [...]}` with status 400.
-
-- `GET /health` — liveness + version (root level, not under /api).
-- `GET /api/health` — `{"ok": true}` (kept for the original contract).
-- `GET /api/housing?depositMax=&builtAfter=&roomCount=&district=&type=` —
-  condition search. All params optional.
-- `GET /api/housing/:id` — single project summary.
-- `GET /api/housing/:id/neighborhood?radiusMeters=500` — neighborhood
-  profile: POI counts by major category + zoning mix (share of the radius
-  area per 용도지역), computed in PostGIS. Radius clamped to 100–2000m.
-- `POST /api/recommendations/lifestyle` — body
-  `{preferences: [{categoryName, weight}], district?, depositMax?, radiusMeters}`;
-  returns ranked results with per-category breakdown + top-5 nearest POIs
-  each (for map pins/trails).
-- `GET /api/poi/categories` — distinct `category_name` values with counts.
 
 ## Tasks (run via just)
 

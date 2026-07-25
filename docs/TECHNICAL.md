@@ -54,9 +54,10 @@ Compose at the repo root, services:
   (many dev machines have a native Postgres on 5432).
 - **api** — `python:3.13-slim` + uv, port 3000, `pull_policy: build` (every
   `up` rebuilds; layer cache makes no-change rebuilds ~instant),
-  `src/` bind-mounted with uvicorn `--reload`. The image contains **only**
-  runtime code: no GDAL, no alembic, no scripts — migrations and seeding
-  run from the host.
+  `src/` bind-mounted with uvicorn `--reload`. The image contains the
+  application and alembic migrations, so `docker compose exec api uv run
+  --no-sync alembic upgrade head` works. GDAL and ETL scripts remain
+  host-run concerns.
 - **client** — behind the `full` profile (`docker compose --profile full up`)
   because day-to-day frontend work runs on the host
   (`just client` → Vite on :5173, the Kakao-whitelisted port).

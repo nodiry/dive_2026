@@ -17,6 +17,8 @@ from src.recommendation.schemas import (
     MatchedPoi,
     MatchedPoiPoint,
     NeighborhoodEvidence,
+    RoutineActivity,
+    RoutineEvidence,
     RoutineFitItem,
 )
 
@@ -346,19 +348,13 @@ async def recommend_lifestyle(
         )
         rest_score = _rest_score(neighborhood)
 
-        axis_weights = (
-            (req.life_stats.fun, req.life_stats.work, req.life_stats.rest)
-            if req.life_stats
-            else (34.0, 33.0, 33.0)
-        )
+        axis_weights = (req.life_stats.fun, req.life_stats.work, req.life_stats.rest) if req.life_stats else (34.0, 33.0, 33.0)
         axis_total = sum(axis_weights) or 100
-        lifestyle_score = (
-            fun_score * axis_weights[0] + work_score * axis_weights[1] + rest_score * axis_weights[2]
-        ) / axis_total
+        lifestyle_score = (fun_score * axis_weights[0] + work_score * axis_weights[1] + rest_score * axis_weights[2]) / axis_total
 
         routine_details: list[RoutineFitItem] = []
         if req.routine:
-            activity_inputs = [
+            activity_inputs: list[tuple[RoutineActivity, float, float, RoutineEvidence]] = [
                 (
                     "commute",
                     req.routine.commute,
@@ -390,15 +386,12 @@ async def recommend_lifestyle(
             ]
             routine_total = sum(item.requested for item in routine_details)
             routine_score = (
-                sum(item.requested * item.score for item in routine_details) / routine_total
-                if routine_total
-                else lifestyle_score
+                sum(item.requested * item.score for item in routine_details) / routine_total if routine_total else lifestyle_score
             )
         else:
             category_weight_total = sum(weight_by_category.values())
             routine_score = (
-                sum(category_scores.get(name, 0) * weight for name, weight in weight_by_category.items())
-                / category_weight_total
+                sum(category_scores.get(name, 0) * weight for name, weight in weight_by_category.items()) / category_weight_total
                 if category_weight_total
                 else lifestyle_score
             )
@@ -413,12 +406,7 @@ async def recommend_lifestyle(
             if part is not None
         ]
         affordability_score = sum(affordability_parts) / len(affordability_parts) if affordability_parts else 78
-        match_rate = (
-            lifestyle_score * 0.42
-            + routine_score * 0.28
-            + housing_score * 0.18
-            + affordability_score * 0.12
-        )
+        match_rate = lifestyle_score * 0.42 + routine_score * 0.28 + housing_score * 0.18 + affordability_score * 0.12
 
         results.append(
             LifestyleRecommendationResult(
@@ -437,9 +425,7 @@ async def recommend_lifestyle(
                     rest=round(rest_score, 1),
                 ),
                 neighborhood=neighborhood,
-                destination_distance_meters=round(destination_distance, 1)
-                if destination_distance is not None
-                else None,
+                destination_distance_meters=round(destination_distance, 1) if destination_distance is not None else None,
                 routine_details=routine_details,
                 matches=matches,
             )

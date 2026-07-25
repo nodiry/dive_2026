@@ -35,3 +35,6 @@ seed:
 
 geocode:
 	uv run python -m scripts.geocode_housing
+
+population *csv:
+	uv run python -m scripts.seed_population {{csv}}

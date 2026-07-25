@@ -95,15 +95,17 @@ files must stay blank placeholders. If a real key ever ends up in a
 committed file, rotate it in the Kakao console immediately.
 
 `samples.zip` (~90MB) is committed to this repo, no separate download step
-needed — it holds everything the seeds use (BMC housing CSVs, POI, GIS
-shapefiles, reference docs). Two heavy optional datasets are deliberately
-excluded and are manual drop-ins if you need them (nothing ingests them
-yet — see `docs/DATA_MODEL.md` Parts 4–5):
+needed — it holds everything the core seeds use (BMC housing CSVs, POI, GIS
+shapefiles, reference docs). One extra download unlocks the population
+density layer:
 
-- 선도소프트 융합데이터 year-zips → copy the handout's `01.`/`02.`/`03.`
-  folders into `samples/2026_DIVE_해커톤_제공데이터_선도소프트/`
-- SGIS population grid (unusable without its boundary file) →
-  `samples/population_grid_UNPLACEABLE/`
+- **선도소프트 융합데이터**: download
+  `2026_DIVE_해커톤_제공데이터_선도소프트.zip` from the hackathon handout
+  and drop it at the repo root — `just onboard` unzips it into `samples/`
+  and the seed picks it up (population + industry grid). See
+  `docs/DATA_MODEL.md` Part 5.
+- SGIS population grid (unusable without its boundary file, nothing reads
+  it) → optional, `samples/population_grid_UNPLACEABLE/`.
 
 To regenerate the zip after a data update, from the repo root:
 

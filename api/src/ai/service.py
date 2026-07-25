@@ -65,10 +65,7 @@ def _client() -> genai.Client:
 
 
 def _to_contents(history: list[ChatMessage]) -> list[types.Content]:
-    return [
-        types.Content(role="model" if m.role == "assistant" else "user", parts=[types.Part(text=m.text)])
-        for m in history
-    ]
+    return [types.Content(role="model" if m.role == "assistant" else "user", parts=[types.Part(text=m.text)]) for m in history]
 
 
 async def generate_reply(
@@ -125,16 +122,12 @@ class ConversationNotFound(Exception):
 
 async def list_conversations(session: AsyncSession, user_id: int) -> list[AIConversation]:
     result = await session.exec(
-        select(AIConversation)
-        .where(AIConversation.user_id == user_id)
-        .order_by(col(AIConversation.created_at).desc())
+        select(AIConversation).where(AIConversation.user_id == user_id).order_by(col(AIConversation.created_at).desc())
     )
     return list(result.all())
 
 
-async def _get_owned_conversation(
-    session: AsyncSession, user_id: int, conversation_id: UUID
-) -> AIConversation:
+async def _get_owned_conversation(session: AsyncSession, user_id: int, conversation_id: UUID) -> AIConversation:
     conversation = await session.get(AIConversation, conversation_id)
     if conversation is None or conversation.user_id != user_id:
         raise ConversationNotFound
@@ -143,16 +136,12 @@ async def _get_owned_conversation(
 
 async def get_messages(session: AsyncSession, conversation_id: UUID) -> list[AIMessage]:
     result = await session.exec(
-        select(AIMessage)
-        .where(AIMessage.chat_id == conversation_id)
-        .order_by(col(AIMessage.sent_date).asc())
+        select(AIMessage).where(AIMessage.chat_id == conversation_id).order_by(col(AIMessage.sent_date).asc())
     )
     return list(result.all())
 
 
-async def get_conversation(
-    session: AsyncSession, user_id: int, conversation_id: UUID
-) -> tuple[AIConversation, list[AIMessage]]:
+async def get_conversation(session: AsyncSession, user_id: int, conversation_id: UUID) -> tuple[AIConversation, list[AIMessage]]:
     conversation = await _get_owned_conversation(session, user_id, conversation_id)
     return conversation, await get_messages(session, conversation_id)
 
@@ -164,10 +153,7 @@ async def delete_conversation(session: AsyncSession, user_id: int, conversation_
 
 
 def _to_chat_history(messages: list[AIMessage]) -> list[ChatMessage]:
-    return [
-        ChatMessage(role="assistant" if m.role == AIMessageRole.MODEL else "user", text=m.content)
-        for m in messages
-    ]
+    return [ChatMessage(role="assistant" if m.role == AIMessageRole.MODEL else "user", text=m.content) for m in messages]
 
 
 async def chat(

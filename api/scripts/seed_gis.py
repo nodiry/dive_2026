@@ -82,8 +82,8 @@ async def ingest_gis() -> None:
         await ingest_zoning(conn)
         await ingest_buildings(conn)
     print(
-        "industry_population_grid still empty — sgis's population CSVs have no boundary "
-        "geometry to place them with, see docs/DATA_MODEL.md Part 4."
+        "industry_population_grid is filled by scripts/seed_population.py from the "
+        "선도소프트 POP_STORE grid when present — see docs/DATA_MODEL.md Parts 4-5."
     )
 
 

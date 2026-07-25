@@ -82,11 +82,15 @@ class NeighborhoodEvidence(ApiModel):
     source: Literal["zoning", "unavailable"]
 
 
+RoutineActivity = Literal["commute", "focus", "cafe", "exercise", "dining", "culture", "walking", "homeRest"]
+RoutineEvidence = Literal["destination", "nearbyPoi", "zoning", "proxy", "unavailable"]
+
+
 class RoutineFitItem(ApiModel):
-    activity: Literal["commute", "focus", "cafe", "exercise", "dining", "culture", "walking", "homeRest"]
+    activity: RoutineActivity
     requested: float
     score: float
-    evidence: Literal["destination", "nearbyPoi", "zoning", "proxy", "unavailable"]
+    evidence: RoutineEvidence
 
 
 class LifestyleRecommendationResult(ApiModel):

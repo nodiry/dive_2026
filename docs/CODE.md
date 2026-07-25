@@ -25,6 +25,8 @@ api/
     seed_housing.py          #   6 BMC CSVs (2026-06-30 handout, Korean paths) -> housing_project/housing_unit/housing_price
     seed_poi.py              #   155k-row POI CSV -> commercial_poi (maps Korean 대분류 -> English slug)
     seed_gis.py              #   ogr2ogr for admin_boundary/commercial_zone/building
+    seed_population.py       #   admin_boundary.population + industry_population_grid
+                             #     (manual CSV if present, else 선도소프트 POP_STORE grid, else soft skip)
     geocode_housing.py       #   Kakao geocoding for housing_project rows with geom IS NULL
     lib/                     #   csv_utils (EUC-KR handling), gis (ogr2ogr wrapper), geocode, paths
   src/
@@ -130,5 +132,6 @@ All routes return camelCase JSON; validation errors return
 | root | `just client` | host Vite dev server on :5173 (the Kakao-whitelisted port) |
 | api/ | `just migration "msg"` | alembic autogenerate revision (host, against localhost:5433) |
 | api/ | `just migrate` | alembic upgrade head |
-| api/ | `just seed` / `just geocode` | host-run ETL (needs GDAL + samples/) |
+| api/ | `just seed` / `just geocode` | host-run ETL (needs GDAL + samples/); seed includes population when source data is present |
+| api/ | `just population [csv]` | population layer alone (optional explicit CSV path) |
 | api/ | `just check` | ruff format + lint + ty + pytest |

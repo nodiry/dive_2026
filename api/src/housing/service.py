@@ -1,6 +1,7 @@
 from datetime import date
 
 from geoalchemy2 import Geometry
+from sqlalchemy import select as sa_select
 from sqlmodel import cast, col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -22,6 +23,7 @@ def affordable_projects(deposit_max: float):
         .group_by(col(HousingPrice.project_id))
         .having(func.min(col(HousingPrice.deposit)) <= deposit_max)
     )
+
 
 def rent_affordable_projects(rent_max: float):
     return (
@@ -48,9 +50,11 @@ async def to_summaries(session: AsyncSession, projects: list[HousingProject]) ->
     price_rows = result.all()
     prices = {pid: (deposit, rent) for pid, deposit, rent in price_rows}
 
-    result = await session.exec(
-        select(
-            HousingUnit.project_id,
+    # sqlmodel.select() is typed for at most 4 entities — use sqlalchemy's
+    # select for this 7-column projection (docs/TECHNICAL.md typing rules).
+    result = await session.execute(  # ty:ignore[deprecated] -- Row tuples wanted, exec() would scalar-collapse
+        sa_select(
+            col(HousingUnit.project_id),
             func.min(HousingUnit.area_m2),
             func.max(HousingUnit.area_m2),
             func.min(HousingUnit.room_count),

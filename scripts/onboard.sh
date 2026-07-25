@@ -36,12 +36,35 @@ if [ -d samples/housing ]; then
   rm -rf samples/housing
 fi
 
-# Heavy, not-yet-ingested data stays out of samples.zip — flag if absent so
-# people know it's a manual drop-in, not something this script fetches.
-if [ ! -d "samples/2026_DIVE_해커톤_제공데이터_선도소프트/01. 상가-건물 융합데이터" ]; then
-  echo "note: 선도소프트 융합데이터 zips not present (optional — nothing ingests them yet)."
-  echo "      To add them, copy the handout's 01/02/03 folders into"
-  echo "      samples/2026_DIVE_해커톤_제공데이터_선도소프트/ — see docs/DATA_MODEL.md Part 5."
+# The heavy 선도소프트 융합데이터 stays out of samples.zip. Teammates drop the
+# handout zip at the repo root (Google Drive's "-20260725T…Z-1-001" suffix is
+# fine, no rename needed) and this merges it into samples/. Drive zips store
+# Korean names without the zip UTF-8 flag, which breaks plain `unzip`
+# ("Illegal byte sequence") — scripts/kunzip.py repairs the names.
+SUNDO_DIR="samples/2026_DIVE_해커톤_제공데이터_선도소프트"
+SUNDO_MARKER="02. 인구-5대업종 가맹점 융합데이터"
+# ASCII-only pattern on purpose: macOS stores the Korean part of the filename
+# in decomposed unicode (NFD), so an NFC Korean glob silently never matches.
+SUNDO_ZIP="$(find . -maxdepth 1 -name "2026_DIVE*.zip" -print -quit)"
+if [ ! -d "$SUNDO_DIR/$SUNDO_MARKER" ] && [ -n "$SUNDO_ZIP" ]; then
+  echo "unzipping $SUNDO_ZIP into $SUNDO_DIR/..."
+  staging="$(mktemp -d)"
+  python3 scripts/kunzip.py "$SUNDO_ZIP" "$staging"
+  src="$staging"
+  if [ ! -d "$src/$SUNDO_MARKER" ]; then
+    # some exports nest everything under one top-level folder — find it
+    inner="$(find "$staging" -maxdepth 3 -type d -name "02.*" -print -quit)"
+    [ -n "$inner" ] && src="$(dirname "$inner")"
+  fi
+  mkdir -p "$SUNDO_DIR"
+  cp -R "$src"/. "$SUNDO_DIR"/
+  rm -rf "$staging"
+fi
+if [ ! -d "$SUNDO_DIR/$SUNDO_MARKER" ]; then
+  echo "note: 선도소프트 융합데이터 not present — the population density layer will be"
+  echo "      skipped during seeding. Drop 2026_DIVE_해커톤_제공데이터_선도소프트*.zip"
+  echo "      at the repo root and re-run this command, or copy the handout's"
+  echo "      01/02/03 folders into $SUNDO_DIR/ — see docs/DATA_MODEL.md Part 5."
 fi
 
 step "installing dependencies (client bun install + api venv)"
@@ -65,7 +88,7 @@ for i in $(seq 1 10); do
   fi
 done
 
-step "seeding the database (housing + POI + GIS layers)"
+step "seeding the database (housing + POI + GIS + population when available)"
 (cd api && just seed)
 
 step "geocoding housing addresses (needs KAKAO_REST_API_KEY in api/.env)"

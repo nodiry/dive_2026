@@ -16,7 +16,8 @@ below is relative to `samples/`.
 samples/
   2026_DIVE_해커톤_제공데이터_부산도시공사/   6 BMC CSVs, 2026-06-30 handout (Part 1)
   2026_DIVE_해커톤_제공데이터_선도소프트/     컬럼정의서.xlsx in the zip; the 01/02/03
-                                              융합데이터 year-zips are a manual drop-in (Part 5)
+                                              융합데이터 year-zips come from the handout zip
+                                              dropped at the repo root (Part 5)
   [참고자료]부산도시공사 모집공고/            recruitment-notice hwp/pdf, reference only
   [참고자료]선도소프트 원천데이터 링크/       원천데이터 링크.txt — the 5 raw-source links
   poi/            business_busan.csv (Part 2 — raw source behind link #2)
@@ -256,33 +257,53 @@ per polygon) is already migrated and waiting, just empty.
 
 Because it's unusable, this folder is **excluded from `samples.zip`** — if
 you want it locally, download link #3 yourself into
-`samples/population_grid_UNPLACEABLE/`. Note the 선도소프트 POP_STORE
-shapefiles (Part 5) carry population *with* geometry and are the better
-route to filling `industry_population_grid`.
+`samples/population_grid_UNPLACEABLE/`. The 선도소프트 POP_STORE shapefiles
+(Part 5) carry population *with* geometry and are what actually fills
+`industry_population_grid` and the density layer now.
 
-### `samples/population/busan_population.csv` — not distributed anywhere
+### Population sources — `seed_population.py` picks automatically
 
-`api/scripts/seed_population.py` (the admin-boundary population choropleth)
-defaults to `samples/population/busan_population.csv` (`code,population`
-rows, 법정동/구 codes). That file is in neither the old zip nor the new
-handout — whoever runs the population layer must supply it (KOSIS 주민등록
-인구 export) or pass a path explicitly:
-`uv run python -m scripts.seed_population <csv>`.
+`api/scripts/seed_population.py` (runs inside `just seed`, after GIS) fills
+`admin_boundary.population` (the density heat layer) from the first
+available source:
 
-## Part 5 — 선도소프트 융합데이터 (`samples/2026_DIVE_해커톤_제공데이터_선도소프트/`) — not ingested yet
+1. `samples/population/busan_population.csv` — a hand-aggregated
+   `code,population` CSV (실제 주민등록 figures; 8-digit 법정동 codes match
+   exactly, 5-digit 구 codes distribute across member 동 by area). Not
+   distributed anywhere — if a teammate has it, dropping it in wins over
+   source 2. Explicit path: `just population <csv>` (api/).
+2. The 선도소프트 POP_STORE grid (Part 5), latest year found — each grid
+   cell's 총인구 (`P_Val`) is split across the admin boundaries it overlaps
+   proportionally to overlap area (areal interpolation). The same pass
+   fills `industry_population_grid` (franchise counts + density/km² per
+   cell). Slight coastal undercount is inherent (cell fractions over water
+   attribute nothing) — fine for a relative choropleth.
+
+Neither present → soft skip; seeding continues, the layer stays empty.
+
+## Part 5 — 선도소프트 융합데이터 (`samples/2026_DIVE_해커톤_제공데이터_선도소프트/`)
 
 The 2026 handout's second half: three fusion datasets as per-year shapefile
 zips (2021–2024, ~143MB zipped, ~2.5GB unzipped — which is why they are
-**not in `samples.zip`**; copy the `01.`/`02.`/`03.` folders from the
-handout into this directory manually if you need them):
+**not in `samples.zip`**). **How teammates get them:** drop
+`2026_DIVE_해커톤_제공데이터_선도소프트.zip` at the repo root — `just
+onboard` unzips it into this folder (tolerating a nested top-level dir) —
+or copy the `01.`/`02.`/`03.` folders in by hand.
 
-| Folder | Contents | Notes |
+These files contain **stores and population, not housing** — the 41→355
+housing-project jump came from the BMC CSVs (Part 1), which ship in
+`samples.zip`; nothing here adds houses.
+
+| Folder | Contents | Ingested? |
 |---|---|---|
-| `01. 상가-건물 융합데이터/` | STORE_BUD shapefiles, 21–24년 | store↔building fusion; the raw 상가정보 behind it is already loaded as `commercial_poi` (Part 2) |
-| `02. 인구-5대업종 가맹점 융합데이터/` | POP_STORE shapefiles, 22–24년 | population + 5-industry stores **with geometry** — the natural filler for `industry_population_grid` |
-| `03. 상권-주거 융합데이터/` | STORE_USE_AREA shapefiles, 23–24년 | commercial-zone ↔ residence fusion |
+| `01. 상가-건물 융합데이터/` | STORE_BUD shapefiles, 21–24년 | no — the raw 상가정보 behind it is already loaded as `commercial_poi` (Part 2) |
+| `02. 인구-5대업종 가맹점 융합데이터/` | POP_STORE shapefiles, 22–24년 | **yes** — `seed_population.py` fills `admin_boundary.population` + `industry_population_grid` from the latest year (see Part 4) |
+| `03. 상권-주거 융합데이터/` | STORE_USE_AREA shapefiles, 23–24년 | no — zoning ratios already come from `commercial_zone` (Part 3) |
 
 `컬럼정의서.xlsx` (the column dictionary for all three) is small and ships
-in `samples.zip`. Nothing in the backend reads these yet; when ingesting,
-follow the `seed_gis.py` ogr2ogr pattern and check each zip's inner `.cpg`
-— encodings vary by year, same trap as Part 1.
+in `samples.zip`. The inner shapefile zips have **EUC-KR-mangled inner
+filenames in some years** — `seed_population.py` extracts via Python
+`zipfile` and finds the `.shp` by extension, never by name. Encodings of
+DBF text vary by year (check each `.cpg`), but only numeric columns are
+read, so it doesn't bite. When ingesting `01`/`03` later, follow the same
+staging pattern.

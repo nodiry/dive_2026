@@ -73,13 +73,16 @@ own directory, not the repo root.
 1. Fail-fast host prereq checks: **docker, bun, uv, just, GDAL** (`brew
    install just gdal` covers the last two on macOS).
 2. `api/.env` / `client/.env` created from examples if missing.
-3. `samples.zip` unzipped to `samples/` if needed.
+3. `samples.zip` unzipped to `samples/` if needed; if
+   `2026_DIVE_해커톤_제공데이터_선도소프트.zip` sits at the repo root it is
+   merged into `samples/` too (population data — optional).
 4. `bun install` (in `client/`) + `uv sync` (api venv).
 5. `docker compose up -d` (db + api), then host-side
    `alembic upgrade head` in a retry loop (Postgres's init briefly
    restarts after first reporting healthy).
-6. Host-side seed (housing + POI + GIS), then geocoding if
-   `KAKAO_REST_API_KEY` is set (skips with instructions otherwise).
+6. Host-side seed (housing + POI + GIS + population when source data is
+   present), then geocoding if `KAKAO_REST_API_KEY` is set (skips with
+   instructions otherwise).
 
 `DATABASE_URL` must use the `postgresql+asyncpg://` dialect — host `.env`
 points at `localhost:5433`, compose overrides with `db:5432` for the
@@ -101,7 +104,8 @@ commercial_poi    155,103 rows; category = ENGLISH SLUG of 상권업종대분류
 admin_boundary    192 rows (vworld 행정구역도)
 commercial_zone   3,307 rows; only ~500 have non-null zone_type — filter on it
 building          379,711 rows, reference only
-industry_population_grid  still empty, blocked (docs/DATA_MODEL.md Part 4)
+industry_population_grid  filled from the 선도소프트 POP_STORE grid when present
+                          (jsonb industry_mix + population_density; docs/DATA_MODEL.md Parts 4-5)
 ```
 
 Tables are defined as SQLModel models (`api/src/*/models.py`) with

@@ -253,7 +253,11 @@
     "zonesEmpty": "No zoning data within this radius.",
     "neighborhoodError": "Couldn't load the neighborhood profile.",
     "viewMap": "Map",
-    "viewRoadview": "Roadview"
+    "viewRoadview": "Roadview",
+    "share": "Share",
+    "shareCopied": "Link copied. Paste it to send to a friend.",
+    "shareFailed": "Couldn't copy the link. Copy the address bar URL instead.",
+    "openKakaoMap": "Kakao Map"
   },
   "housingType": {
     "purchased": "Purchased Rental Housing",

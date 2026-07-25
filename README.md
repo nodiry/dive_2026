@@ -203,7 +203,3 @@ then re-commit (keep it under GitHub's 100MB file limit).
   from the 선도소프트 POP_STORE grid when the handout zip is present (see
   `docs/DATA_MODEL.md` Parts 4-5) — the old SGIS blocker is resolved.
 - Pending: compare view, event-day dataset swaps.
-
-
-# TODO:
-* add share button to share the kakao map link

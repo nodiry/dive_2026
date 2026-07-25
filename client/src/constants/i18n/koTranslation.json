@@ -252,7 +252,11 @@
     "zonesEmpty": "이 반경 안의 용도지역 데이터가 없어요.",
     "neighborhoodError": "동네 프로필을 불러오지 못했어요.",
     "viewMap": "지도",
-    "viewRoadview": "로드뷰"
+    "viewRoadview": "로드뷰",
+    "share": "공유",
+    "shareCopied": "링크를 복사했어요. 친구에게 붙여넣어 보내보세요.",
+    "shareFailed": "링크를 복사하지 못했어요. 주소창의 주소를 직접 복사해주세요.",
+    "openKakaoMap": "카카오맵"
   },
   "housingType": {
     "purchased": "매입임대",

@@ -210,8 +210,14 @@ export function Explore() {
     if (i < 3) rankById.set(r.housing.id, i + 1);
   });
 
-  const listResults = results?.filter((r) => inViewport(r.housing) && inCluster(r.housing));
-  const listHousing = results ? null : baseHousing.filter((h) => inViewport(h) && inCluster(h));
+  // The selected home stays listed even when the pan that focused it pushes
+  // it to the edge of the viewport, so the card you just clicked can't vanish
+  // out from under the scroll.
+  const isListed = (h: HousingSummary) =>
+    (inViewport(h) || h.id === selectedHousingId) && inCluster(h);
+
+  const listResults = results?.filter((r) => isListed(r.housing));
+  const listHousing = results ? null : baseHousing.filter(isListed);
 
   const housingMarkers: HousingMarker[] = visibleHousing.map((h) => ({
     kind: 'housing',

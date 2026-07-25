@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { CategoryBar } from '@components/CategoryBar';
 import { Reveal } from '@components/Reveal';
 import { StatTile } from '@components/StatTile';
+import { useHousingAlertStats } from '@hooks/useAlerts';
 import { useDistrictSupply } from '@hooks/useDistrictDensity';
 import { useHousingSearch } from '@hooks/useHousing';
 import { HOUSING_QUERY_LIMIT } from '@utils/filters';
@@ -121,6 +122,7 @@ export function Policy() {
   const { t } = useTranslation();
   const housing = useHousingSearch({ limit: HOUSING_QUERY_LIMIT }, true);
   const supply = useDistrictSupply();
+  const alertStats = useHousingAlertStats();
   const metrics = useMemo(() => {
     const rows = housing.data ?? [];
     const byType = rows.reduce<Record<HousingType, number>>(
@@ -202,6 +204,46 @@ export function Policy() {
           <SupplyGapSection districts={supply.data} />
         </Reveal>
       )}
+
+      <Reveal delay={0.12}>
+        <section className='mt-6 rounded-2xl border border-slate-light/30 bg-white p-6'>
+          <h2 className='font-mono text-xs tracking-wide text-slate uppercase'>
+            {t('policy.demandTitle')}
+          </h2>
+          <p className='mt-1.5 text-xs leading-5 text-slate-light'>
+            {t('policy.demandDescription')}
+          </p>
+          {alertStats.isPending || alertStats.isError ? (
+            <p className='mt-4 rounded-2xl bg-lilac p-4 text-sm text-slate'>
+              {alertStats.isError ? t('policy.demandError') : t('policy.demandLoading')}
+            </p>
+          ) : (
+            <div className='mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4'>
+              <StatTile
+                label={t('policy.activeAlerts')}
+                value={String(alertStats.data.activeAlerts)}
+                accent
+              />
+              <StatTile
+                label={t('policy.alertUsers')}
+                value={String(alertStats.data.uniqueUsers)}
+              />
+              <StatTile
+                label={t('policy.newLast7Days')}
+                value={String(alertStats.data.newLast7Days)}
+              />
+              <StatTile
+                label={t('policy.topDistrict')}
+                value={
+                  alertStats.data.topDistrict
+                    ? `${t(`districts.${alertStats.data.topDistrict}`)} · ${alertStats.data.topDistrictCount}`
+                    : t('policy.noTopDistrict')
+                }
+              />
+            </div>
+          )}
+        </section>
+      </Reveal>
 
       <div className='mt-6 grid gap-6 lg:grid-cols-2'>
         <Reveal delay={0.1}>

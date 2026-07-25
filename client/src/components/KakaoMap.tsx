@@ -169,7 +169,7 @@ interface KakaoMapProps {
   onBoundsChange?: (bounds: MapBounds) => void;
   /** Population-density choropleth polygons, drawn beneath all pins. */
   densityRegions?: DensityRegion[] | null;
-  /** Selected 구/군 outline, hidden when no district filter is active. */
+  /** Selected 구/군 focus overlay, hidden when no district filter is active. */
   districtBoundary?: DistrictBoundary | null;
   /** Bump this (e.g. on a fresh submit) to refit the viewport to `markers`. Hover-only changes should NOT bump it. */
   fitKey?: string | number;
@@ -219,6 +219,16 @@ function housingTagScale(level: number): number {
 
 function formatTrailDistance(meters: number): string {
   return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
+}
+
+function latLngDistanceMeters(
+  a: { getLat: () => number; getLng: () => number },
+  b: { getLat: () => number; getLng: () => number },
+): number {
+  const meanLat = ((a.getLat() + b.getLat()) / 2) * (Math.PI / 180);
+  const dLat = (b.getLat() - a.getLat()) * 111320;
+  const dLng = (b.getLng() - a.getLng()) * 111320 * Math.cos(meanLat);
+  return Math.hypot(dLat, dLng);
 }
 
 // Kakao derives the map 'click' from the mousedown/mouseup pair on the
@@ -404,8 +414,9 @@ export function KakaoMap({
             },
             focusRegion: (lat: number, lng: number) => {
               suppressNextFitRef.current = true;
+              const target = new kakao.maps.LatLng(lat, lng);
+              map.setCenter(target);
               map.setLevel(7, { animate: true });
-              map.panTo(new kakao.maps.LatLng(lat, lng));
             },
           };
         }
@@ -796,13 +807,18 @@ export function KakaoMap({
     canvas.style.opacity = '1';
   }, [status, densityRegions, viewVersion]);
 
-  // Selected 구/군 outline. A white casing keeps the violet line legible
-  // over both road labels and the optional density heat layer.
+  // Selected 구/군 focus overlay. The translucent fill separates the chosen
+  // area from its neighbors, while a white casing keeps the violet outline
+  // legible over road labels and the optional density heat layer. Fitting
+  // the actual GIS bounds avoids fixed-center/fixed-zoom misses on large or
+  // fragmented districts such as Gangseo-gu and Gijang-gun.
   useEffect(() => {
     const map = mapObjRef.current;
     if (!map || status !== 'ready' || !districtBoundary) return;
     const { kakao } = window;
-    const lines: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
+    const overlays: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
+    const bounds = new kakao.maps.LatLngBounds();
+    let pointCount = 0;
 
     for (const ring of districtBoundary.rings) {
       const path = ring
@@ -812,11 +828,22 @@ export function KakaoMap({
         .map(([lat, lng]) => new kakao.maps.LatLng(lat, lng));
       if (path.length < 3) continue;
 
+      for (const point of path) {
+        bounds.extend(point);
+        pointCount += 1;
+      }
+
+      const fill = new kakao.maps.Polygon({
+        path,
+        strokeWeight: 0,
+        fillColor: '#6d4aff',
+        fillOpacity: 0.12,
+      });
       const casing = new kakao.maps.Polyline({
         path,
-        strokeWeight: 7,
+        strokeWeight: 8,
         strokeColor: '#ffffff',
-        strokeOpacity: 0.9,
+        strokeOpacity: 0.88,
         strokeStyle: 'solid',
       });
       const outline = new kakao.maps.Polyline({
@@ -826,17 +853,40 @@ export function KakaoMap({
         strokeOpacity: 1,
         strokeStyle: 'solid',
       });
+      fill.setMap(map);
       casing.setMap(map);
       outline.setMap(map);
+      fill.setZIndex?.(6);
       casing.setZIndex?.(7);
       outline.setZIndex?.(8);
-      lines.push(casing, outline);
+      overlays.push(fill, casing, outline);
+    }
+
+    if (pointCount > 0) {
+      const rightPadding = background && window.innerWidth >= 640 ? 408 : 36;
+      const previousCenter = map.getCenter();
+      const previousLevel = map.getLevel();
+      map.setBounds(bounds, 88, rightPadding, 72, 36);
+      const targetCenter = map.getCenter();
+      const targetLevel = map.getLevel();
+      const nearby =
+        latLngDistanceMeters(previousCenter, targetCenter) <= 18000 &&
+        Math.abs(targetLevel - previousLevel) <= 3;
+
+      // setBounds is exact but instantaneous. For a nearby district, read
+      // the target it calculated, restore the previous view synchronously,
+      // then animate to that exact center/zoom. Far transitions remain
+      // immediate so the map does not sweep across the whole city.
+      if (nearby && typeof map.jump === 'function') {
+        map.jump(previousCenter, previousLevel);
+        map.jump(targetCenter, targetLevel, { animate: { duration: 450 } });
+      }
     }
 
     return () => {
-      for (const line of lines) line.setMap(null);
+      for (const overlay of overlays) overlay.setMap(null);
     };
-  }, [status, districtBoundary]);
+  }, [background, status, districtBoundary]);
 
   // "You are here" indicator — its own effect (not folded into the
   // marker/cluster redraw) so a geolocation ping doesn't force clusters to
@@ -875,6 +925,9 @@ export function KakaoMap({
   useEffect(() => {
     const map = mapObjRef.current;
     if (!map || status !== 'ready') return;
+    // While a district is selected, its GIS boundary owns the viewport.
+    // Debounced result updates must not immediately refit to the marker set.
+    if (districtBoundary) return;
     const { kakao } = window;
     const valid = markersRef.current.filter(isValidLatLng);
     if (valid.length === 0) return;
@@ -901,7 +954,7 @@ export function KakaoMap({
     } else {
       map.setBounds(bounds);
     }
-  }, [status, fitKey, background]);
+  }, [status, fitKey, background, districtBoundary]);
 
   const placeholder = (message: string, detail: string) => (
     <div

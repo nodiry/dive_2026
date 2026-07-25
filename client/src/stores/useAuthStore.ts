@@ -17,6 +17,7 @@ type AuthStore = {
 function clearUserScopedCache() {
   queryClient.removeQueries({ queryKey: ['saved'] });
   queryClient.removeQueries({ queryKey: ['ai-conversations'] });
+  queryClient.removeQueries({ queryKey: ['housing-alerts', 'me'] });
 }
 
 /**

@@ -1,6 +1,13 @@
-import type { ChatMessage, HousingSummary } from '@shared';
+import type {
+  AiAction,
+  ChatMessage,
+  HousingAlert,
+  HousingSummary,
+  NoMatchContext,
+} from '@shared';
 import {
   ArrowRight,
+  BellRing,
   Bot,
   Maximize2,
   Paperclip,
@@ -16,23 +23,28 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
 import { aiAPI } from '@api/ai';
+import { AlertActionCard } from '@components/ai/AlertActionCard';
 import { inputClass } from '@components/explore/controls';
 import { HousingCard } from '@components/HousingCard';
 import { KakaoMap, type MapFocus, type MapMarker } from '@components/KakaoMap';
 import { ChatGame } from '@features/game/ChatGame';
 import { useAiConversations, useAiSearch, useDeleteAiConversation } from '@hooks/useAiSearch';
+import { useHousingAlerts } from '@hooks/useAlerts';
 import { useSavedHousing } from '@hooks/useSaved';
 import { useToastStore } from '@stores/useToastStore';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
 
 interface TranscriptMessage extends ChatMessage {
+  id?: string;
   /** Data URL of what the user attached, echoed back into their own bubble. */
   image?: string;
   /** A generated 하루 deck this reply spawned. */
   gameId?: string;
   /** Attached to the assistant reply that produced them — rendered as an inline map widget. */
   housing?: HousingSummary[];
+  noMatch?: NoMatchContext | null;
+  actions?: AiAction[];
 }
 
 // Gemini's inline-data ceiling is ~7MB; stop well short of it in the browser
@@ -243,7 +255,25 @@ function FullscreenMap({ housing, onClose }: { housing: HousingSummary[]; onClos
   );
 }
 
-function ChatBubble({ message, onExpand }: { message: TranscriptMessage; onExpand: () => void }) {
+function ChatBubble({
+  message,
+  activeAlert,
+  subscribing,
+  cancelling,
+  onExpand,
+  onSubscribe,
+  onCancel,
+  onRelax,
+}: {
+  message: TranscriptMessage;
+  activeAlert?: HousingAlert;
+  subscribing: boolean;
+  cancelling: boolean;
+  onExpand: () => void;
+  onSubscribe: (messageId: string) => void;
+  onCancel: (alertId: number) => void;
+  onRelax: () => void;
+}) {
   const isUser = message.role === 'user';
   return (
     <div className={cn('flex items-start gap-2.5', isUser && 'flex-row-reverse')}>
@@ -290,6 +320,19 @@ function ChatBubble({ message, onExpand }: { message: TranscriptMessage; onExpan
                 />
               )}
               {message.gameId && <ChatGame gameId={message.gameId} />}
+              {message.noMatch && (
+                <AlertActionCard
+                  messageId={message.id}
+                  context={message.noMatch}
+                  actions={message.actions ?? []}
+                  activeAlert={activeAlert}
+                  subscribing={subscribing}
+                  cancelling={cancelling}
+                  onSubscribe={onSubscribe}
+                  onCancel={onCancel}
+                  onRelax={onRelax}
+                />
+              )}
             </>
           )}
         </div>
@@ -328,10 +371,12 @@ export function AiSearch() {
   const sentInitialRef = useRef(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
-  const showError = useToastStore((s) => s.showError);
+  const showError = useToastStore((state) => state.showError);
+  const showSuccess = useToastStore((state) => state.showSuccess);
   const aiSearch = useAiSearch();
   const conversations = useAiConversations(true);
   const deleteConversation = useDeleteAiConversation();
+  const housingAlerts = useHousingAlerts();
 
   function sendMessage(text: string, targetConversationId = conversationId) {
     const trimmed = text.trim();
@@ -360,10 +405,13 @@ export function AiSearch() {
           setMessages((prev) => [
             ...prev,
             {
+              id: data.messageId,
               role: 'assistant',
               text: data.reply,
               housing: data.housing.length > 0 ? data.housing : undefined,
               gameId: data.gameId ?? undefined,
+              noMatch: data.noMatch,
+              actions: data.actions,
             },
           ]);
         },
@@ -411,10 +459,13 @@ export function AiSearch() {
       const detail = await aiAPI.getConversation(id);
       setMessages(
         detail.messages.map((m) => ({
+          id: m.id,
           role: m.role,
           text: m.text,
           housing: m.housing.length > 0 ? m.housing : undefined,
           gameId: m.gameId ?? undefined,
+          noMatch: m.noMatch,
+          actions: m.actions,
         })),
       );
     } catch {
@@ -476,6 +527,20 @@ export function AiSearch() {
     sendMessage(input);
   }
 
+  function subscribeAlert(messageId: string) {
+    housingAlerts.subscribe.mutate(messageId, {
+      onSuccess: () => showSuccess(t('housingAlerts.success')),
+      onError: () => showError(t('housingAlerts.error')),
+    });
+  }
+
+  function cancelAlert(alertId: number) {
+    housingAlerts.cancel.mutate(alertId, {
+      onSuccess: () => showSuccess(t('housingAlerts.cancelled')),
+      onError: () => showError(t('housingAlerts.error')),
+    });
+  }
+
   const suggestions = [
     t('aiSearch.suggestion1'),
     t('aiSearch.suggestion2'),
@@ -531,6 +596,38 @@ export function AiSearch() {
               </button>
             </div>
           ))}
+        </div>
+        <div className='border-t border-slate-light/20 px-2 py-3'>
+          <span className='flex items-center gap-1.5 px-2 pb-1.5 font-mono text-xs tracking-wide text-slate uppercase'>
+            <BellRing className='size-3.5' />
+            {t('housingAlerts.myAlerts')}
+          </span>
+          <div className='max-h-40 space-y-0.5 overflow-y-auto'>
+            {housingAlerts.alerts.length === 0 && (
+              <p className='px-2 py-1 text-xs text-slate-light'>{t('housingAlerts.none')}</p>
+            )}
+            {housingAlerts.alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className='group flex items-center gap-1 rounded-full px-3 py-2 text-xs text-slate hover:bg-plum/5'
+              >
+                <span className='min-w-0 flex-1 truncate'>
+                  {alert.criteria.district ?? t('explore.districtAll')}
+                  {alert.criteria.type ? ` · ${t(`housingType.${alert.criteria.type}`)}` : ''}
+                </span>
+                <button
+                  type='button'
+                  aria-label={t('housingAlerts.cancel')}
+                  title={t('housingAlerts.cancel')}
+                  disabled={housingAlerts.cancel.isPending}
+                  onClick={() => cancelAlert(alert.id)}
+                  className='shrink-0 rounded-full p-1 text-slate-light opacity-0 transition-opacity group-hover:opacity-100 hover:text-violet focus-visible:opacity-100 disabled:opacity-40'
+                >
+                  <Trash2 className='size-3.5' />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </aside>
 
@@ -592,9 +689,17 @@ export function AiSearch() {
               <div className='space-y-4 py-8'>
                 {messages.map((m, i) => (
                   <ChatBubble
-                    key={i}
+                    key={m.id ?? i}
                     message={m}
+                    activeAlert={housingAlerts.alerts.find(
+                      (alert) => alert.criteriaKey === m.noMatch?.criteriaKey,
+                    )}
+                    subscribing={housingAlerts.subscribe.isPending}
+                    cancelling={housingAlerts.cancel.isPending}
                     onExpand={() => m.housing && setExpandedHousing(m.housing)}
+                    onSubscribe={subscribeAlert}
+                    onCancel={cancelAlert}
+                    onRelax={() => sendMessage(t('housingAlerts.relaxPrompt'))}
                   />
                 ))}
                 {aiSearch.isPending && <ThinkingBubble />}

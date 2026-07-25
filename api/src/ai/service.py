@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.ai import tools as ai_tools
 from src.ai.models import AIConversation, AIMessage, AIMessageRole
-from src.ai.schemas import ChatMessage
+from src.ai.schemas import ChatMessage, NoMatchContext
 from src.config import app_config
 from src.game import service as game_service
 from src.housing.models import HousingProject
@@ -105,7 +105,7 @@ def _image_part(data_url: str) -> types.Part | None:
 
 async def generate_reply(
     session: AsyncSession, history: list[ChatMessage], user_message: str, image: str | None = None
-) -> tuple[str, list[HousingSummary]]:
+) -> tuple[str, list[HousingSummary], NoMatchContext | None]:
     client = _client()
     tools = await ai_tools.build_tools(session)
     config = types.GenerateContentConfig(tools=tools, system_instruction=SYSTEM_PROMPT)
@@ -119,6 +119,11 @@ async def generate_reply(
     # Keyed by id, not appended, so a housing project surfaced by more than
     # one tool call in the same turn only renders once in the UI.
     all_housing: dict[int, HousingSummary] = {}
+    last_no_match: NoMatchContext | None = None
+
+    def result(text: str) -> tuple[str, list[HousingSummary], NoMatchContext | None]:
+        housing = list(all_housing.values())
+        return text, housing, None if housing else last_no_match
 
     for _ in range(MAX_TOOL_ROUNDS):
         try:
@@ -127,23 +132,25 @@ async def generate_reply(
             raise AiSearchError("The AI search request failed. Please try again.") from e
 
         if not response.candidates:
-            return response.text or "", list(all_housing.values())
+            return result(response.text or "")
 
         candidate = response.candidates[0]
         content = candidate.content
         if content is None or not content.parts:
-            return response.text or "", list(all_housing.values())
+            return result(response.text or "")
 
         function_calls = [p.function_call for p in content.parts if p.function_call]
         contents.append(content)
 
         if not function_calls:
-            return response.text or "", list(all_housing.values())
+            return result(response.text or "")
 
         for fc in function_calls:
             if not fc.name:
                 continue
-            result_text, housing = await ai_tools.dispatch_tool(session, fc.name, dict(fc.args or {}))
+            result_text, housing, no_match = await ai_tools.dispatch_tool(session, fc.name, dict(fc.args or {}))
+            if no_match is not None:
+                last_no_match = no_match
             for h in housing:
                 all_housing[h.id] = h
             contents.append(
@@ -153,7 +160,7 @@ async def generate_reply(
                 )
             )
 
-    return "I couldn't finish that request — try narrowing your question.", list(all_housing.values())
+    return result("I couldn't finish that request — try narrowing your question.")
 
 
 class ConversationNotFound(Exception):
@@ -219,15 +226,25 @@ def _to_chat_history(messages: list[AIMessage]) -> list[ChatMessage]:
     return [ChatMessage(role="assistant" if m.role == AIMessageRole.MODEL else "user", text=m.content) for m in messages]
 
 
+def message_context(message: AIMessage) -> NoMatchContext | None:
+    """The stored no-match context, so a live turn and a replayed one derive
+    their alert actions the same way."""
+    return NoMatchContext.model_validate(message.search_context) if message.search_context else None
+
+
 async def chat(
     session: AsyncSession,
     user_id: int,
     conversation_id: UUID | None,
     user_message: str,
     image: str | None = None,
-) -> tuple[AIConversation, str, list[HousingSummary], UUID | None]:
+) -> tuple[AIConversation, AIMessage, list[HousingSummary]]:
     """One turn against a persisted conversation: loads (or creates) it,
-    replays its stored history to the model, and stores both new messages."""
+    replays its stored history to the model, and stores both new messages.
+
+    The stored assistant message carries everything the turn produced — its
+    deck and its no-match context — so callers read those off the row rather
+    than off a widening tuple."""
     if conversation_id is not None:
         conversation = await _get_owned_conversation(session, user_id, conversation_id)
         history = _to_chat_history(await get_messages(session, conversation.id))
@@ -248,21 +265,21 @@ async def chat(
         except Exception:
             game_id = None
 
-    reply, housing = await generate_reply(session, history, user_message, image)
+    reply, housing, no_match = await generate_reply(session, history, user_message, image)
 
     session.add(AIMessage(chat_id=conversation.id, role=AIMessageRole.USER, content=user_message))
-    session.add(
-        AIMessage(
-            chat_id=conversation.id,
-            role=AIMessageRole.MODEL,
-            content=reply,
-            housing_ids=[h.id for h in housing] or None,
-            game_id=game_id,
-        )
+    assistant_message = AIMessage(
+        chat_id=conversation.id,
+        role=AIMessageRole.MODEL,
+        content=reply,
+        housing_ids=[h.id for h in housing] or None,
+        game_id=game_id,
+        search_context=no_match.model_dump(mode="json") if no_match else None,
     )
+    session.add(assistant_message)
     await session.commit()
 
-    return conversation, reply, housing, game_id
+    return conversation, assistant_message, housing
 
 
 async def housing_by_ids(session: AsyncSession, ids: set[int]) -> dict[int, HousingSummary]:

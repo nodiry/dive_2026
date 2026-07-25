@@ -21,10 +21,11 @@ import { TagStrip } from '@components/TagStrip';
 import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
 import { useDebouncedValue } from '@hooks/useDebouncedValue';
 import { useDistrictDensity } from '@hooks/useDistrictDensity';
-import { useHousingDetail, useHousingSearch } from '@hooks/useHousing';
+import { useHousingSearch } from '@hooks/useHousing';
 import { useLifestyleRecommendation } from '@hooks/useRecommendation';
+import { useSavedHousing } from '@hooks/useSaved';
+import { useAuthStore } from '@stores/useAuthStore';
 import { useExploreStore } from '@stores/useExploreStore';
-import { useSavedHousingStore } from '@stores/useSavedHousingStore';
 import { cn } from '@utils/cn';
 import { toHousingSearchQuery } from '@utils/filters';
 import { haversineMeters, walkingMinutes } from '@utils/geo';
@@ -71,35 +72,10 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function SavedListCard({
-  id,
-  onSelect,
-  selected,
-}: {
-  id: number;
-  onSelect: () => void;
-  selected: boolean;
-}) {
-  const { data } = useHousingDetail(id);
-  const isSaved = useSavedHousingStore((s) => s.isSaved);
-  const toggleSaved = useSavedHousingStore((s) => s.toggleSaved);
-  if (!data) return null;
-  return (
-    <HousingCard
-      housing={data}
-      onSelect={onSelect}
-      selected={selected}
-      saved={isSaved(data.id)}
-      onToggleSave={() => toggleSaved(data.id)}
-    />
-  );
-}
-
 export function Explore() {
   const { t } = useTranslation();
-  const savedIds = useSavedHousingStore((s) => s.savedIds);
-  const isSaved = useSavedHousingStore((s) => s.isSaved);
-  const toggleSaved = useSavedHousingStore((s) => s.toggleSaved);
+  const isLoggedIn = useAuthStore((s) => s.user !== null);
+  const { savedHousing, isSaved, toggleSaved } = useSavedHousing();
 
   const mode = useExploreStore((s) => s.mode);
   const panelView = useExploreStore((s) => s.panelView);
@@ -286,7 +262,9 @@ export function Explore() {
       : null;
 
   const listCount =
-    panelView === 'saved' ? savedIds.length : (listResults?.length ?? listHousing?.length ?? 0);
+    panelView === 'saved'
+      ? savedHousing.length
+      : (listResults?.length ?? listHousing?.length ?? 0);
 
   const activeFilterCount =
     Number(Boolean(filters.depositMaxManwon)) +
@@ -363,7 +341,14 @@ export function Explore() {
           onClearCluster={() => setClusterIds(null)}
         >
           {panelView === 'saved' ? (
-            savedIds.length === 0 ? (
+            !isLoggedIn ? (
+              <ListItem
+                key='saved-auth'
+                index={0}
+              >
+                <ListMessage>{t('saved.loginRequired')}</ListMessage>
+              </ListItem>
+            ) : savedHousing.length === 0 ? (
               <ListItem
                 key='saved-empty'
                 index={0}
@@ -371,20 +356,22 @@ export function Explore() {
                 <ListMessage>{t('saved.empty')}</ListMessage>
               </ListItem>
             ) : (
-              savedIds.map((id, i) => (
+              savedHousing.map((housing, i) => (
                 <ListItem
-                  key={`saved-${id}`}
+                  key={`saved-${housing.id}`}
                   index={i}
-                  active={id === selectedHousingId}
+                  active={housing.id === selectedHousingId}
                 >
                   <div
-                    onMouseEnter={() => setHoveredHousing(id)}
+                    onMouseEnter={() => setHoveredHousing(housing.id)}
                     onMouseLeave={() => setHoveredHousing(null)}
                   >
-                    <SavedListCard
-                      id={id}
-                      onSelect={() => toggleSelectedHousing(id)}
-                      selected={id === selectedHousingId}
+                    <HousingCard
+                      housing={housing}
+                      onSelect={() => toggleSelectedHousing(housing.id)}
+                      selected={housing.id === selectedHousingId}
+                      saved
+                      onToggleSave={() => toggleSaved(housing.id)}
                     />
                   </div>
                 </ListItem>

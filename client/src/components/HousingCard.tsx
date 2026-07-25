@@ -45,6 +45,13 @@ export function HousingCard({
           </span>
           <h3 className='mt-2 truncate text-base font-bold text-marine'>{housing.projectName}</h3>
           <p className='mt-0.5 truncate text-sm text-slate'>{housing.address}</p>
+          {housing.maxAreaM2 != null || housing.maxRooms != null ? (
+            <p className='mt-1 font-mono text-xs text-slate'>
+              {housing.maxAreaM2 != null ? `${housing.maxAreaM2}㎡` : ''}
+              {housing.maxAreaM2 != null && housing.maxRooms != null ? ' · ' : ''}
+              {housing.maxRooms != null ? `${t('explore.roomCountLabel')} ${housing.maxRooms}` : ''}
+            </p>
+          ) : null}
         </div>
         {onToggleSave && (
           <button

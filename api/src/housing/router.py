@@ -16,15 +16,23 @@ router = APIRouter()
 async def get_housing_list(
     session: SessionDep,
     depositMax: float | None = None,
+    rentMax: float | None = None,
     builtAfter: int | None = None,
     roomCount: float | None = None,
+    minAreaM2: float | None = None,
+    elevatorRequired: bool | None = None,
+    parkingRequired: bool | None = None,
     district: str | None = None,
     type: HousingType | None = None,
 ) -> list[HousingSummary]:
     query = HousingSearchQuery(
         deposit_max=depositMax,
+        rent_max=rentMax,
         built_after=builtAfter,
         room_count=roomCount,
+        min_area_m2=minAreaM2,
+        elevator_required=elevatorRequired,
+        parking_required=parkingRequired,
         district=district,
         type=type,
     )

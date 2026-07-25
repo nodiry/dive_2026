@@ -1,23 +1,34 @@
-import { BarChart3, Heart, Info, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, BarChart3, Heart, Info, Search, Sparkles } from 'lucide-react';
+import type { FormEvent } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ModeToggle } from '@components/explore/ModeToggle';
+import { ROUTES } from '@constants/path';
 import { LanguageMenu } from '@layout/LanguageMenu';
 import { UserMenu } from '@layout/UserMenu';
 import { useExploreStore } from '@stores/useExploreStore';
 import { cn } from '@utils/cn';
 
 /**
- * Single-row header: brand, mode toggle, the center search pill (which
- * becomes the natural-language input in a later phase), and utilities.
- * All filter controls live in the floating FilterPanel, not here.
+ * Single-row header: brand, mode toggle, the center AI search pill, and
+ * utilities. All filter controls live in the floating FilterPanel, not here.
  */
 export function ExploreNavbar() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const mode = useExploreStore((s) => s.mode);
   const setMode = useExploreStore((s) => s.setMode);
   const panelView = useExploreStore((s) => s.panelView);
   const setPanelView = useExploreStore((s) => s.setPanelView);
+  const [query, setQuery] = useState('');
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    navigate(`${ROUTES.AiSearch}?q=${encodeURIComponent(trimmed)}`);
+  }
 
   return (
     <div className='pointer-events-auto flex items-center justify-between gap-3 border-b border-slate-light/30 bg-mist/95 px-4 py-2 shadow-sm backdrop-blur sm:px-6'>
@@ -36,11 +47,28 @@ export function ExploreNavbar() {
         />
       </div>
 
-      {/* Inert for now — reserved for the upcoming AI prompt-to-filters feature. */}
-      <div className='hidden min-w-0 max-w-sm flex-1 items-center gap-2.5 rounded-full border border-slate-light/40 bg-white px-4 py-1.5 text-sm shadow-sm md:flex'>
+      <form
+        onSubmit={handleSubmit}
+        className='hidden min-w-0 max-w-sm flex-1 items-center gap-2 rounded-full border border-slate-light/40 bg-white px-4 py-1.5 text-sm shadow-sm transition-colors focus-within:border-terracotta/40 md:flex'
+      >
         <Search className='size-4 shrink-0 text-terracotta' />
-        <span className='truncate text-slate-light'>{t('explore.searchPillPlaceholder')}</span>
-      </div>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('explore.searchPillPlaceholder')}
+          aria-label={t('explore.searchPillPlaceholder')}
+          className='min-w-0 flex-1 bg-transparent text-marine placeholder:text-slate-light focus:outline-none'
+        />
+        {query.trim() && (
+          <button
+            type='submit'
+            aria-label={t('explore.searchSubmit')}
+            className='shrink-0 rounded-full bg-terracotta p-1 text-white transition-colors hover:bg-terracotta-dark'
+          >
+            <ArrowRight className='size-3.5' />
+          </button>
+        )}
+      </form>
 
       <div className='flex shrink-0 items-center gap-2'>
         <button

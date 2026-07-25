@@ -32,7 +32,7 @@ function SupplyGapSection({ districts }: { districts: DistrictSupply[] }) {
   const zeroSupply = districts.filter((d) => d.units === 0 && d.population >= 10000);
 
   return (
-    <div className='mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]'>
+    <div className='mt-6 grid gap-6'>
       <div className='rounded-2xl border border-slate-light/30 bg-white p-6'>
         <div className='mb-1 flex items-baseline justify-between gap-3'>
           <span className='font-mono text-xs tracking-wide text-slate uppercase'>
@@ -144,7 +144,7 @@ export function Policy() {
 
   if (housing.isPending || housing.isError) {
     return (
-      <div className='px-6 py-10 sm:px-8'>
+      <div className='mx-auto w-full max-w-3xl px-6 py-16'>
         <p className='rounded-2xl border-2 border-dashed border-slate-light/40 bg-lilac-dim p-8 text-center text-sm text-slate'>
           {housing.isError ? t('policy.error') : t('policy.loading')}
         </p>
@@ -162,7 +162,7 @@ export function Policy() {
   const actions = [t('policy.action1'), t('policy.action2'), t('policy.action3')];
 
   return (
-    <div className='px-6 py-10 sm:px-8'>
+    <div className='mx-auto w-full max-w-3xl px-6 py-16'>
       <Reveal>
         <p className='font-mono text-sm tracking-wide text-slate uppercase'>
           {t('policy.navLabel')}
@@ -245,7 +245,7 @@ export function Policy() {
         </section>
       </Reveal>
 
-      <div className='mt-6 grid gap-6 lg:grid-cols-2'>
+      <div className='mt-6 grid gap-6'>
         <Reveal delay={0.1}>
           <div className='h-full rounded-2xl border border-slate-light/30 bg-white p-6'>
             <div className='mb-3 flex items-baseline justify-between'>

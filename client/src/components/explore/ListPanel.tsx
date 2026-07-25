@@ -12,6 +12,8 @@ interface ListPanelProps {
   /** Label + clear action shown while a map cluster filters the list. */
   clusterLabel?: string | null;
   onClearCluster?: () => void;
+  /** Pinned under the header, outside the scroll area — e.g. the 찜/알림 tabs. */
+  toolbar?: ReactNode;
   children: ReactNode;
 }
 
@@ -25,6 +27,7 @@ export function ListPanel({
   fetching,
   clusterLabel,
   onClearCluster,
+  toolbar,
   children,
 }: ListPanelProps) {
   return (
@@ -55,6 +58,11 @@ export function ListPanel({
           </button>
         )}
       </header>
+      {toolbar && (
+        <div className='flex items-center gap-1 border-b border-slate-light/20 px-3 py-2'>
+          {toolbar}
+        </div>
+      )}
       <div className='min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3'>
         <AnimatePresence mode='popLayout'>{children}</AnimatePresence>
       </div>

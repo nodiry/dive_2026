@@ -1,4 +1,4 @@
-import type { HousingSearchQuery, HousingType } from '@shared';
+import type { AlertCriteria, HousingSearchQuery, HousingType } from '@shared';
 
 export interface CriteriaFilters {
   depositMaxManwon: string;
@@ -53,5 +53,22 @@ export function toHousingSearchQuery(filters: CriteriaFilters): HousingSearchQue
     type: filters.type ? (filters.type as HousingType) : undefined,
     busStopNearby: filters.busStopNearby || undefined,
     limit: HOUSING_QUERY_LIMIT,
+  };
+}
+
+/**
+ * An alert stores the criteria that found nothing, so replaying it on the map
+ * is the natural follow-up: the same fields drive Explore's criteria search.
+ * Deposits are stored in KRW and typed in 만원, hence the divide.
+ */
+export function alertCriteriaToFilters(criteria: AlertCriteria): CriteriaFilters {
+  return {
+    ...EMPTY_CRITERIA_FILTERS,
+    district: criteria.district ?? '',
+    type: criteria.type ?? '',
+    depositMaxManwon:
+      criteria.depositMax != null ? String(Math.round(criteria.depositMax / 10000)) : '',
+    builtAfter: criteria.builtAfter != null ? String(criteria.builtAfter) : '',
+    roomCount: criteria.roomCount != null ? String(criteria.roomCount) : '',
   };
 }

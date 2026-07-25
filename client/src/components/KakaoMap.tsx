@@ -977,11 +977,10 @@ export function KakaoMap({
     return () => cancelAnimationFrame(raf);
   }, [status, densityRegions, viewVersion]);
 
-  // Selected 구/군 focus overlay. The translucent fill separates the chosen
-  // area from its neighbors, while a white casing keeps the violet outline
-  // legible over road labels and the optional density heat layer. Fitting
-  // the actual GIS bounds avoids fixed-center/fixed-zoom misses on large or
-  // fragmented districts such as Gangseo-gu and Gijang-gun.
+  // Selected 구/군 focus overlay: a faint tint that separates the chosen area
+  // from its neighbors, traced by a dotted edge. Fitting the actual GIS bounds
+  // avoids fixed-center/fixed-zoom misses on large or fragmented districts
+  // such as Gangseo-gu and Gijang-gun.
   useEffect(() => {
     const map = mapObjRef.current;
     if (!map || status !== 'ready' || !districtBoundary) return;
@@ -1007,29 +1006,23 @@ export function KakaoMap({
         path,
         strokeWeight: 0,
         fillColor: '#6d4aff',
-        fillOpacity: 0.12,
+        fillOpacity: 0.08,
       });
-      const casing = new kakao.maps.Polyline({
-        path,
-        strokeWeight: 8,
-        strokeColor: '#ffffff',
-        strokeOpacity: 0.88,
-        strokeStyle: 'solid',
-      });
+      // Dotted and unbacked. The 8px white casing this replaced made the
+      // selection read as a hard border drawn over the city; the tint now
+      // carries legibility, so the edge only has to trace where it ends.
       const outline = new kakao.maps.Polyline({
         path,
-        strokeWeight: 4,
+        strokeWeight: 3,
         strokeColor: '#6d4aff',
-        strokeOpacity: 1,
-        strokeStyle: 'solid',
+        strokeOpacity: 0.8,
+        strokeStyle: 'shortdot',
       });
       fill.setMap(map);
-      casing.setMap(map);
       outline.setMap(map);
       fill.setZIndex?.(6);
-      casing.setZIndex?.(7);
       outline.setZIndex?.(8);
-      overlays.push(fill, casing, outline);
+      overlays.push(fill, outline);
     }
 
     if (pointCount > 0) {

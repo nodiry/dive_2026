@@ -5,7 +5,8 @@
     "savedLabel": "찜 목록",
     "aboutLabel": "서비스 소개",
     "login": "로그인",
-    "logout": "로그아웃"
+    "logout": "로그아웃",
+    "menuLabel": "메뉴"
   },
   "lifeMatch": {
     "navLabel": "라이프 매치",
@@ -378,7 +379,8 @@
     "criteriaRooms": "방 {{count}}개 이상",
     "success": "새 주택 정보 알림을 신청했어요.",
     "cancelled": "알림을 해제했어요.",
-    "error": "알림 요청을 처리하지 못했어요."
+    "error": "알림 요청을 처리하지 못했어요.",
+    "applyFilters": "이 조건으로 지도 보기"
   },
   "housingCard": {
     "deposit": "보증금",

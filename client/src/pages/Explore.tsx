@@ -26,6 +26,8 @@ import {
   type District,
 } from '@constants/districts';
 import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
+import { AlertRow } from '@components/explore/AlertList';
+import { useHousingAlerts } from '@hooks/useAlerts';
 import { useDebouncedValue } from '@hooks/useDebouncedValue';
 import {
   useDistrictBoundaries,
@@ -39,7 +41,7 @@ import { useAuthStore } from '@stores/useAuthStore';
 import { useExploreStore } from '@stores/useExploreStore';
 import { useToastStore } from '@stores/useToastStore';
 import { cn } from '@utils/cn';
-import { toHousingSearchQuery } from '@utils/filters';
+import { alertCriteriaToFilters, toHousingSearchQuery } from '@utils/filters';
 import { haversineMeters, walkingMinutes } from '@utils/geo';
 import { formatWon } from '@utils/money';
 
@@ -175,11 +177,19 @@ export function Explore() {
       ) ?? null)
     : null;
 
+  // 찜 and alerts are both "things I saved", so they share the personal panel
+  // rather than each claiming header space.
+  const [personalTab, setPersonalTab] = useState<'housing' | 'alerts'>('housing');
+  const housingAlerts = useHousingAlerts();
+  const setFilters = useExploreStore((s) => s.setFilters);
+  const setPanelView = useExploreStore((s) => s.setPanelView);
+
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [clusterIds, setClusterIds] = useState<number[] | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const mapControlsRef = useRef<MapControls | null>(null);
   const showError = useToastStore((s) => s.showError);
+  const showSuccess = useToastStore((s) => s.showSuccess);
 
   // Give immediate feedback with the approximate center while the GIS
   // boundary is loading. Once the boundary arrives, KakaoMap fits its exact
@@ -526,6 +536,32 @@ export function Explore() {
             clusterIds !== null && panelView !== 'saved' ? t('explore.clusterFilter') : null
           }
           onClearCluster={() => setClusterIds(null)}
+          toolbar={
+            panelView === 'saved' && isLoggedIn
+              ? (
+                  [
+                    ['housing', t('saved.viewSaved'), savedHousing.length],
+                    ['alerts', t('housingAlerts.myAlerts'), housingAlerts.alerts.length],
+                  ] as const
+                ).map(([tab, label, count]) => (
+                  <button
+                    key={tab}
+                    type='button'
+                    aria-pressed={personalTab === tab}
+                    onClick={() => setPersonalTab(tab)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                      personalTab === tab
+                        ? 'bg-plum text-lilac'
+                        : 'text-slate hover:bg-plum/5 hover:text-plum',
+                    )}
+                  >
+                    {label}
+                    <span className='font-mono text-xs opacity-70'>{count}</span>
+                  </button>
+                ))
+              : null
+          }
         >
           {panelView === 'saved' ? (
             !isLoggedIn ? (
@@ -535,6 +571,37 @@ export function Explore() {
               >
                 <ListMessage>{t('saved.loginRequired')}</ListMessage>
               </ListItem>
+            ) : personalTab === 'alerts' ? (
+              housingAlerts.alerts.length === 0 ? (
+                <ListItem
+                  key='alerts-empty'
+                  index={0}
+                >
+                  <ListMessage>{t('housingAlerts.none')}</ListMessage>
+                </ListItem>
+              ) : (
+                housingAlerts.alerts.map((alert, i) => (
+                  <ListItem
+                    key={`alert-${alert.id}`}
+                    index={i}
+                  >
+                    <AlertRow
+                      alert={alert}
+                      cancelling={housingAlerts.cancel.isPending}
+                      onApply={() => {
+                        setFilters(alertCriteriaToFilters(alert.criteria));
+                        setPanelView('results');
+                      }}
+                      onCancel={() =>
+                        housingAlerts.cancel.mutate(alert.id, {
+                          onSuccess: () => showSuccess(t('housingAlerts.cancelled')),
+                          onError: () => showError(t('housingAlerts.error')),
+                        })
+                      }
+                    />
+                  </ListItem>
+                ))
+              )
             ) : savedHousing.length === 0 ? (
               <ListItem
                 key='saved-empty'

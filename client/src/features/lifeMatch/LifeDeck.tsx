@@ -424,7 +424,7 @@ export function LifeDeck({
         data-testid='life-deck-question'
         className='px-4 py-8 sm:px-6 sm:py-12'
       >
-        <div className='mx-auto w-full max-w-3xl'>
+        <div className='mx-auto w-full max-w-5xl'>
           <div className='grid grid-cols-[auto_1fr_auto] items-center gap-3'>
             <span className='font-mono text-xs text-slate'>
               {String(questionIndex + 1).padStart(2, '0')} / 07
@@ -472,12 +472,13 @@ export function LifeDeck({
           </header>
 
           {/*
-            A hand of cards, not a grid of tiles. Inside the report's 3xl
-            measure four across lands at ~170px each, which keeps the portrait
-            proportion a card needs; below lg it falls back to a swipeable rail
-            rather than squaring the cards off.
+            A hand of cards, not a grid of tiles. Four across at this stage's
+            wider measure lands at ~235px each, which holds a card's portrait
+            proportion; the report's 3xl measure would have squeezed them to
+            ~170px slivers. Phones get a swipeable rail instead of a 2x2 that
+            squares the cards off.
           */}
-          <div className='mt-9 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0 sm:pb-0'>
+          <div className='mt-9 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4'>
             {question.options.map((option, index) => {
               const selected = selectedId === option.id;
               const muted = Boolean(selectedId && !selected);
@@ -494,7 +495,7 @@ export function LifeDeck({
                   animate={{ opacity: muted ? 0.5 : 1, y: selected ? -6 : 0 }}
                   transition={{ delay: index * 0.035, duration: 0.24 }}
                   className={cn(
-                    'relative flex w-[62vw] shrink-0 snap-center flex-col overflow-hidden rounded-2xl border p-4 text-left transition-colors sm:w-auto',
+                    'relative flex w-[62vw] shrink-0 snap-center flex-col overflow-hidden rounded-2xl border p-4 text-left transition-colors sm:w-auto sm:p-5',
                     'aspect-[5/7] sm:aspect-auto sm:min-h-80',
                     selected
                       ? 'border-plum bg-plum text-lilac shadow-lg'

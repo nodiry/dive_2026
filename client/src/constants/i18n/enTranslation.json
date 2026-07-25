@@ -5,7 +5,8 @@
     "savedLabel": "Saved",
     "aboutLabel": "About",
     "login": "Log in",
-    "logout": "Log out"
+    "logout": "Log out",
+    "menuLabel": "Menu"
   },
   "lifeMatch": {
     "navLabel": "Life Match",
@@ -379,7 +380,8 @@
     "criteriaRooms": "{{count}}+ rooms",
     "success": "New housing information alert subscribed.",
     "cancelled": "Alert cancelled.",
-    "error": "The alert request could not be processed."
+    "error": "The alert request could not be processed.",
+    "applyFilters": "Run on the map"
   },
   "housingCard": {
     "deposit": "Deposit",

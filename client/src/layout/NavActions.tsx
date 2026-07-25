@@ -1,9 +1,8 @@
-import { BarChart3, Bot, Heart, Info, Sparkles } from 'lucide-react';
+import { BarChart3, Bot, Heart, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@constants/path';
-import { LanguageMenu } from '@layout/LanguageMenu';
 import { UserMenu } from '@layout/UserMenu';
 import { useExploreStore } from '@stores/useExploreStore';
 import { cn } from '@utils/cn';
@@ -46,9 +45,9 @@ function IconNavLink({
 }
 
 /**
- * The shared right-side navbar cluster (찜, Life Match, AI, Policy, About,
- * user, language) — used by both ExploreNavbar and PageShell so the two
- * headers can't drift apart. 찜 toggles the list panel on the map screen;
+ * The shared right-side navbar cluster (찜, Life Match, AI, Policy, and the
+ * user menu that holds About and language) — used by both ExploreNavbar and
+ * PageShell so the two headers can't drift apart. 찜 toggles the list panel on the map screen;
  * on any other page it jumps back to the map with the saved view open.
  */
 export function NavActions() {
@@ -112,15 +111,8 @@ export function NavActions() {
       >
         <BarChart3 className='size-5' />
       </IconNavLink>
-      <IconNavLink
-        to={ROUTES.About}
-        label={t('nav.aboutLabel')}
-        className='hidden sm:block'
-      >
-        <Info className='size-5' />
-      </IconNavLink>
+      {/* About and the language choice now live inside UserMenu. */}
       <UserMenu />
-      <LanguageMenu className='hidden sm:block' />
     </div>
   );
 }

@@ -17,26 +17,22 @@ import type {
   PoiMarker,
 } from '@components/KakaoMap';
 import { TagStrip } from '@components/TagStrip';
-import {
-  aggregateMatchesByIcon,
-  POI_ICON_CATEGORY_NAMES,
-  POI_ICON_KEYS,
-  poiColorForCategoryName,
-} from '@constants/poi';
+import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
 import { useDebouncedValue } from '@hooks/useDebouncedValue';
 import { useHousingDetail, useHousingSearch } from '@hooks/useHousing';
 import { useLifestyleRecommendation } from '@hooks/useRecommendation';
 import { useExploreStore } from '@stores/useExploreStore';
 import { useSavedHousingStore } from '@stores/useSavedHousingStore';
 import { toHousingSearchQuery } from '@utils/filters';
+import { haversineMeters, walkingMinutes } from '@utils/geo';
 import { formatWon } from '@utils/money';
 
 function aggregateTags(
   matches: { categoryName: string; count: number; nearestMeters: number | null }[],
   t: TFunction,
 ) {
-  return aggregateMatchesByIcon(matches).map((m) => ({
-    label: t(`poiCategoryLabels.${m.key}`),
+  return matches.map((m) => ({
+    label: poiCategoryLabel(m.categoryName, t),
     sublabel:
       m.count > 0
         ? t('units.matchCount', { count: m.count, meters: Math.round(m.nearestMeters ?? 0) })
@@ -122,17 +118,14 @@ export function Explore() {
   const criteriaQuery = useHousingSearch(toHousingSearchQuery(debouncedFilters), true);
   const recommend = useLifestyleRecommendation();
 
-  const selectedCount = POI_ICON_KEYS.filter((key) => weights[key] !== undefined).length;
+  const selectedCategoryNames = Object.keys(weights);
+  const selectedCount = selectedCategoryNames.length;
 
   function submitPreference() {
-    const preferences: LifestylePreference[] = [];
-    for (const key of POI_ICON_KEYS) {
-      const weight = weights[key];
-      if (weight === undefined) continue;
-      for (const categoryName of POI_ICON_CATEGORY_NAMES[key]) {
-        preferences.push({ categoryName, weight });
-      }
-    }
+    const preferences: LifestylePreference[] = selectedCategoryNames.map((categoryName) => ({
+      categoryName,
+      weight: weights[categoryName],
+    }));
     if (preferences.length === 0) return;
     recommend.mutate({
       preferences,
@@ -216,6 +209,9 @@ export function Explore() {
     selected: h.id === selectedHousingId || h.id === hoveredHousingId,
   }));
 
+  // Only the nearest POI per category is "the destination" (routed +
+  // animated below) — the rest are just anchors on the map with their
+  // category icon, per category up to POIS_PER_CATEGORY server-side.
   const poiMarkers: PoiMarker[] = selectedPreferenceResult
     ? selectedPreferenceResult.matches.flatMap((m) =>
         m.pois.map((p, i): PoiMarker => ({
@@ -226,23 +222,36 @@ export function Explore() {
           label: p.name,
           categoryName: m.categoryName,
           color: poiColorForCategoryName(m.categoryName),
+          icon: poiIconForCategoryName(m.categoryName),
+          highlighted: i === 0,
         })),
       )
     : [];
 
   const markers: MapMarker[] = [...housingMarkers, ...poiMarkers];
 
-  const trails: MapTrail[] = selectedPreferenceResult
-    ? selectedPreferenceResult.matches
-        .filter((m) => m.pois.length > 0)
-        .map((m) => ({
-          id: `${selectedPreferenceResult.housing.id}-${m.categoryName}`,
-          fromLat: selectedPreferenceResult.housing.lat ?? NaN,
-          fromLng: selectedPreferenceResult.housing.lng ?? NaN,
-          toLat: m.pois[0].lat,
-          toLng: m.pois[0].lng,
-        }))
-    : [];
+  // Nearest POI per matched category, only for a selected result with
+  // coordinates — a straight line, colored by the destination's category,
+  // with distance/time computed locally (no routing round-trip).
+  const trails: MapTrail[] = (() => {
+    if (!selectedPreferenceResult) return [];
+    const { housing, matches } = selectedPreferenceResult;
+    if (housing.lat == null || housing.lng == null) return [];
+    const from = { lat: housing.lat, lng: housing.lng };
+    return matches
+      .filter((m) => m.pois.length > 0)
+      .map((m): MapTrail => {
+        const to = { lat: m.pois[0].lat, lng: m.pois[0].lng };
+        const distanceMeters = haversineMeters(from, to);
+        return {
+          id: `${housing.id}-${m.categoryName}`,
+          path: [from, to],
+          distanceMeters,
+          durationMinutes: walkingMinutes(distanceMeters),
+          color: poiColorForCategoryName(m.categoryName),
+        };
+      });
+  })();
 
   const circle: MapCircle | null =
     selectedPreferenceResult &&

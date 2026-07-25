@@ -48,7 +48,9 @@
     "closeFilters": "Close filters",
     "searchPillPlaceholder": "What kind of neighborhood are you looking for?",
     "clusterFilter": "Selected area",
-    "showAll": "Show all"
+    "showAll": "Show all",
+    "showMoreCategories": "{{count}} more",
+    "showFewerCategories": "Show less"
   },
   "personas": {
     "youngSingle": "Young single",
@@ -144,7 +146,8 @@
     "matchCount_other": "{{count}} places · {{meters}}m",
     "matchNone": "None",
     "totalUnits_one": "{{count}} unit",
-    "totalUnits_other": "{{count}} units"
+    "totalUnits_other": "{{count}} units",
+    "walkMinutes": "{{minutes}} min walk"
   },
   "poiMajorCategories": {
     "retail": "Retail",
@@ -157,5 +160,47 @@
     "arts_sports": "Arts & sports",
     "repair_personal": "Repair & personal",
     "science_tech": "Science & tech"
+  },
+  "poiCategoryNames": {
+    "백반/한정식": "Home-style meals",
+    "미용실": "Hair salon",
+    "카페": "Café",
+    "부동산 중개/대리업": "Real estate agency",
+    "요리 주점": "Gastropub",
+    "기타 의류 소매업": "Clothing store",
+    "슈퍼마켓": "Supermarket",
+    "돼지고기 구이/찜": "Korean BBQ (pork)",
+    "입시·교과학원": "Test prep academy",
+    "여성 의류 소매업": "Women's clothing store",
+    "편의점": "Convenience store",
+    "김밥/만두/분식": "Kimbap & snacks",
+    "치킨": "Fried chicken",
+    "피부 관리실": "Skin care salon",
+    "일반 유흥 주점": "Bar",
+    "자동차 정비소": "Auto repair shop",
+    "횟집": "Raw fish restaurant",
+    "네일숍": "Nail salon",
+    "빵/도넛": "Bakery",
+    "경영 컨설팅업": "Business consulting",
+    "중국집": "Chinese restaurant",
+    "화장품 소매업": "Cosmetics store",
+    "약국": "Pharmacy",
+    "여관/모텔": "Motel",
+    "국/탕/찌개류": "Soups & stews",
+    "경양식": "Western-style diner",
+    "인테리어 디자인업": "Interior design",
+    "일식 회/초밥": "Japanese sushi/sashimi",
+    "국수/칼국수": "Noodles",
+    "핸드폰 소매업": "Mobile phone store",
+    "노래방": "Karaoke",
+    "요가/필라테스 학원": "Yoga & pilates studio",
+    "건축 설계 및 관련 서비스업": "Architecture services",
+    "헬스장": "Gym",
+    "세탁소": "Laundry",
+    "그 외 기타 상품 전문 소매업": "Specialty retail",
+    "명함/간판/광고물 제작": "Signage & printing",
+    "광고 대행업": "Advertising agency",
+    "사진촬영업": "Photo studio",
+    "해산물 구이/찜": "Grilled seafood"
   }
 }

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ExploreMode, PanelView } from '@type/explore';
 import { EMPTY_CRITERIA_FILTERS, type CriteriaFilters } from '@utils/filters';
 import { PERSONAS, type PersonaKey } from '@constants/personas';
-import type { CategoryWeights, PoiIconKey } from '@constants/poi';
+import type { CategoryWeights } from '@constants/poi';
 
 interface ExploreStore {
   mode: ExploreMode;
@@ -19,8 +19,8 @@ interface ExploreStore {
   setPanelView: (view: PanelView) => void;
   setFilters: (filters: CriteriaFilters) => void;
   resetFilters: () => void;
-  toggleCategory: (key: PoiIconKey) => void;
-  setCategoryWeight: (key: PoiIconKey, weight: number) => void;
+  toggleCategory: (categoryName: string) => void;
+  setCategoryWeight: (categoryName: string, weight: number) => void;
   selectPersona: (key: PersonaKey) => void;
   setRadiusMeters: (meters: number) => void;
   toggleSelectedHousing: (id: number) => void;

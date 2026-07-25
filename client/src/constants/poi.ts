@@ -1,4 +1,5 @@
-import { Coffee, Dumbbell, Fuel, Pill, Store, Utensils, type LucideIcon } from 'lucide-react';
+import type { TFunction } from 'i18next';
+import { Coffee, Dumbbell, Fuel, MapPin, Pill, Store, Utensils, type LucideIcon } from 'lucide-react';
 
 /**
  * The preference-mode icon bar shows only real commercial_poi category_name
@@ -14,7 +15,12 @@ import { Coffee, Dumbbell, Fuel, Pill, Store, Utensils, type LucideIcon } from '
  */
 export type PoiIconKey = 'cafe' | 'convenienceStore' | 'gym' | 'pharmacy' | 'gasStation' | 'food';
 
-export type CategoryWeights = Partial<Record<PoiIconKey, number>>;
+/** Preferences are keyed by the real category_name (e.g. "카페", "치킨") — not just the 6 curated icon keys. */
+export type CategoryWeights = Record<string, number>;
+
+/** Generic anchor for any real category outside the 6 curated icon keys (most of the ~40 real values). */
+export const POI_FALLBACK_ICON: LucideIcon = MapPin;
+export const POI_FALLBACK_COLOR = '#8a969a'; // slate-light
 
 export const FOOD_GROUP_CATEGORY_NAMES = [
   '백반/한정식',
@@ -79,36 +85,24 @@ export function poiIconKeyForCategoryName(categoryName: string): PoiIconKey | un
 
 export function poiColorForCategoryName(categoryName: string): string {
   const key = poiIconKeyForCategoryName(categoryName);
-  return key ? POI_ICON_COLORS[key] : '#8a969a'; // slate-light fallback
+  return key ? POI_ICON_COLORS[key] : POI_FALLBACK_COLOR;
 }
 
-export interface AggregatedMatch {
-  key: PoiIconKey;
-  count: number;
-  nearestMeters: number | null;
+export function poiIconForCategoryName(categoryName: string): LucideIcon {
+  const key = poiIconKeyForCategoryName(categoryName);
+  return key ? POI_ICON_GLYPHS[key] : POI_FALLBACK_ICON;
 }
 
 /**
- * Rolls per-real-category matches (e.g. up to 10 for the grouped "food"
- * button) back up to one entry per icon the user actually picked, so the
- * result card's TagStrip shows "음식점 · 12곳 · 40m", not ten separate rows.
+ * Display label for a real category_name. The 5 single-mapped curated keys
+ * (cafe/convenienceStore/gym/pharmacy/gasStation) get their nice localized
+ * label; everything else — including individual "food" group members like
+ * 치킨/중국집, now selectable on their own rather than bundled — falls back
+ * to its own translated entry (`poiCategoryNames.*`), or the raw Korean
+ * string itself if a real category slips in without one.
  */
-export function aggregateMatchesByIcon(
-  matches: { categoryName: string; count: number; nearestMeters: number | null }[],
-): AggregatedMatch[] {
-  const byKey = new Map<PoiIconKey, AggregatedMatch>();
-  for (const m of matches) {
-    const key = poiIconKeyForCategoryName(m.categoryName);
-    if (!key) continue;
-    const existing = byKey.get(key) ?? { key, count: 0, nearestMeters: null };
-    existing.count += m.count;
-    if (
-      m.nearestMeters != null &&
-      (existing.nearestMeters == null || m.nearestMeters < existing.nearestMeters)
-    ) {
-      existing.nearestMeters = m.nearestMeters;
-    }
-    byKey.set(key, existing);
-  }
-  return POI_ICON_KEYS.filter((k) => byKey.has(k)).map((k) => byKey.get(k)!);
+export function poiCategoryLabel(categoryName: string, t: TFunction): string {
+  const key = poiIconKeyForCategoryName(categoryName);
+  if (key && key !== 'food') return t(`poiCategoryLabels.${key}`);
+  return t(`poiCategoryNames.${categoryName}`, { defaultValue: categoryName });
 }

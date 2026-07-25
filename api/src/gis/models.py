@@ -18,6 +18,7 @@ class CommercialZone(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     zone_type: str | None = None
+    zone_code: str | None = Field(default=None, index=True)
     geom: str = Field(sa_column=Column(Geography("MULTIPOLYGON", srid=4326), nullable=False))
 
 

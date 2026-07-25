@@ -7,9 +7,12 @@ conditions) against real Busan housing and commercial data.
 
 ## Docs map
 
+- **`docs/ARCHITECTURE.md`** — current product overview and end-to-end
+  architecture: screens, services, data flow, recommendation scoring,
+  deployment, and extension boundaries. Start here for the whole system.
 - **`docs/REQUIREMENTS.md`** — what to build: problem statement, the two
   required user flows, provided data, judging rubric, feature checklist.
-  Start here if you're new.
+  Start here for the original problem and judging context.
 - **`docs/PLAN.md`** — timeline, team roles, open risks.
 - **`docs/TECHNICAL.md`** — architecture decisions, stack, Docker layout,
   data model, recommendation algorithm, known gotchas.
@@ -113,6 +116,11 @@ then re-commit.
   via Kakao.
 - Backend on SQLModel + alembic + uv with a domain-driven layout; frontend
   on zustand + TanStack Query + react-i18next + motion, ko/en throughout.
+- 하루스탯 부산: 생활 이력서와 주간 루틴을 실제 BMC/GIS 추천식에
+  연결하고, 설명 가능한 FUN·WORK·REST 점수·상위 후보 비교·조건 완화
+  시뮬레이터를 제공.
+- 정책 리포트: 실제 적재 주택의 위치정보, 승강기, 주차, 노후도 결측을
+  집계해 추천 준비도를 표시.
 - Blocked: `industry_population_grid` (sgis) — the population CSVs ship no
   boundary geometry (see `docs/DATA_MODEL.md` Part 4).
 - Pending: compare view, AI prompt-to-filters (the navbar search pill is

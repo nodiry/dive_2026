@@ -50,8 +50,8 @@ async def ingest_zoning(conn: asyncpg.Connection) -> None:
     await conn.execute("TRUNCATE commercial_zone")
     await conn.execute(
         """
-        INSERT INTO commercial_zone (zone_type, geom)
-        SELECT NULLIF(alias, ''), ST_SetSRID(geom, 4326)::geography
+        INSERT INTO commercial_zone (zone_type, zone_code, geom)
+        SELECT NULLIF(alias, ''), substring(mnum FROM 'UQA[0-9]{3}'), ST_SetSRID(geom, 4326)::geography
         FROM staging_zoning
         """
     )

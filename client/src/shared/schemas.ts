@@ -128,3 +128,20 @@ export const NeighborhoodProfile = z.object({
   zones: z.array(NeighborhoodZone),
 });
 export type NeighborhoodProfile = z.infer<typeof NeighborhoodProfile>;
+
+/**
+ * A 법정동 boundary shaded by population density — rings are outer
+ * polygon rings as [lat, lng] pairs, simplified server-side.
+ * See /api/districts/density.
+ */
+export const DistrictDensity = z.object({
+  emdCode: z.string(),
+  emdName: z.string(),
+  population: z.number(),
+  areaKm2: z.number(),
+  densityPerKm2: z.number(),
+  centroidLat: z.number(),
+  centroidLng: z.number(),
+  rings: z.array(z.array(z.array(z.number()))),
+});
+export type DistrictDensity = z.infer<typeof DistrictDensity>;

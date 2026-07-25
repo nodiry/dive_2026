@@ -44,7 +44,11 @@
     "clusterFilter": "Selected area",
     "showAll": "Show all",
     "showMoreCategories": "{{count}} more",
-    "showFewerCategories": "Show less"
+    "showFewerCategories": "Show less",
+    "densityToggle": "Population",
+    "densityLow": "Low",
+    "densityHigh": "High",
+    "densitySource": "Registered population"
   },
   "personas": {
     "youngSingle": "Young single",

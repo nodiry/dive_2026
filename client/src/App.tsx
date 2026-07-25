@@ -9,7 +9,7 @@ import { Explore } from '@pages/Explore';
 
 export default function App() {
   return (
-    <MotionConfig reducedMotion='user'>
+    <MotionConfig>
       <Routes>
         <Route
           path={ROUTES.Root}

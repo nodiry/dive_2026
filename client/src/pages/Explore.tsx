@@ -2,6 +2,7 @@ import type { HousingSummary, LifestylePreference } from '@shared';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import { Layers } from 'lucide-react';
 import { ExploreNavbar } from '@components/explore/ExploreNavbar';
 import { FilterPanel } from '@components/explore/FilterPanel';
 import { ListItem, ListMessage, ListPanel, ListSkeleton } from '@components/explore/ListPanel';
@@ -19,10 +20,12 @@ import type {
 import { TagStrip } from '@components/TagStrip';
 import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
 import { useDebouncedValue } from '@hooks/useDebouncedValue';
+import { useDistrictDensity } from '@hooks/useDistrictDensity';
 import { useHousingDetail, useHousingSearch } from '@hooks/useHousing';
 import { useLifestyleRecommendation } from '@hooks/useRecommendation';
 import { useExploreStore } from '@stores/useExploreStore';
 import { useSavedHousingStore } from '@stores/useSavedHousingStore';
+import { cn } from '@utils/cn';
 import { toHousingSearchQuery } from '@utils/filters';
 import { haversineMeters, walkingMinutes } from '@utils/geo';
 import { formatWon } from '@utils/money';
@@ -108,6 +111,10 @@ export function Explore() {
   const toggleSelectedHousing = useExploreStore((s) => s.toggleSelectedHousing);
   const clearSelectedHousing = useExploreStore((s) => s.clearSelectedHousing);
   const setHoveredHousing = useExploreStore((s) => s.setHoveredHousing);
+
+  const densityMode = useExploreStore((s) => s.densityMode);
+  const toggleDensityMode = useExploreStore((s) => s.toggleDensityMode);
+  const { data: densityRegions } = useDistrictDensity(densityMode);
 
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [clusterIds, setClusterIds] = useState<number[] | null>(null);
@@ -240,16 +247,25 @@ export function Explore() {
     const from = { lat: housing.lat, lng: housing.lng };
     return matches
       .filter((m) => m.pois.length > 0)
-      .map((m): MapTrail => {
+      .flatMap((m): MapTrail[] => {
+        const color = poiColorForCategoryName(m.categoryName);
         const to = { lat: m.pois[0].lat, lng: m.pois[0].lng };
         const distanceMeters = haversineMeters(from, to);
-        return {
+        const primary: MapTrail = {
           id: `${housing.id}-${m.categoryName}`,
           path: [from, to],
           distanceMeters,
           durationMinutes: walkingMinutes(distanceMeters),
-          color: poiColorForCategoryName(m.categoryName),
+          color,
+          emphasis: 'primary',
         };
+        const subtle = m.pois.slice(1).map((p, i): MapTrail => ({
+          id: `${housing.id}-${m.categoryName}-sub-${i}`,
+          path: [from, { lat: p.lat, lng: p.lng }],
+          color,
+          emphasis: 'subtle',
+        }));
+        return [primary, ...subtle];
       });
   })();
 
@@ -295,12 +311,47 @@ export function Explore() {
       }}
       onClusterClick={setClusterIds}
       onBoundsChange={setMapBounds}
+      densityRegions={densityMode ? (densityRegions ?? null) : null}
       fitKey={fitKey}
     >
       <ExploreNavbar />
 
       <div className='pointer-events-none relative min-h-0 flex-1'>
         <FilterPanel activeFilterCount={activeFilterCount} />
+
+        <div className='pointer-events-none absolute bottom-4 left-3 z-10 flex items-center gap-2'>
+          <button
+            type='button'
+            aria-pressed={densityMode}
+            onClick={toggleDensityMode}
+            className={cn(
+              'pointer-events-auto flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium shadow-lg backdrop-blur transition-all',
+              densityMode
+                ? 'border-marine bg-marine text-mist'
+                : 'border-slate-light/30 bg-mist/95 text-marine hover:border-terracotta/40',
+            )}
+          >
+            <Layers className='size-4' />
+            {t('explore.densityToggle')}
+          </button>
+          {densityMode && (
+            <div className='pointer-events-auto flex items-center gap-1.5 rounded-full border border-slate-light/30 bg-mist/95 px-3 py-1.5 shadow-lg backdrop-blur'>
+              <span className='text-xs text-slate'>{t('explore.densityLow')}</span>
+              {['#5b8494', '#96a575', '#d9a441', '#dd7a3c', '#c04824'].map((c) => (
+                <span
+                  key={c}
+                  aria-hidden
+                  className='size-3 rounded-sm'
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+              <span className='text-xs text-slate'>{t('explore.densityHigh')}</span>
+              <span className='ml-1 font-mono text-xs text-slate-light'>
+                {t('explore.densitySource')}
+              </span>
+            </div>
+          )}
+        </div>
 
         <ListPanel
           heading={panelView === 'saved' ? t('saved.title') : t('explore.resultsHeading')}

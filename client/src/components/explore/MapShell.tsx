@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  type DensityRegion,
   KakaoMap,
   type MapBounds,
   type MapCircle,
@@ -17,6 +18,7 @@ interface MapShellProps {
   onMapClick?: () => void;
   onClusterClick?: (ids: number[]) => void;
   onBoundsChange?: (bounds: MapBounds) => void;
+  densityRegions?: DensityRegion[] | null;
   fitKey?: string | number;
   children?: ReactNode;
 }
@@ -37,6 +39,7 @@ export function MapShell({
   onMapClick,
   onClusterClick,
   onBoundsChange,
+  densityRegions,
   fitKey,
   children,
 }: MapShellProps) {
@@ -53,6 +56,7 @@ export function MapShell({
         onMapClick={onMapClick}
         onClusterClick={onClusterClick}
         onBoundsChange={onBoundsChange}
+        densityRegions={densityRegions}
         fitKey={fitKey}
       />
       <div className='pointer-events-none absolute inset-0 z-10 flex flex-col'>{children}</div>

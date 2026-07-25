@@ -14,7 +14,9 @@ interface ExploreStore {
   selectedHousingId: number | null;
   hoveredHousingId: number | null;
   panelOpen: boolean;
+  densityMode: boolean;
   setPanelOpen: (open: boolean) => void;
+  toggleDensityMode: () => void;
   setMode: (mode: ExploreMode) => void;
   setPanelView: (view: PanelView) => void;
   setFilters: (filters: CriteriaFilters) => void;
@@ -38,8 +40,10 @@ export const useExploreStore = create<ExploreStore>((set) => ({
   selectedHousingId: null,
   hoveredHousingId: null,
   panelOpen: true,
+  densityMode: false,
 
   setPanelOpen: (panelOpen) => set({ panelOpen }),
+  toggleDensityMode: () => set((state) => ({ densityMode: !state.densityMode })),
   setMode: (mode) =>
     set({
       mode,

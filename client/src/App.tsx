@@ -5,6 +5,7 @@ import { ROUTES } from '@constants/path';
 import { useAuthBootstrap } from '@hooks/useAuth';
 import { PageShell } from '@layout/PageShell';
 import { About } from '@pages/About';
+import { AiSearch } from '@pages/AiSearch';
 import { Detail } from '@pages/Detail';
 import { Explore } from '@pages/Explore';
 import { Login } from '@pages/Login';
@@ -36,6 +37,10 @@ export default function App() {
           <Route
             path={ROUTES.Signup}
             element={<Signup />}
+          />
+          <Route
+            path={ROUTES.AiSearch}
+            element={<AiSearch />}
           />
         </Route>
       </Routes>

@@ -117,3 +117,10 @@ then re-commit.
   boundary geometry (see `docs/DATA_MODEL.md` Part 4).
 - Pending: compare view, AI prompt-to-filters (the navbar search pill is
   reserved for it), event-day city-wide dataset swap.
+
+
+
+To Do :
+
+auto focus to the neighboor hood 
+or auto focus to the search results

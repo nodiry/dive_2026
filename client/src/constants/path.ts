@@ -4,6 +4,7 @@ export const ROUTES = {
   HousingDetail: '/housing/:id',
   Login: '/login',
   Signup: '/signup',
+  AiSearch: '/search',
 };
 
 export function housingDetailPath(id: number): string {

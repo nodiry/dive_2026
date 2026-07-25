@@ -43,6 +43,7 @@
     "openFilters": "필터 열기",
     "closeFilters": "필터 닫기",
     "searchPillPlaceholder": "어떤 동네를 찾고 있나요?",
+    "searchSubmit": "검색",
     "clusterFilter": "선택 구역",
     "showAll": "전체 보기",
     "showMoreCategories": "{{count}}개 더 보기",
@@ -126,6 +127,14 @@
     "redevelopment": "재개발임대",
     "integrated": "통합공공임대",
     "happy": "행복주택"
+  },
+  "aiSearch": {
+    "title": "AI로 찾기",
+    "subtitle": "부산 공공임대주택에 대해 무엇이든 물어보세요.",
+    "empty": "조건이나 원하는 동네 분위기를 자유롭게 설명해보세요. 예: \"수영구에서 카페랑 헬스장 가까운 보증금 3천만원 이하 집\"",
+    "inputPlaceholder": "메시지를 입력하세요...",
+    "thinking": "생각 중...",
+    "error": "죄송해요, 요청을 처리하지 못했어요. 다시 시도해주세요."
   },
   "housingCard": {
     "deposit": "보증금",

@@ -154,3 +154,21 @@ export const LoginRequest = z.object({
   password: z.string().min(1),
 });
 export type LoginRequest = z.infer<typeof LoginRequest>;
+
+export const ChatMessage = z.object({
+  role: z.enum(['user', 'assistant']),
+  text: z.string(),
+});
+export type ChatMessage = z.infer<typeof ChatMessage>;
+
+export const AiSearchRequest = z.object({
+  message: z.string().min(1).max(1000),
+  history: z.array(ChatMessage).max(40).default([]),
+});
+export type AiSearchRequest = z.infer<typeof AiSearchRequest>;
+
+export const AiSearchResponse = z.object({
+  reply: z.string(),
+  housing: z.array(HousingSummary),
+});
+export type AiSearchResponse = z.infer<typeof AiSearchResponse>;

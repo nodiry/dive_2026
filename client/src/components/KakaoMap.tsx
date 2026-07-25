@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { type LucideIcon, MapPin } from 'lucide-react';
+import { createElement, useEffect, useRef, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { useTranslation } from 'react-i18next';
 
 declare global {
@@ -68,16 +70,26 @@ export interface PoiMarker {
   categoryName: string;
   /** Hex color, e.g. from constants/poi.ts — data-driven, so this can't be a static Tailwind class. */
   color?: string;
+  icon?: LucideIcon;
+  /** The nearest match in its category — the one actually routed/animated. Others render as plain smaller anchors. */
+  highlighted?: boolean;
 }
 
 export type MapMarker = HousingMarker | PoiMarker;
 
+export interface TrailPoint {
+  lat: number;
+  lng: number;
+}
+
 export interface MapTrail {
   id: string;
-  fromLat: number;
-  fromLng: number;
-  toLat: number;
-  toLng: number;
+  /** Ordered points from the housing project to the matched POI. */
+  path: TrailPoint[];
+  distanceMeters?: number;
+  durationMinutes?: number;
+  /** Ties the line + dot + tag to the destination's category color (e.g. from poiColorForCategoryName). */
+  color?: string;
 }
 
 export interface MapCircle {
@@ -132,12 +144,61 @@ function isValidLatLng(m: { lat: number; lng: number }): boolean {
   return Number.isFinite(m.lat) && Number.isFinite(m.lng);
 }
 
-const TRAIL_DURATION_MS = 1800;
+// The animated dot travels the route at a roughly constant real-world pace,
+// clamped so a short hop still reads as motion and a long one doesn't crawl.
+const TRAIL_MIN_DURATION_MS = 1400;
+const TRAIL_MAX_DURATION_MS = 5000;
+const TRAIL_METERS_PER_MS = 0.12;
 
 interface Cluster {
   members: HousingMarker[];
   lat: number;
   lng: number;
+}
+
+// Kakao zoom levels run low (close) to high (far) — shrink housing tags as
+// the map zooms out so a city-wide view doesn't drown in oversized pills,
+// and grow them on zoom-in so a single block reads clearly at a glance.
+function housingTagScale(level: number): number {
+  const clamped = Math.min(Math.max(level, 1), 10);
+  return Math.max(0.55, 1.25 - (clamped - 3) * 0.09);
+}
+
+function formatTrailDistance(meters: number): string {
+  return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
+}
+
+/** Cumulative arc-length (meters) at each point of a path — equirectangular approx, fine at neighborhood scale. */
+function arcLengths(points: TrailPoint[]): { cum: number[]; total: number } {
+  const cum = [0];
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const dLat = (b.lat - a.lat) * 111320;
+    const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+    cum.push(cum[i - 1] + Math.hypot(dLat, dLng));
+  }
+  return { cum, total: cum[cum.length - 1] };
+}
+
+/** The point along `points` at `fraction` (0..1) of its total arc length. */
+function pointAtFraction(
+  points: TrailPoint[],
+  cum: number[],
+  total: number,
+  fraction: number,
+): TrailPoint {
+  if (total === 0) return points[0];
+  const targetDist = fraction * total;
+  let i = 1;
+  while (i < cum.length && cum[i] < targetDist) i++;
+  i = Math.min(i, points.length - 1);
+  const segStart = cum[i - 1];
+  const segLen = cum[i] - segStart || 1;
+  const t = (targetDist - segStart) / segLen;
+  const a = points[i - 1];
+  const b = points[i];
+  return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
 }
 
 /**
@@ -311,49 +372,103 @@ export function KakaoMap({
       });
     }
 
+    // Housing tags scale with zoom (bigger on zoom-in, smaller on zoom-out) —
+    // applied on an outer wrapper so it composes with, rather than fights,
+    // the cluster bubble's own hover:scale-110 on the inner element.
+    const tagScale = housingTagScale(map.getLevel());
+
     for (const cluster of clusters) {
       if (cluster.members.length === 1) {
         const m = cluster.members[0];
-        const el = document.createElement('div');
-        el.className = `flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-xs font-bold whitespace-nowrap shadow-md transition-colors ${
+        const wrap = document.createElement('div');
+        wrap.className = 'flex cursor-pointer flex-col items-center';
+        wrap.style.transform = `scale(${tagScale})`;
+        wrap.style.transformOrigin = 'bottom center';
+
+        const bubble = document.createElement('div');
+        bubble.className = `flex items-center gap-1.5 rounded-full border-2 px-3.5 py-2 font-mono text-sm font-bold whitespace-nowrap shadow-lg transition-colors ${
           m.selected
             ? 'border-terracotta bg-terracotta text-white'
             : 'border-slate-light/40 bg-white text-marine hover:border-terracotta/60'
         }`;
         if (m.rank !== undefined && m.rank <= 3) {
           const badge = document.createElement('span');
-          badge.className = `flex size-4 items-center justify-center rounded-full text-[10px] text-white ${
+          badge.className = `flex size-5 items-center justify-center rounded-full text-[11px] text-white ${
             m.rank === 1 ? 'bg-gold' : m.selected ? 'bg-white/30' : 'bg-marine'
           }`;
           badge.textContent = String(m.rank);
-          el.appendChild(badge);
+          bubble.appendChild(badge);
         }
         const text = document.createElement('span');
         text.textContent = m.priceLabel ?? m.label ?? '';
-        el.appendChild(text);
-        if (m.label) el.title = m.label;
-        el.addEventListener('click', () => onMarkerClickRef.current?.(m));
-        addOverlay(m.lat, m.lng, el, 1);
+        bubble.appendChild(text);
+
+        // A rotated square, half-clipped by the bubble, reads as a pointer
+        // tip anchored to the exact coordinate — the classic map-pin tail.
+        const tail = document.createElement('div');
+        tail.className = `-mt-1.5 size-3 rotate-45 border-r-2 border-b-2 ${
+          m.selected ? 'border-terracotta bg-terracotta' : 'border-slate-light/40 bg-white'
+        }`;
+
+        wrap.appendChild(bubble);
+        wrap.appendChild(tail);
+        if (m.label) wrap.title = m.label;
+        wrap.addEventListener('click', () => onMarkerClickRef.current?.(m));
+        addOverlay(m.lat, m.lng, wrap, 1);
       } else {
         const memberIds = cluster.members.map((m) => m.id);
         const containsSelected = cluster.members.some((m) => m.selected);
+        const wrap = document.createElement('div');
+        wrap.style.transform = `scale(${tagScale})`;
+        wrap.style.transformOrigin = 'center';
+
         const el = document.createElement('div');
-        el.className = `flex size-9 cursor-pointer items-center justify-center rounded-full border-2 border-white font-mono text-xs font-bold shadow-lg transition-transform hover:scale-110 ${
+        el.className = `flex size-11 cursor-pointer items-center justify-center rounded-full border-2 border-white font-mono text-sm font-bold shadow-lg transition-transform hover:scale-110 ${
           containsSelected ? 'bg-terracotta text-white' : 'bg-marine text-mist'
         }`;
         el.textContent = String(cluster.members.length);
         el.title = cluster.members.map((m) => m.label).join(', ');
         el.addEventListener('click', () => onClusterClickRef.current?.(memberIds));
-        addOverlay(cluster.lat, cluster.lng, el);
+
+        wrap.appendChild(el);
+        addOverlay(cluster.lat, cluster.lng, wrap);
       }
     }
 
     for (const m of pois) {
-      const el = document.createElement('div');
-      el.className = 'h-2.5 w-2.5 rounded-full border border-white shadow';
-      el.style.backgroundColor = m.color ?? '#8a969a';
-      if (m.label) el.title = m.label;
-      addOverlay(m.lat, m.lng, el);
+      const color = m.color ?? '#8a969a';
+      const size = m.highlighted ? 28 : 18;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'flex flex-col items-center';
+
+      // A colored anchor with its category icon reads against the map's own
+      // clutter far better than a flat dot; the highlighted (nearest) match
+      // gets a solid terracotta ring and the animated trail, so it stands
+      // out from the plain same-category anchors around it.
+      const pin = document.createElement('div');
+      pin.className = `flex items-center justify-center rounded-full shadow-lg border-2 ${
+        m.highlighted ? 'border-terracotta' : 'border-white'
+      }`;
+      pin.style.width = `${size}px`;
+      pin.style.height = `${size}px`;
+      pin.style.backgroundColor = color;
+      pin.innerHTML = renderToStaticMarkup(
+        createElement(m.icon ?? MapPin, {
+          size: m.highlighted ? 14 : 9,
+          color: '#fff',
+          strokeWidth: 2.5,
+        }),
+      );
+
+      const tail = document.createElement('div');
+      tail.className = `-mt-1 size-2 rotate-45 border-r-2 border-b-2 border-white`;
+      tail.style.backgroundColor = color;
+
+      wrap.appendChild(pin);
+      wrap.appendChild(tail);
+      if (m.label) wrap.title = m.label;
+      addOverlay(m.lat, m.lng, wrap, 1);
     }
 
     if (circle && isValidLatLng(circle)) {
@@ -372,44 +487,84 @@ export function KakaoMap({
     }
 
     for (const trail of trails) {
-      const path = [
-        new kakao.maps.LatLng(trail.fromLat, trail.fromLng),
-        new kakao.maps.LatLng(trail.toLat, trail.toLng),
-      ];
+      if (trail.path.length < 2) continue;
+      const kakaoPath = trail.path.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
+      const lineColor = trail.color ?? '#c04824';
+      const lineWeight = 4;
+
+      // A light casing drawn underneath, wider than the line itself, gives
+      // every trail its own "little space" — several routes fanning out
+      // from the same housing pin stay visually separated instead of
+      // merging into one indistinguishable stroke where they run close.
+      const casing = new kakao.maps.Polyline({
+        path: kakaoPath,
+        strokeWeight: lineWeight + 3,
+        strokeColor: '#f2f5f3',
+        strokeOpacity: 0.9,
+        strokeStyle: 'solid',
+      });
+      casing.setMap(map);
+
       const polyline = new kakao.maps.Polyline({
-        path,
-        strokeWeight: 2,
-        strokeColor: '#c04824',
-        strokeOpacity: 0.6,
-        strokeStyle: 'shortdash',
+        path: kakaoPath,
+        strokeWeight: lineWeight,
+        strokeColor: lineColor,
+        strokeOpacity: 0.9,
+        strokeStyle: 'solid',
       });
       polyline.setMap(map);
 
       const dot = document.createElement('div');
-      dot.className = 'h-2 w-2 rounded-full bg-terracotta shadow';
+      dot.className = 'size-2.5 rounded-full shadow';
+      dot.style.backgroundColor = lineColor;
       const dotOverlay = new kakao.maps.CustomOverlay({
-        position: path[0],
+        position: kakaoPath[0],
         content: dot,
         xAnchor: 0.5,
         yAnchor: 0.5,
       });
       dotOverlay.setMap(map);
 
+      const { cum, total } = arcLengths(trail.path);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
+      let tagOverlay: any = null;
+      if (trail.distanceMeters != null && trail.durationMinutes != null) {
+        const mid = pointAtFraction(trail.path, cum, total, 0.5);
+        const tag = document.createElement('div');
+        tag.className =
+          'flex items-center gap-1 rounded-full border bg-mist/95 px-2 py-0.5 font-mono text-xs font-medium whitespace-nowrap text-marine shadow-lg backdrop-blur';
+        tag.style.borderColor = `${lineColor}4D`; // ~30% alpha, ties the tag to its line's color
+        tag.textContent = `${formatTrailDistance(trail.distanceMeters)} · ${t('units.walkMinutes', { minutes: trail.durationMinutes })}`;
+        tagOverlay = new kakao.maps.CustomOverlay({
+          position: new kakao.maps.LatLng(mid.lat, mid.lng),
+          content: tag,
+          xAnchor: 0.5,
+          yAnchor: 0.5,
+        });
+        tagOverlay.setMap(map);
+      }
+
+      const durationMs = Math.min(
+        TRAIL_MAX_DURATION_MS,
+        Math.max(TRAIL_MIN_DURATION_MS, total / TRAIL_METERS_PER_MS),
+      );
       const start = performance.now();
       let raf = 0;
       const tick = (now: number) => {
-        const progress = ((now - start) % TRAIL_DURATION_MS) / TRAIL_DURATION_MS;
-        const lat = trail.fromLat + (trail.toLat - trail.fromLat) * progress;
-        const lng = trail.fromLng + (trail.toLng - trail.fromLng) * progress;
-        dotOverlay.setPosition(new kakao.maps.LatLng(lat, lng));
+        const progress = ((now - start) % durationMs) / durationMs;
+        const p = pointAtFraction(trail.path, cum, total, progress);
+        dotOverlay.setPosition(new kakao.maps.LatLng(p.lat, p.lng));
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
 
       cleanupFnsRef.current.push(() => {
         cancelAnimationFrame(raf);
+        casing.setMap(null);
         polyline.setMap(null);
         dotOverlay.setMap(null);
+        tagOverlay?.setMap(null);
       });
     }
 

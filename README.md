@@ -27,12 +27,68 @@ conditions) against real Busan housing and commercial data.
   (CSV/SHP) to the database schema. Read before touching ingestion/schema
   code.
 
-## Quick start — 2 steps
+## Quick start — 3 steps
 
 ```bash
 git clone <this repo>
+# drop 2026_DIVE_해커톤_제공데이터_선도소프트.zip at the repo root (see below)
 just onboard
 ```
+
+### The one external file you need (EN)
+
+Everything the core app needs ships in the committed `samples.zip` — the
+only manual file is the **선도소프트 handout zip**, which unlocks the
+population-density layer and industry grid:
+
+1. Download `2026_DIVE_해커톤_제공데이터_선도소프트.zip` from the hackathon
+   handout (Google Drive). **Do not rename it and do not unzip it** — the
+   auto-added suffix like `-20260725T120419Z-1-001` is fine; onboarding
+   matches any `2026_DIVE*.zip`.
+2. Put the zip file at the **repo root** (next to `justfile` and
+   `samples.zip`).
+3. Run `just onboard`. It unzips both archives (repairing the Korean
+   filenames that break plain `unzip`), installs everything, starts Docker,
+   migrates, seeds (housing + POI + GIS + population), and geocodes if a
+   Kakao key is set.
+
+Skipping the zip is fine — everything still runs except the population
+density layer, and you can re-run `just onboard` any time after adding it.
+
+### 실행 방법 (KO) — 서버 배포하는 분 필독
+
+핵심 데이터는 저장소에 포함된 `samples.zip`에 다 들어 있고, **수동으로
+넣어야 하는 파일은 선도소프트 제공데이터 zip 하나뿐**입니다 (인구밀도
+레이어 + 격자 데이터용):
+
+1. 해커톤 구글 드라이브에서 `2026_DIVE_해커톤_제공데이터_선도소프트.zip`을
+   다운로드하세요. **이름을 바꾸지 말고, 압축도 풀지 마세요** — 다운로드시
+   자동으로 붙는 `-20260725T120419Z-1-001` 같은 접미사가 있어도 그대로
+   두면 됩니다 (`2026_DIVE*.zip` 패턴이면 스크립트가 알아서 찾습니다).
+2. zip 파일을 **저장소 최상위 폴더**(= `justfile`, `samples.zip`이 있는
+   위치)에 넣으세요. `samples/` 안이 아니라 프로젝트 루트입니다.
+3. `api/.env`에 `KAKAO_REST_API_KEY`, `client/.env`에 `VITE_KAKAO_MAP_KEY`를
+   설정하세요 (없으면 지오코딩/지도만 빠지고 나머지는 동작합니다).
+4. 저장소 루트에서 실행:
+
+   ```bash
+   just onboard
+   ```
+
+   이 한 번으로 전부 처리됩니다: 필수 도구 확인 → `.env` 생성 → 두 zip
+   압축 해제(한글 파일명 깨짐 자동 복구) → 의존성 설치 → Docker(db+api)
+   기동 → 마이그레이션 → 시딩(주택 + 상권 POI + GIS + 인구) → 지오코딩.
+   몇 번을 다시 실행해도 안전합니다 (멱등).
+
+5. 확인: `curl http://localhost:3000/health` → `{"status":"ok",...}`,
+   프론트는 `just client` (호스트에서 Vite, :5173).
+
+필수 도구: **Docker, Bun, uv, just, GDAL** (Ubuntu:
+`apt install gdal-bin unzip` + [just](https://just.systems) +
+[uv](https://docs.astral.sh/uv/) + [bun](https://bun.sh)). 시딩과
+마이그레이션은 호스트에서 Docker 안의 Postgres(포트 5433)로 실행되기
+때문에 uv/GDAL이 서버에도 필요합니다. Azure VM 배포 절차는
+`docs/AZURE_VM_DEPLOY.md` 참고 — zip 파일 배치 규칙은 위와 동일합니다.
 
 That's it. `just onboard` (→ `scripts/onboard.sh`) does everything:
 
@@ -132,9 +188,10 @@ then re-commit (keep it under GitHub's 100MB file limit).
 - Detail page: stat tiles, static locator map, and the neighborhood
   profile (POI density + zoning mix via PostGIS) — the feature that makes
   the Sundosoft zoning layer load-bearing.
-- Real data seeded: housing CSVs, 155,103 commercial POIs, admin
-  boundaries (192), zoning (3,307), buildings (379,711); housing geocoded
-  via Kakao.
+- Real data seeded: housing CSVs (355 projects city-wide), 155,103
+  commercial POIs, admin boundaries (192, with interpolated population),
+  zoning (3,308, every polygon labeled), buildings (379,711),
+  industry/population grid (79,935 cells); housing geocoded via Kakao.
 - Backend on SQLModel + alembic + uv with a domain-driven layout; frontend
   on zustand + TanStack Query + react-i18next + motion, ko/en throughout.
 - 하루스탯 부산: 생활 이력서와 주간 루틴을 실제 BMC/GIS 추천식에
@@ -142,10 +199,10 @@ then re-commit (keep it under GitHub's 100MB file limit).
   시뮬레이터를 제공.
 - 정책 리포트: 실제 적재 주택의 위치정보, 승강기, 주차, 노후도 결측을
   집계해 추천 준비도를 표시.
-- Blocked: `industry_population_grid` (sgis) — the population CSVs ship no
-  boundary geometry (see `docs/DATA_MODEL.md` Part 4).
-- Pending: compare view, AI prompt-to-filters (the navbar search pill is
-  reserved for it), event-day city-wide dataset swap.
+- `industry_population_grid` and the population density layer are filled
+  from the 선도소프트 POP_STORE grid when the handout zip is present (see
+  `docs/DATA_MODEL.md` Parts 4-5) — the old SGIS blocker is resolved.
+- Pending: compare view, event-day dataset swaps.
 
 
 # TODO:

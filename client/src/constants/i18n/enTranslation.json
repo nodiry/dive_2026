@@ -3,7 +3,9 @@
   "nav": {
     "backToExplore": "Dongne Tamsaek",
     "savedLabel": "Saved",
-    "aboutLabel": "About"
+    "aboutLabel": "About",
+    "login": "Log in",
+    "logout": "Log out"
   },
   "lifeMatch": {
     "navLabel": "Life Match"
@@ -72,7 +74,28 @@
     "saveLabel": "Save",
     "unsaveLabel": "Unsave",
     "viewSaved": "Saved",
-    "viewResults": "Results"
+    "viewResults": "Results",
+    "loginRequired": "Log in to view your saved housing.",
+    "loginToSave": "Log in to save housing."
+  },
+  "auth": {
+    "loginTitle": "Log in",
+    "signupTitle": "Sign up",
+    "usernameLabel": "Username",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "identifierLabel": "Username or email",
+    "loginSubmit": "Log in",
+    "loginPending": "Logging in...",
+    "signupSubmit": "Sign up",
+    "signupPending": "Signing up...",
+    "hasAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "loginLink": "Log in",
+    "signupLink": "Sign up",
+    "loginSuccess": "Welcome back, {{username}}!",
+    "signupSuccess": "Welcome, {{username}}!",
+    "logoutSuccess": "Logged out."
   },
   "about": {
     "title": "About",

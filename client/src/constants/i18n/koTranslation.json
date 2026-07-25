@@ -3,7 +3,9 @@
   "nav": {
     "backToExplore": "동네탐색",
     "savedLabel": "찜 목록",
-    "aboutLabel": "서비스 소개"
+    "aboutLabel": "서비스 소개",
+    "login": "로그인",
+    "logout": "로그아웃"
   },
   "lifeMatch": {
     "navLabel": "하루스탯"
@@ -72,7 +74,28 @@
     "saveLabel": "찜하기",
     "unsaveLabel": "찜 해제",
     "viewSaved": "찜 목록",
-    "viewResults": "검색 결과"
+    "viewResults": "검색 결과",
+    "loginRequired": "찜 목록을 보려면 로그인해주세요.",
+    "loginToSave": "찜하려면 로그인해주세요."
+  },
+  "auth": {
+    "loginTitle": "로그인",
+    "signupTitle": "회원가입",
+    "usernameLabel": "아이디",
+    "emailLabel": "이메일",
+    "passwordLabel": "비밀번호",
+    "identifierLabel": "아이디 또는 이메일",
+    "loginSubmit": "로그인",
+    "loginPending": "로그인 중...",
+    "signupSubmit": "가입하기",
+    "signupPending": "가입 중...",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "noAccount": "계정이 없으신가요?",
+    "loginLink": "로그인",
+    "signupLink": "회원가입",
+    "loginSuccess": "{{username}}님, 다시 오셨네요!",
+    "signupSuccess": "{{username}}님, 환영해요!",
+    "logoutSuccess": "로그아웃되었어요."
   },
   "about": {
     "title": "서비스 소개",

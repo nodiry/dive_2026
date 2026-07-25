@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ModeToggle } from '@components/explore/ModeToggle';
 import { LanguageMenu } from '@layout/LanguageMenu';
+import { UserMenu } from '@layout/UserMenu';
 import { useExploreStore } from '@stores/useExploreStore';
 import { cn } from '@utils/cn';
 
@@ -75,6 +76,7 @@ export function ExploreNavbar() {
           <Info className='size-4' />
           <span className='hidden sm:inline'>{t('nav.aboutLabel')}</span>
         </Link>
+        <UserMenu />
         <LanguageMenu />
       </div>
     </div>

@@ -1,0 +1,68 @@
+name: dive2026
+
+x-seed-image: &seed-image
+  image: ${SEED_IMAGE:-dive2026-seed:azure}
+  build:
+    context: ./api
+    dockerfile: Dockerfile.seed
+
+x-seed-environment: &seed-environment
+  DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.azure}
+  DATABASE_SSL: ${DATABASE_SSL:-false}
+  KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+  SAMPLES_DIR: /samples
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  seed:
+    <<: *seed-image
+    profiles: ["ops"]
+    restart: "no"
+    command:
+      - uv
+      - run
+      - --no-sync
+      - python
+      - -m
+      - scripts.seed
+    environment: *seed-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./samples:/samples:ro
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  geocode:
+    <<: *seed-image
+    profiles: ["ops"]
+    restart: "no"
+    command:
+      - uv
+      - run
+      - --no-sync
+      - python
+      - -m
+      - scripts.geocode_housing
+    environment: *seed-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+networks:
+  backend:
+    driver: bridge

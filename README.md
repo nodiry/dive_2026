@@ -9,6 +9,9 @@ conditions) against real Busan housing and commercial data.
 - **`docs/ARCHITECTURE.md`** — current product overview and end-to-end
   architecture: screens, services, data flow, recommendation scoring,
   deployment, and extension boundaries. Start here for the whole system.
+- **`docs/AZURE_VM_DEPLOY.md`** — deployment of the PostGIS database and
+  FastAPI backend on an Azure Linux VM, with an optional separate HTTPS
+  Compose stack and one-shot containerized seed/geocoding jobs.
 - **`docs/REQUIREMENTS.md`** — what to build: problem statement, the two
   required user flows, provided data, judging rubric, feature checklist.
   Start here for the original problem and judging context.

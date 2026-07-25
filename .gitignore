@@ -29,3 +29,6 @@ __pycache__
 CS-ONBOARDING
 2026_DIVE*.zip
 4-*.zip
+.env.azure
+/api-seed-source.tar.gz
+/dive2026-*-azure.tar

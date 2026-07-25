@@ -1,0 +1,92 @@
+name: dive2026
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  db:
+    image: ${POSTGIS_IMAGE:-postgis/postgis:16-3.4}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.azure}
+      POSTGRES_DB: ${POSTGRES_DB:-dive2026}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    ports:
+      - 127.0.0.1:${DB_PORT:-5433}:5432
+    volumes:
+      - dive_pg_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    shm_size: 256mb
+    logging: *default-logging
+
+  api:
+    image: ${API_IMAGE:-dive2026-api:azure}
+    build:
+      context: ./api
+    restart: unless-stopped
+    init: true
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        uv run --no-sync alembic upgrade head &&
+        exec uv run --no-sync uvicorn src.main:app
+        --host 0.0.0.0
+        --port 3000
+        --workers "$${API_WORKERS}"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.azure}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      ENVIRONMENT: production
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      API_WORKERS: ${API_WORKERS:-2}
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:?Set FRONTEND_ORIGINS in .env.azure}
+      FRONTEND_URL: ${FRONTEND_URL:-}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - ${API_BIND_IP:-0.0.0.0}:${API_PORT:-3000}:3000
+    networks:
+      - backend
+    healthcheck:
+      test:
+        - CMD
+        - uv
+        - run
+        - --no-sync
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:3000/health", timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  dive_pg_data:

@@ -1,0 +1,24 @@
+FROM python:3.13-slim
+
+WORKDIR /src
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gdal-bin \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+ENV PYTHONPATH=/src \
+    SAMPLES_DIR=/samples \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev --frozen
+
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+
+CMD ["uv", "run", "--no-sync", "python", "-m", "scripts.seed"]

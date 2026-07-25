@@ -10,7 +10,6 @@ VITE_API_URL=http://localhost:3000
 
 # JS SDK key from https://developers.kakao.com/console/app (same app as
 # KAKAO_REST_API_KEY in api/.env, different key — see root .env.example).
-VITE_KAKAO_MAP_KEY=eb3b75faf7c8f5bc928feebc93de1854
 .env
 node_modules
 dist

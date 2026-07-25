@@ -6,6 +6,8 @@ import { PageShell } from '@layout/PageShell';
 import { About } from '@pages/About';
 import { Detail } from '@pages/Detail';
 import { Explore } from '@pages/Explore';
+import { LifeMatch } from '@pages/LifeMatch';
+import { Policy } from '@pages/Policy';
 
 export default function App() {
   return (
@@ -23,6 +25,14 @@ export default function App() {
           <Route
             path={ROUTES.HousingDetail}
             element={<Detail />}
+          />
+          <Route
+            path={ROUTES.LifeMatch}
+            element={<LifeMatch />}
+          />
+          <Route
+            path={ROUTES.Policy}
+            element={<Policy />}
           />
         </Route>
       </Routes>

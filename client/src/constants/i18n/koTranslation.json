@@ -5,6 +5,12 @@
     "savedLabel": "찜 목록",
     "aboutLabel": "서비스 소개"
   },
+  "lifeMatch": {
+    "navLabel": "하루스탯"
+  },
+  "policy": {
+    "navLabel": "정책 리포트"
+  },
   "footer": "DIVE 2026 · 부산도시공사 × 선도소프트 · 상권·취향 기반 공공임대주택 추천 서비스",
   "explore": {
     "heroEyebrow": "부산광역시 공공임대주택",

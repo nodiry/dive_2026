@@ -23,6 +23,13 @@ def affordable_projects(deposit_max: float):
         .having(func.min(col(HousingPrice.deposit)) <= deposit_max)
     )
 
+def rent_affordable_projects(rent_max: float):
+    return (
+        select(col(HousingPrice.project_id))
+        .group_by(col(HousingPrice.project_id))
+        .having(func.min(col(HousingPrice.rent)) <= rent_max)
+    )
+
 
 async def to_summaries(session: AsyncSession, projects: list[HousingProject]) -> list[HousingSummary]:
     ids = [p.id for p in projects if p.id is not None]
@@ -43,6 +50,25 @@ async def to_summaries(session: AsyncSession, projects: list[HousingProject]) ->
 
     result = await session.exec(
         select(
+            HousingUnit.project_id,
+            func.min(HousingUnit.area_m2),
+            func.max(HousingUnit.area_m2),
+            func.min(HousingUnit.room_count),
+            func.max(HousingUnit.room_count),
+            func.bool_or(HousingUnit.has_elevator),
+            func.max(HousingUnit.parking_spots),
+        )
+        .where(col(HousingUnit.project_id).in_(ids))
+        .group_by(col(HousingUnit.project_id))
+    )
+    unit_rows = result.all()
+    units = {
+        pid: (min_area, max_area, min_rooms, max_rooms, has_elevator, parking_spots)
+        for pid, min_area, max_area, min_rooms, max_rooms, has_elevator, parking_spots in unit_rows
+    }
+
+    result = await session.exec(
+        select(
             HousingProject.id,
             func.ST_Y(cast(col(HousingProject.geom), Geometry())),
             func.ST_X(cast(col(HousingProject.geom), Geometry())),
@@ -58,7 +84,8 @@ async def to_summaries(session: AsyncSession, projects: list[HousingProject]) ->
     for p in projects:
         lat, lng = coords.get(p.id, (None, None))
         deposit, rent = prices.get(p.id, (None, None))
-        summaries.append(HousingSummary.from_project(p, lat, lng, deposit, rent))
+        unit_summary = units.get(p.id, (None, None, None, None, None, None))
+        summaries.append(HousingSummary.from_project(p, lat, lng, deposit, rent, *unit_summary))
     return summaries
 
 
@@ -76,12 +103,41 @@ async def search_housing(session: AsyncSession, query: HousingSearchQuery) -> li
             select(col(HousingUnit.id))
             .where(
                 HousingUnit.project_id == HousingProject.id,
-                HousingUnit.room_count == query.room_count,
+                col(HousingUnit.room_count) >= query.room_count,
+            )
+            .exists()
+        )
+    if query.min_area_m2:
+        stmt = stmt.where(
+            select(col(HousingUnit.id))
+            .where(
+                HousingUnit.project_id == HousingProject.id,
+                col(HousingUnit.area_m2) >= query.min_area_m2,
+            )
+            .exists()
+        )
+    if query.elevator_required:
+        stmt = stmt.where(
+            select(col(HousingUnit.id))
+            .where(
+                HousingUnit.project_id == HousingProject.id,
+                col(HousingUnit.has_elevator).is_(True),
+            )
+            .exists()
+        )
+    if query.parking_required:
+        stmt = stmt.where(
+            select(col(HousingUnit.id))
+            .where(
+                HousingUnit.project_id == HousingProject.id,
+                col(HousingUnit.parking_spots) > 0,
             )
             .exists()
         )
     if query.deposit_max is not None:
         stmt = stmt.where(col(HousingProject.id).in_(affordable_projects(query.deposit_max)))
+    if query.rent_max is not None:
+        stmt = stmt.where(col(HousingProject.id).in_(rent_affordable_projects(query.rent_max)))
 
     result = await session.exec(stmt.order_by(col(HousingProject.id)).limit(100))
     return await to_summaries(session, list(result.all()))

@@ -62,6 +62,11 @@ original TS stack, so it's not a day-one surprise.
 - [x] 찜 (save) list — localStorage-only, no backend/auth, `Heart` toggle on
       every result card, dedicated panel in the navbar
 - [x] About page — problem statement, BMC/Sundosoft blurbs
+- [x] 하루스탯 부산 `/life-match` — 생활 이력서, 주간 루틴 프리셋,
+      FUN/WORK/REST, 0–100 매치 리포트, 상위 3개 비교, 집 이력서 모달,
+      조건 시뮬레이터
+- [x] 추천식 정규화 — 생활권 42% + 루틴 28% + 주택 조건 18% + 가격
+      여유 12%, 필수조건(월세/면적/방/승강기/주차) 선필터
 - [ ] Verify ETL abstraction can point at the full city-wide dataset without
       code changes (only re-run ingestion against new files)
 - [ ] Seed a realistic demo dataset for rehearsal (don't wait for event day

@@ -38,13 +38,23 @@ export const HousingSummary = z.object({
   totalUnits: z.number().nullable(),
   minDeposit: z.number().nullable(),
   minRent: z.number().nullable(),
+  minAreaM2: z.number().nullable(),
+  maxAreaM2: z.number().nullable(),
+  minRooms: z.number().nullable(),
+  maxRooms: z.number().nullable(),
+  hasElevator: z.boolean().nullable(),
+  parkingSpots: z.number().nullable(),
 });
 export type HousingSummary = z.infer<typeof HousingSummary>;
 
 export const HousingSearchQuery = z.object({
   depositMax: z.coerce.number().optional(),
+  rentMax: z.coerce.number().optional(),
   builtAfter: z.coerce.number().optional(), // year, e.g. 2020
-  roomCount: z.coerce.number().optional(),
+  roomCount: z.coerce.number().optional(), // minimum room count
+  minAreaM2: z.coerce.number().optional(),
+  elevatorRequired: z.coerce.boolean().optional(),
+  parkingRequired: z.coerce.boolean().optional(),
   district: z.string().optional(), // 구/군, e.g. "수영구"
   type: HousingType.optional(),
 });
@@ -62,11 +72,41 @@ export const LifestylePreference = z.object({
 });
 export type LifestylePreference = z.infer<typeof LifestylePreference>;
 
+export const LifeStatWeights = z.object({
+  fun: z.number().min(0).max(100),
+  work: z.number().min(0).max(100),
+  rest: z.number().min(0).max(100),
+});
+export type LifeStatWeights = z.infer<typeof LifeStatWeights>;
+
+export const WeeklyRoutineInput = z.object({
+  commute: z.number().min(0).max(7),
+  focus: z.number().min(0).max(7),
+  cafe: z.number().min(0).max(7),
+  exercise: z.number().min(0).max(7),
+  dining: z.number().min(0).max(7),
+  culture: z.number().min(0).max(7),
+  walking: z.number().min(0).max(7),
+  homeRest: z.number().min(0).max(7),
+});
+export type WeeklyRoutineInput = z.infer<typeof WeeklyRoutineInput>;
+
 export const LifestyleRecommendationRequest = z.object({
   preferences: z.array(LifestylePreference).min(1),
   depositMax: z.number().optional(),
+  rentMax: z.number().optional(),
+  minAreaM2: z.number().optional(),
+  minRoomCount: z.number().optional(),
+  elevatorRequired: z.boolean().optional(),
+  parkingRequired: z.boolean().optional(),
   district: z.string().optional(),
-  radiusMeters: z.number().default(500),
+  type: HousingType.optional(),
+  lifeStats: LifeStatWeights.optional(),
+  routine: WeeklyRoutineInput.optional(),
+  destinationLat: z.number().min(-90).max(90).optional(),
+  destinationLng: z.number().min(-180).max(180).optional(),
+  destinationFrequency: z.number().min(0).max(7).optional(),
+  radiusMeters: z.number().positive().default(500),
 });
 export type LifestyleRecommendationRequest = z.infer<typeof LifestyleRecommendationRequest>;
 
@@ -91,6 +131,33 @@ export type MatchedPoi = z.infer<typeof MatchedPoi>;
 export const LifestyleRecommendationResult = z.object({
   housing: HousingSummary,
   score: z.number(),
+  matchRate: z.number(),
+  breakdown: z.object({
+    lifestyle: z.number(),
+    routine: z.number(),
+    housing: z.number(),
+    affordability: z.number(),
+  }),
+  lifeAxes: z.object({
+    fun: z.number(),
+    work: z.number(),
+    rest: z.number(),
+  }),
+  neighborhood: z.object({
+    residentialRatio: z.number().nullable(),
+    commercialRatio: z.number().nullable(),
+    greenRatio: z.number().nullable(),
+    source: z.enum(["zoning", "unavailable"]),
+  }),
+  destinationDistanceMeters: z.number().nullable(),
+  routineDetails: z.array(
+    z.object({
+      activity: z.enum(["commute", "focus", "cafe", "exercise", "dining", "culture", "walking", "homeRest"]),
+      requested: z.number(),
+      score: z.number(),
+      evidence: z.enum(["destination", "nearbyPoi", "zoning", "proxy", "unavailable"]),
+    }),
+  ),
   matches: z.array(MatchedPoi),
 });
 export type LifestyleRecommendationResult = z.infer<typeof LifestyleRecommendationResult>;

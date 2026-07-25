@@ -43,7 +43,7 @@ client/
   .prettierrc                # single quotes, one attribute per line
   src/
     main.tsx                 # QueryClientProvider + BrowserRouter; imports @hooks/i18n side-effect
-    App.tsx                  # MotionConfig(reducedMotion) + routes (ROUTES constants) + ToastList
+    App.tsx                  # MotionConfig + routes, including LifeMatch/Policy + ToastList
     shared/schemas.ts         # zod API contract (mirrored by hand in api pydantic schemas)
     api/                     # client.ts (axios instance) + housing/recommendation/poi xAPI modules (zod-validated)
     hooks/                   # useHousing (search/detail/neighborhood), useRecommendation, usePoiCategories,
@@ -64,13 +64,53 @@ client/
       ToastList.tsx          # toast renderer for useToastStore
       explore/               # ExploreNavbar (brand/mode/pill/utils), FilterPanel (floating live filters),
                              #   ListPanel (right viewport-synced list), MapShell, ModeToggle, controls.tsx
-    pages/                   # Explore (map screen), Detail (stat tiles + locator map + neighborhood), About
+    pages/                   # Explore, Detail, About, LifeMatch, Policy
+    features/
+      lifeMatch/
+        model.ts                    # persisted profile/routine model, FUN/WORK/REST derivation, POI-weight mapping
+        LifeResumeStep.tsx           # must-have budget/home/location form + live resume
+        WeeklyRoutineStep.tsx         # routine presets and frequency controls
+        LifeMatchResults.tsx          # 0-100 report, map, top-3 compare, simulator, detail modal
+    lib/
+      i18n/
+        translations.ts            # typed LifeMatch/Policy copy compatibility table
+        localeContext.ts           # bridge to react-i18next for feature pages
 
 docs/                        # this folder; STYLE_GUIDE.md governs all UI work
 ```
 
 ## API surface
 
+- `GET /api/health` — liveness check, `{"ok": true}`.
+- `GET /api/housing?depositMax=&rentMax=&minAreaM2=&roomCount=&elevatorRequired=&parkingRequired=&builtAfter=&district=&type=` —
+  condition-based search. All params optional; `depositMax` in won,
+  `builtAfter` a year, `district`/`type` exact match.
+- `GET /api/housing/:id` — single housing project detail, including units
+  and price rows.
+- `POST /api/recommendations/lifestyle` — lifestyle-based ranking.
+  Request body:
+  ```json
+  {
+    "preferences": [{ "categoryName": "카페", "weight": 1 }],
+    "district": "수영구",
+    "depositMax": 30000000,
+    "rentMax": 350000,
+    "minAreaM2": 26,
+    "minRoomCount": 1,
+    "elevatorRequired": true,
+    "radiusMeters": 700
+  }
+  ```
+  Returns `[]` until housing is geocoded (`bun run geocode`) — that's
+  correct behavior, not a bug. Each result includes a per-category match
+  breakdown (count + nearest distance, plus the top 5 nearest individual
+  `pois` — name/lat/lng/distance, for map pins and the animated trail). The
+  response also includes a normalized `matchRate` and the four explainable
+  components: lifestyle 42%, routine 28%, housing 18%, affordability 12%.
+- `GET /api/poi/categories` — distinct `category_name` values with counts,
+  powers the frontend's category picker. Deliberately not hardcoded —
+  see `docs/DATA_MODEL.md` Part 2 for why the real taxonomy differs from
+  the track deck's.
 All routes return camelCase JSON; validation errors return
 `{"error": "invalid request", "issues": [...]}` with status 400.
 

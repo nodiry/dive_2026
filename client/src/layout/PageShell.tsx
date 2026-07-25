@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react';
+import { Info, MapPinned } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router-dom';
 import { LanguageMenu } from '@layout/LanguageMenu';
@@ -14,26 +14,28 @@ export function PageShell() {
   return (
     <div className='flex min-h-svh flex-col'>
       <header className='border-b border-slate-light/30 bg-mist/95 backdrop-blur'>
-        <div className='mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4'>
+        <div className='mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-4 sm:gap-4 sm:px-6'>
           <Link
             to='/'
-            className='text-lg font-extrabold tracking-tight text-marine'
+            className='shrink-0 whitespace-nowrap text-lg font-extrabold tracking-tight text-marine'
           >
             동네탐색<span className='text-terracotta'>.</span>
           </Link>
-          <nav className='flex items-center gap-4'>
+          <nav className='flex items-center gap-2 sm:gap-4'>
             <Link
               to='/'
-              className='text-sm font-medium text-marine/70 hover:text-marine'
+              aria-label={t('nav.backToExplore')}
+              className='flex items-center gap-1 text-sm font-medium text-marine/70 hover:text-marine'
             >
-              {t('nav.backToExplore')}
+              <MapPinned className='size-4' />
+              <span className='hidden sm:inline'>{t('nav.backToExplore')}</span>
             </Link>
             <Link
               to='/about'
               className='flex items-center gap-1 text-sm font-medium text-marine/70 hover:text-marine'
             >
               <Info className='h-4 w-4' />
-              {t('nav.aboutLabel')}
+              <span className='hidden sm:inline'>{t('nav.aboutLabel')}</span>
             </Link>
             <LanguageMenu />
           </nav>

@@ -110,14 +110,20 @@ raw SQL.
 
 ## Recommendation algorithm
 
-1. Hard filters (deposit ceiling via `IN (grouped-min subquery)`, district)
+1. Hard filters (deposit/rent ceilings via grouped-min subqueries, district,
+   type, minimum area/rooms, elevator, parking)
    on `housing_project`, candidates capped at 200.
 2. Per-category proximity via `ST_DWithin` against `commercial_poi`,
    matched on `category_name` (fine granularity — "카페"/"헬스장"/"편의점").
-3. Score per category = `weight × matched_count × closeness` (closeness 1
-   at distance 0, 0 at the radius edge). Explainable on purpose.
-4. Response includes the full per-category breakdown plus the top-5 nearest
-   POIs per category for map pins/trails.
+3. FUN uses café, exercise and dining access. WORK combines the user's
+   selected destination straight-line distance with nearby work amenities.
+   REST uses residential/commercial/green zoning ratios within 700m.
+4. Weekly routine fit is a frequency-weighted score. Activities that the
+   available data cannot measure return neutral values with `unavailable`
+   evidence rather than invented estimates.
+5. The final score is lifestyle 42%, routine 28%, housing fit 18%, and
+   affordability 12%. The response includes that breakdown plus the top-5
+   nearest POIs per category for map pins/trails.
 
 The frontend runs this **live**: there is no search button anywhere.
 Criteria fields debounce into an always-on query; preference weights/radius
@@ -129,6 +135,10 @@ changes re-run the mutation after 450ms.
 (`ST_DWithin` group) and the zoning mix: each 용도지역's share of the radius
 area via `ST_Buffer` + `ST_Intersection` + `ST_Area` over
 `commercial_zone`. This is what makes the zoning layer load-bearing.
+
+VWorld zoning's human-readable `ALIAS` is blank on many records. Alembic
+migration `7b7b4257e9c1` adds `commercial_zone.zone_code`, and `seed_gis.py`
+extracts the stable `UQAxxx` code from `MNUM`.
 
 ## Known gotchas / debugging notes
 

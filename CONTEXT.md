@@ -65,7 +65,7 @@ explainable scoring + polished UI + partner-data usage (see
   `GET /api/districts/density` (name/pop/area/density/centroid/rings,
   simplified). Frontend: canvas heat overlay in KakaoMap (grayscale
   radial blobs at centroids, area-scaled radius, density^0.55 intensity,
-  colorized via 256-LUT marine→gold→terracotta), redraws on map idle,
+  colorized via 256-LUT lavender→violet→gold), redraws on map idle,
   fades out on zoom_start. The canvas lives INSIDE the map as a
   CustomOverlay (zIndex 5, anchored at map center, sized to container)
   so it paints above tiles but below pins — a sibling canvas was

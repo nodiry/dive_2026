@@ -17,6 +17,7 @@ interface MapShellProps {
   onMarkerClick?: (marker: MapMarker) => void;
   onMapClick?: () => void;
   onClusterClick?: (ids: number[]) => void;
+  activeClusterIds?: number[] | null;
   onBoundsChange?: (bounds: MapBounds) => void;
   densityRegions?: DensityRegion[] | null;
   fitKey?: string | number;
@@ -38,6 +39,7 @@ export function MapShell({
   onMarkerClick,
   onMapClick,
   onClusterClick,
+  activeClusterIds,
   onBoundsChange,
   densityRegions,
   fitKey,
@@ -55,6 +57,7 @@ export function MapShell({
         onMarkerClick={onMarkerClick}
         onMapClick={onMapClick}
         onClusterClick={onClusterClick}
+        activeClusterIds={activeClusterIds}
         onBoundsChange={onBoundsChange}
         densityRegions={densityRegions}
         fitKey={fitKey}

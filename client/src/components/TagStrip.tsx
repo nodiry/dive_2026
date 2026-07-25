@@ -27,7 +27,7 @@ export function TagStrip({ tags, variant = 'compact' }: TagStripProps) {
           } ${
             tag.muted
               ? 'border-slate-light/40 bg-white/40 text-slate'
-              : 'border-terracotta/30 bg-terracotta/10 text-terracotta-dark'
+              : 'border-violet/30 bg-violet/10 text-violet-dark'
           }`}
         >
           {tag.label}

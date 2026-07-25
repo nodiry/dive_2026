@@ -42,14 +42,14 @@ export function FilterPanel({ activeFilterCount }: FilterPanelProps) {
         className={cn(
           'pointer-events-auto flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium shadow-lg backdrop-blur transition-all',
           open
-            ? 'border-marine bg-marine text-mist'
-            : 'border-slate-light/30 bg-mist/95 text-marine hover:border-terracotta/40',
+            ? 'border-plum bg-plum text-lilac'
+            : 'border-slate-light/30 bg-lilac/95 text-plum hover:border-violet/40',
         )}
       >
         {open ? <X className='size-4' /> : <SlidersHorizontal className='size-4' />}
         {t('explore.filtersLabel')}
         {!open && activeFilterCount > 0 && (
-          <span className='flex size-5 items-center justify-center rounded-full bg-terracotta font-mono text-xs text-white'>
+          <span className='flex size-5 items-center justify-center rounded-full bg-violet font-mono text-xs text-white'>
             {activeFilterCount}
           </span>
         )}
@@ -62,7 +62,7 @@ export function FilterPanel({ activeFilterCount }: FilterPanelProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className='pointer-events-auto min-h-0 w-[340px] max-w-[calc(100vw-1.5rem)] space-y-4 overflow-y-auto rounded-2xl border border-slate-light/30 bg-mist/95 p-4 shadow-lg backdrop-blur'
+            className='pointer-events-auto min-h-0 w-[340px] max-w-[calc(100vw-1.5rem)] space-y-4 overflow-y-auto rounded-2xl border border-slate-light/30 bg-lilac/95 p-4 shadow-lg backdrop-blur'
           >
             {mode === 'criteria' ? (
               <Section label={t('explore.filtersHeading')}>

@@ -49,9 +49,9 @@ function ScoreBar({ score, maxScore }: { score: number; maxScore: number }) {
   const ratio = maxScore > 0 ? Math.max(score / maxScore, 0.04) : 0;
   return (
     <div className='mt-2.5 flex items-center gap-2'>
-      <div className='h-1 flex-1 rounded-full bg-mist-dim'>
+      <div className='h-1 flex-1 rounded-full bg-lilac-dim'>
         <div
-          className='h-1 rounded-full bg-terracotta transition-[width] duration-300'
+          className='h-1 rounded-full bg-violet transition-[width] duration-300'
           style={{ width: `${Math.round(ratio * 100)}%` }}
         />
       </div>
@@ -64,7 +64,7 @@ function RankBadge({ rank }: { rank: number }) {
   return (
     <span
       className={`absolute -top-2 -left-2 z-10 flex size-6 items-center justify-center rounded-full font-mono text-xs font-bold shadow ${
-        rank === 1 ? 'bg-gold text-white' : 'bg-marine text-mist'
+        rank === 1 ? 'bg-gold text-white' : 'bg-plum text-lilac'
       }`}
     >
       {rank}
@@ -262,9 +262,7 @@ export function Explore() {
       : null;
 
   const listCount =
-    panelView === 'saved'
-      ? savedHousing.length
-      : (listResults?.length ?? listHousing?.length ?? 0);
+    panelView === 'saved' ? savedHousing.length : (listResults?.length ?? listHousing?.length ?? 0);
 
   const activeFilterCount =
     Number(Boolean(filters.depositMaxManwon)) +
@@ -281,13 +279,26 @@ export function Explore() {
       circle={circle}
       focus={focus}
       onMarkerClick={(marker) => {
-        if (marker.kind === 'housing') toggleSelectedHousing(marker.id);
+        if (marker.kind !== 'housing') return;
+        toggleSelectedHousing(marker.id);
+        setClusterIds((current) =>
+          current !== null && !current.includes(marker.id) ? null : current,
+        );
       }}
       onMapClick={() => {
         clearSelectedHousing();
         setClusterIds(null);
       }}
-      onClusterClick={setClusterIds}
+      onClusterClick={(ids) =>
+        setClusterIds((current) =>
+          current !== null &&
+          current.length === ids.length &&
+          ids.every((id) => current.includes(id))
+            ? null
+            : ids,
+        )
+      }
+      activeClusterIds={clusterIds}
       onBoundsChange={setMapBounds}
       densityRegions={densityMode ? (densityRegions ?? null) : null}
       fitKey={fitKey}
@@ -305,17 +316,17 @@ export function Explore() {
             className={cn(
               'pointer-events-auto flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium shadow-lg backdrop-blur transition-all',
               densityMode
-                ? 'border-marine bg-marine text-mist'
-                : 'border-slate-light/30 bg-mist/95 text-marine hover:border-terracotta/40',
+                ? 'border-plum bg-plum text-lilac'
+                : 'border-slate-light/30 bg-lilac/95 text-plum hover:border-violet/40',
             )}
           >
             <Layers className='size-4' />
             {t('explore.densityToggle')}
           </button>
           {densityMode && (
-            <div className='pointer-events-auto flex items-center gap-1.5 rounded-full border border-slate-light/30 bg-mist/95 px-3 py-1.5 shadow-lg backdrop-blur'>
+            <div className='pointer-events-auto flex items-center gap-1.5 rounded-full border border-slate-light/30 bg-lilac/95 px-3 py-1.5 shadow-lg backdrop-blur'>
               <span className='text-xs text-slate'>{t('explore.densityLow')}</span>
-              {['#5b8494', '#96a575', '#d9a441', '#dd7a3c', '#c04824'].map((c) => (
+              {['#a99bd8', '#8a76c9', '#6d4aff', '#d9a441', '#c98a1f'].map((c) => (
                 <span
                   key={c}
                   aria-hidden

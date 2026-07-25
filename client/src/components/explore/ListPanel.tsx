@@ -32,23 +32,23 @@ export function ListPanel({
       initial={{ opacity: 0, x: 16 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className='pointer-events-auto absolute top-3 right-3 bottom-3 z-10 flex w-[360px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-2xl border border-slate-light/30 bg-mist/95 shadow-lg backdrop-blur'
+      className='pointer-events-auto absolute top-3 right-3 bottom-3 z-10 flex w-[360px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-2xl border border-slate-light/30 bg-lilac/95 shadow-lg backdrop-blur'
     >
       <header className='flex items-center gap-2 border-b border-slate-light/20 px-4 py-2.5'>
         <span
           aria-hidden
           className={cn(
             'size-1.5 shrink-0 rounded-full',
-            fetching ? 'animate-pulse bg-terracotta' : 'bg-slate-light/60',
+            fetching ? 'animate-pulse bg-violet' : 'bg-slate-light/60',
           )}
         />
-        <h2 className='text-sm font-bold text-marine'>{heading}</h2>
+        <h2 className='text-sm font-bold text-plum'>{heading}</h2>
         {count !== undefined && <span className='font-mono text-xs text-slate'>{count}</span>}
         {clusterLabel && (
           <button
             type='button'
             onClick={onClearCluster}
-            className='ml-auto flex items-center gap-1 rounded-full border border-terracotta/40 bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta-dark transition-colors hover:bg-terracotta/20'
+            className='ml-auto flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2.5 py-1 text-xs font-medium text-violet-dark transition-colors hover:bg-violet/20'
           >
             {clusterLabel}
             <X className='size-3' />
@@ -121,10 +121,8 @@ export function ListMessage({
   return (
     <div
       className={cn(
-        'flex items-center rounded-2xl border-2 border-dashed bg-mist-dim/90 p-4 text-sm',
-        tone === 'error'
-          ? 'border-terracotta/40 text-terracotta-dark'
-          : 'border-slate-light/40 text-slate',
+        'flex items-center rounded-2xl border-2 border-dashed bg-lilac-dim/90 p-4 text-sm',
+        tone === 'error' ? 'border-violet/40 text-violet-dark' : 'border-slate-light/40 text-slate',
       )}
     >
       {children}

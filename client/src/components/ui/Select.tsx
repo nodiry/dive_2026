@@ -122,7 +122,7 @@ export default function Select({
         onKeyDown={handleKeyDown}
         className={cn(
           'flex w-full items-center justify-between gap-2 rounded-full border border-slate-light/40 bg-white px-3.5 py-1.5 text-sm transition-colors hover:border-slate-light/70 disabled:pointer-events-none disabled:opacity-40',
-          selected ? 'text-marine' : 'text-slate-light',
+          selected ? 'text-plum' : 'text-slate-light',
         )}
       >
         <span className='truncate'>{selected?.label ?? placeholder}</span>
@@ -158,9 +158,9 @@ export default function Select({
                     className={cn(
                       'w-full rounded-full px-3 py-1.5 text-left text-sm transition-colors',
                       option.value === value
-                        ? 'bg-terracotta/10 font-medium text-terracotta-dark'
-                        : 'text-marine',
-                      i === highlight && option.value !== value && 'bg-mist',
+                        ? 'bg-violet/10 font-medium text-violet-dark'
+                        : 'text-plum',
+                      i === highlight && option.value !== value && 'bg-lilac',
                     )}
                   >
                     {option.label}

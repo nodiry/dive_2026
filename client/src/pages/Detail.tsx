@@ -1,66 +1,17 @@
 import { Heart } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+import { CategoryBar } from '@components/CategoryBar';
 import { KakaoMap } from '@components/KakaoMap';
+import { Reveal } from '@components/Reveal';
+import { Roadview } from '@components/Roadview';
+import { StatTile } from '@components/StatTile';
 import { TagStrip } from '@components/TagStrip';
 import { useHousingDetail, useNeighborhood } from '@hooks/useHousing';
 import { useSavedHousing } from '@hooks/useSaved';
 import { cn } from '@utils/cn';
 import { formatWon } from '@utils/money';
-
-function Reveal({
-  delay = 0,
-  className,
-  children,
-}: {
-  delay?: number;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay, ease: 'easeOut' }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-function StatTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className='rounded-2xl border border-slate-light/30 bg-white p-4'>
-      <div className='text-xs text-slate'>{label}</div>
-      <div
-        className={cn(
-          'mt-1 truncate font-mono text-lg font-bold',
-          accent ? 'text-terracotta-dark' : 'text-marine',
-        )}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function CategoryBar({ label, count, max }: { label: string; count: number; max: number }) {
-  const ratio = max > 0 ? Math.max(count / max, 0.04) : 0;
-  return (
-    <div className='flex items-center gap-3'>
-      <span className='w-24 shrink-0 truncate text-xs font-medium text-marine'>{label}</span>
-      <div className='h-1.5 flex-1 rounded-full bg-mist-dim'>
-        <div
-          className='h-1.5 rounded-full bg-terracotta'
-          style={{ width: `${Math.round(ratio * 100)}%` }}
-        />
-      </div>
-      <span className='w-10 shrink-0 text-right font-mono text-xs text-slate'>{count}</span>
-    </div>
-  );
-}
 
 function NeighborhoodSection({ housingId, className }: { housingId: number; className?: string }) {
   const { t } = useTranslation();
@@ -80,7 +31,7 @@ function NeighborhoodSection({ housingId, className }: { housingId: number; clas
     return (
       <div
         className={cn(
-          'rounded-2xl border-2 border-dashed border-terracotta/40 bg-mist-dim p-6 text-center text-sm text-terracotta-dark',
+          'rounded-2xl border-2 border-dashed border-violet/40 bg-lilac-dim p-6 text-center text-sm text-violet-dark',
           className,
         )}
       >
@@ -140,15 +91,11 @@ export function Detail() {
   const housingId = Number(id);
   const { data: housing, isLoading, isError } = useHousingDetail(housingId);
   const { isSaved, toggleSaved } = useSavedHousing();
+  const [locationView, setLocationView] = useState<'map' | 'roadview'>('map');
 
-  if (isLoading)
-    return <div className='mx-auto max-w-5xl px-6 py-12 text-slate'>{t('detail.loading')}</div>;
+  if (isLoading) return <div className='px-6 py-12 text-slate sm:px-8'>{t('detail.loading')}</div>;
   if (isError || !housing) {
-    return (
-      <div className='mx-auto max-w-5xl px-6 py-12 text-terracotta-dark'>
-        {t('detail.notFound')}
-      </div>
-    );
+    return <div className='px-6 py-12 text-violet-dark sm:px-8'>{t('detail.notFound')}</div>;
   }
 
   const typeLabel = t(`housingType.${housing.type}`);
@@ -156,14 +103,14 @@ export function Detail() {
   const saved = isSaved(housing.id);
 
   return (
-    <div className='mx-auto max-w-5xl px-6 py-10'>
+    <div className='px-6 py-10 sm:px-8'>
       <Reveal>
         <div className='flex items-start justify-between gap-4'>
           <div className='min-w-0'>
-            <span className='inline-block rounded-full bg-marine/10 px-2.5 py-0.5 text-xs font-medium text-marine'>
+            <span className='inline-block rounded-full bg-plum/10 px-2.5 py-0.5 text-xs font-medium text-plum'>
               {typeLabel}
             </span>
-            <h1 className='mt-2 text-3xl font-extrabold tracking-tight text-marine'>
+            <h1 className='mt-2 text-3xl font-extrabold tracking-tight text-plum'>
               {housing.projectName}
             </h1>
             <p className='mt-1 text-slate'>{housing.address}</p>
@@ -176,11 +123,11 @@ export function Detail() {
             className={cn(
               'flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
               saved
-                ? 'border-terracotta/40 bg-terracotta/10 text-terracotta-dark'
-                : 'border-slate-light/40 bg-white text-slate hover:border-terracotta/40',
+                ? 'border-violet/40 bg-violet/10 text-violet-dark'
+                : 'border-slate-light/40 bg-white text-slate hover:border-violet/40',
             )}
           >
-            <Heart className={cn('size-4', saved && 'fill-terracotta text-terracotta')} />
+            <Heart className={cn('size-4', saved && 'fill-violet text-violet')} />
             {saved ? t('saved.unsaveLabel') : t('saved.saveLabel')}
           </button>
         </div>
@@ -218,21 +165,50 @@ export function Detail() {
           className='lg:col-span-3'
         >
           <div>
-            <h2 className='mb-3 font-medium text-marine'>{t('detail.locationHeading')}</h2>
+            <div className='mb-3 flex items-center justify-between gap-3'>
+              <h2 className='font-medium text-plum'>{t('detail.locationHeading')}</h2>
+              {geocoded && (
+                <div className='flex rounded-full border border-slate-light/30 bg-white p-0.5'>
+                  {(['map', 'roadview'] as const).map((view) => (
+                    <button
+                      key={view}
+                      type='button'
+                      aria-pressed={locationView === view}
+                      onClick={() => setLocationView(view)}
+                      className={cn(
+                        'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                        locationView === view ? 'bg-plum text-lilac' : 'text-slate hover:text-plum',
+                      )}
+                    >
+                      {t(view === 'map' ? 'detail.viewMap' : 'detail.viewRoadview')}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className='overflow-hidden rounded-2xl border border-slate-light/30'>
-              <KakaoMap
-                staticView
-                className='aspect-[4/3] w-full'
-                markers={[
-                  {
-                    kind: 'housing',
-                    id: housing.id,
-                    lat: housing.lat ?? NaN,
-                    lng: housing.lng ?? NaN,
-                    label: housing.projectName,
-                  },
-                ]}
-              />
+              {locationView === 'map' ? (
+                <KakaoMap
+                  staticView
+                  className='aspect-[4/3] w-full'
+                  markers={[
+                    {
+                      kind: 'housing',
+                      id: housing.id,
+                      lat: housing.lat ?? NaN,
+                      lng: housing.lng ?? NaN,
+                      label: housing.projectName,
+                    },
+                  ]}
+                />
+              ) : (
+                <Roadview
+                  interactive
+                  lat={housing.lat ?? NaN}
+                  lng={housing.lng ?? NaN}
+                  className='aspect-[4/3] w-full'
+                />
+              )}
             </div>
           </div>
         </Reveal>
@@ -242,7 +218,7 @@ export function Detail() {
           className='lg:relative lg:col-span-2'
         >
           <div className='flex h-full flex-col lg:absolute lg:inset-0'>
-            <h2 className='mb-3 shrink-0 font-medium text-marine'>
+            <h2 className='mb-3 shrink-0 font-medium text-plum'>
               {t('detail.neighborhoodHeading')}
             </h2>
             {geocoded ? (
@@ -251,7 +227,7 @@ export function Detail() {
                 className='min-h-0 flex-1 overflow-y-auto'
               />
             ) : (
-              <div className='flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-light/50 bg-mist-dim p-6 text-center text-sm text-slate'>
+              <div className='flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-light/50 bg-lilac-dim p-6 text-center text-sm text-slate'>
                 {t('detail.nearbyPlaceholder')}
               </div>
             )}

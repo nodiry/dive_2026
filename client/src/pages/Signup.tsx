@@ -37,61 +37,63 @@ export function Signup() {
   }
 
   return (
-    <div className='mx-auto max-w-sm px-6 py-16'>
-      <h1 className='text-2xl font-bold text-marine'>{t('auth.signupTitle')}</h1>
-      <form
-        onSubmit={handleSubmit}
-        className='mt-6 space-y-4'
-      >
-        <Field label={t('auth.usernameLabel')}>
-          <input
-            required
-            minLength={3}
-            maxLength={32}
-            autoComplete='username'
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className={cn(inputClass, 'w-full')}
-          />
-        </Field>
-        <Field label={t('auth.emailLabel')}>
-          <input
-            required
-            type='email'
-            autoComplete='email'
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={cn(inputClass, 'w-full')}
-          />
-        </Field>
-        <Field label={t('auth.passwordLabel')}>
-          <input
-            required
-            type='password'
-            minLength={8}
-            autoComplete='new-password'
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={cn(inputClass, 'w-full')}
-          />
-        </Field>
-        <button
-          type='submit'
-          disabled={signup.isPending}
-          className='w-full rounded-full bg-terracotta px-5 py-2.5 font-medium text-white transition-colors hover:bg-terracotta-dark disabled:pointer-events-none disabled:opacity-40'
+    <div className='flex flex-1 flex-col items-center justify-center px-6 py-12'>
+      <div className='w-full max-w-sm rounded-2xl border border-slate-light/30 bg-white p-6 sm:p-8'>
+        <h1 className='text-center text-2xl font-bold text-plum'>{t('auth.signupTitle')}</h1>
+        <form
+          onSubmit={handleSubmit}
+          className='mt-6 space-y-4'
         >
-          {signup.isPending ? t('auth.signupPending') : t('auth.signupSubmit')}
-        </button>
-      </form>
-      <p className='mt-4 text-center text-sm text-slate'>
-        {t('auth.hasAccount')}{' '}
-        <Link
-          to={ROUTES.Login}
-          className='font-medium text-terracotta-dark hover:underline'
-        >
-          {t('auth.loginLink')}
-        </Link>
-      </p>
+          <Field label={t('auth.usernameLabel')}>
+            <input
+              required
+              minLength={3}
+              maxLength={32}
+              autoComplete='username'
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className={cn(inputClass, 'w-full')}
+            />
+          </Field>
+          <Field label={t('auth.emailLabel')}>
+            <input
+              required
+              type='email'
+              autoComplete='email'
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={cn(inputClass, 'w-full')}
+            />
+          </Field>
+          <Field label={t('auth.passwordLabel')}>
+            <input
+              required
+              type='password'
+              minLength={8}
+              autoComplete='new-password'
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={cn(inputClass, 'w-full')}
+            />
+          </Field>
+          <button
+            type='submit'
+            disabled={signup.isPending}
+            className='w-full rounded-full bg-violet px-5 py-2.5 font-medium text-white transition-colors hover:bg-violet-dark disabled:pointer-events-none disabled:opacity-40'
+          >
+            {signup.isPending ? t('auth.signupPending') : t('auth.signupSubmit')}
+          </button>
+        </form>
+        <p className='mt-4 text-center text-sm text-slate'>
+          {t('auth.hasAccount')}{' '}
+          <Link
+            to={ROUTES.Login}
+            className='font-medium text-violet-dark hover:underline'
+          >
+            {t('auth.loginLink')}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

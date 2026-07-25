@@ -2,16 +2,7 @@ import { type LucideIcon, MapPin } from 'lucide-react';
 import { createElement, useEffect, useRef, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { useTranslation } from 'react-i18next';
-
-declare global {
-  interface Window {
-    // Kakao doesn't publish official types; scoped `any` here, nowhere else.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    kakao: any;
-  }
-}
-
-const KAKAO_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
+import { KAKAO_KEY, loadKakaoSdk } from '@utils/kakaoSdk';
 
 // The initial view opens on Suyeong-gu (the sample data's heart) at a
 // neighborhood-scale zoom, rather than fitting all of Busan.
@@ -28,25 +19,6 @@ const MAX_ZOOM_OUT_LEVEL = 10;
 // Housing pins closer than this (in screen pixels) merge into a cluster
 // bubble; clicking the cluster filters the list to its members.
 const CLUSTER_PIXEL_RADIUS = 64;
-
-let kakaoLoadPromise: Promise<void> | null = null;
-
-function loadKakaoSdk(): Promise<void> {
-  if (kakaoLoadPromise) return kakaoLoadPromise;
-  kakaoLoadPromise = new Promise((resolve, reject) => {
-    if (window.kakao?.maps) {
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&autoload=false&libraries=services`;
-    script.async = true;
-    script.onload = () => window.kakao.maps.load(() => resolve());
-    script.onerror = () => reject(new Error('Kakao Maps SDK failed to load'));
-    document.head.appendChild(script);
-  });
-  return kakaoLoadPromise;
-}
 
 export interface HousingMarker {
   kind: 'housing';
@@ -122,14 +94,14 @@ export interface DensityRegion {
   centroidLng: number;
 }
 
-// Heat ramp (cool marine -> gold -> terracotta), sampled into a 256-entry
+// Heat ramp (cool lavender -> violet -> hot gold), sampled into a 256-entry
 // lookup for colorizing the grayscale heat accumulation.
 const HEAT_STOPS: [number, string][] = [
-  [0.0, 'rgba(79, 127, 146, 0)'],
-  [0.25, 'rgba(79, 127, 146, 0.26)'],
-  [0.55, 'rgba(217, 164, 65, 0.34)'],
-  [0.8, 'rgba(226, 89, 46, 0.4)'],
-  [1.0, 'rgba(192, 72, 36, 0.46)'],
+  [0.0, 'rgba(138, 118, 201, 0)'],
+  [0.25, 'rgba(138, 118, 201, 0.26)'],
+  [0.55, 'rgba(109, 74, 255, 0.34)'],
+  [0.8, 'rgba(217, 164, 65, 0.4)'],
+  [1.0, 'rgba(201, 138, 31, 0.46)'],
 ];
 
 let heatLutCache: Uint8ClampedArray | null = null;
@@ -160,6 +132,8 @@ interface KakaoMapProps {
   onMapClick?: () => void;
   /** Fired when a cluster bubble is clicked, with its member housing ids. */
   onClusterClick?: (ids: number[]) => void;
+  /** The clicked cluster's member ids — its bubble renders highlighted while the list is filtered to it. */
+  activeClusterIds?: number[] | null;
   /** Fired after every pan/zoom settles, with the visible bounds. */
   onBoundsChange?: (bounds: MapBounds) => void;
   /** Population-density choropleth polygons, drawn beneath all pins. */
@@ -204,6 +178,16 @@ function housingTagScale(level: number): number {
 
 function formatTrailDistance(meters: number): string {
   return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
+}
+
+// Kakao derives the map 'click' from the mousedown/mouseup pair on the
+// container, so EVERY clickable overlay must stop the whole pointer
+// sequence — otherwise the synthesized map click also fires and clears the
+// selection/cluster state the overlay's own handler just set.
+function stopPointerSequence(el: HTMLElement) {
+  for (const eventName of ['mousedown', 'mouseup', 'click', 'touchstart', 'touchend']) {
+    el.addEventListener(eventName, (e) => e.stopPropagation());
+  }
 }
 
 /** Cumulative arc-length (meters) at each point of a path — equirectangular approx, fine at neighborhood scale. */
@@ -256,6 +240,7 @@ export function KakaoMap({
   onClusterClick,
   onBoundsChange,
   densityRegions = null,
+  activeClusterIds = null,
   fitKey,
   background = false,
   staticView = false,
@@ -289,7 +274,7 @@ export function KakaoMap({
 
   const validMarkers = markers.filter(isValidLatLng);
   const showEmptyPlaceholder = !background && validMarkers.length === 0;
-  const drawKey = JSON.stringify({ markers, trails, circle });
+  const drawKey = JSON.stringify({ markers, trails, circle, activeClusterIds });
 
   // Mount the map instance once. Never re-run for data changes.
   useEffect(() => {
@@ -435,13 +420,13 @@ export function KakaoMap({
         const bubble = document.createElement('div');
         bubble.className = `flex items-center gap-1.5 rounded-full border-2 px-3.5 py-2 font-mono text-sm font-bold whitespace-nowrap shadow-lg transition-colors ${
           m.selected
-            ? 'border-terracotta bg-terracotta text-white'
-            : 'border-slate-light/40 bg-white text-marine hover:border-terracotta/60'
+            ? 'border-violet bg-violet text-white'
+            : 'border-slate-light/40 bg-white text-plum hover:border-violet/60'
         }`;
         if (m.rank !== undefined && m.rank <= 3) {
           const badge = document.createElement('span');
           badge.className = `flex size-5 items-center justify-center rounded-full text-[11px] text-white ${
-            m.rank === 1 ? 'bg-gold' : m.selected ? 'bg-white/30' : 'bg-marine'
+            m.rank === 1 ? 'bg-gold' : m.selected ? 'bg-white/30' : 'bg-plum'
           }`;
           badge.textContent = String(m.rank);
           bubble.appendChild(badge);
@@ -454,27 +439,37 @@ export function KakaoMap({
         // tip anchored to the exact coordinate — the classic map-pin tail.
         const tail = document.createElement('div');
         tail.className = `-mt-1.5 size-3 rotate-45 border-r-2 border-b-2 ${
-          m.selected ? 'border-terracotta bg-terracotta' : 'border-slate-light/40 bg-white'
+          m.selected ? 'border-violet bg-violet' : 'border-slate-light/40 bg-white'
         }`;
 
         wrap.appendChild(bubble);
         wrap.appendChild(tail);
         if (m.label) wrap.title = m.label;
+        stopPointerSequence(wrap);
         wrap.addEventListener('click', () => onMarkerClickRef.current?.(m));
         addOverlay(m.lat, m.lng, wrap, 1, 30);
       } else {
         const memberIds = cluster.members.map((m) => m.id);
         const containsSelected = cluster.members.some((m) => m.selected);
+        const isActive =
+          activeClusterIds != null &&
+          memberIds.length === activeClusterIds.length &&
+          memberIds.every((id) => activeClusterIds.includes(id));
         const wrap = document.createElement('div');
         wrap.style.transform = `scale(${tagScale})`;
         wrap.style.transformOrigin = 'center';
 
         const el = document.createElement('div');
         el.className = `flex size-11 cursor-pointer items-center justify-center rounded-full border-2 border-white font-mono text-sm font-bold shadow-lg transition-transform hover:scale-110 ${
-          containsSelected ? 'bg-terracotta text-white' : 'bg-marine text-mist'
+          isActive
+            ? 'bg-violet text-white ring-4 ring-violet/30'
+            : containsSelected
+              ? 'bg-violet text-white'
+              : 'bg-plum text-lilac'
         }`;
         el.textContent = String(cluster.members.length);
         el.title = cluster.members.map((m) => m.label).join(', ');
+        stopPointerSequence(wrap);
         el.addEventListener('click', () => onClusterClickRef.current?.(memberIds));
 
         wrap.appendChild(el);
@@ -490,7 +485,7 @@ export function KakaoMap({
       .map((trail) => ({ trail, end: trail.path[trail.path.length - 1] }));
 
     for (const m of pois) {
-      const color = m.color ?? '#8a969a';
+      const color = m.color ?? '#948da6';
       const size = m.highlighted ? 30 : 22;
 
       const wrap = document.createElement('div');
@@ -498,11 +493,11 @@ export function KakaoMap({
 
       // A colored anchor with its category icon reads against the map's own
       // clutter far better than a flat dot; the highlighted (nearest) match
-      // gets a solid terracotta ring and the animated trail, so it stands
+      // gets a solid violet ring and the animated trail, so it stands
       // out from the plain same-category anchors around it.
       const pin = document.createElement('div');
       pin.className = `flex items-center justify-center rounded-full shadow-lg border-2 ${
-        m.highlighted ? 'border-terracotta' : 'border-white'
+        m.highlighted ? 'border-violet' : 'border-white'
       }`;
       pin.style.width = `${size}px`;
       pin.style.height = `${size}px`;
@@ -532,7 +527,7 @@ export function KakaoMap({
         wrap.style.position = 'relative';
         const tooltip = document.createElement('div');
         tooltip.className =
-          'absolute bottom-full left-1/2 mb-1.5 hidden -translate-x-1/2 items-center gap-1.5 rounded-full bg-marine px-2.5 py-1 font-mono text-xs whitespace-nowrap text-mist shadow-lg';
+          'absolute bottom-full left-1/2 mb-1.5 hidden -translate-x-1/2 items-center gap-1.5 rounded-full bg-plum px-2.5 py-1 font-mono text-xs whitespace-nowrap text-lilac shadow-lg';
         const name = m.label ? `${m.label} · ` : '';
         tooltip.textContent = `${name}${formatTrailDistance(matchedTrail.distanceMeters)} · ${t('units.walkMinutes', { minutes: matchedTrail.durationMinutes })}`;
         wrap.appendChild(tooltip);
@@ -548,13 +543,7 @@ export function KakaoMap({
         wrap.title = m.label;
       }
 
-      // POI pins are informational. Kakao derives its map 'click' from the
-      // mousedown/mouseup pair on the container, so every pointer event in
-      // the sequence must be stopped or the click falls through and clears
-      // the selection.
-      for (const eventName of ['mousedown', 'mouseup', 'click', 'touchstart', 'touchend']) {
-        wrap.addEventListener(eventName, (e) => e.stopPropagation());
-      }
+      stopPointerSequence(wrap);
 
       wrap.appendChild(pin);
       wrap.appendChild(tail);
@@ -566,10 +555,10 @@ export function KakaoMap({
         center: new kakao.maps.LatLng(circle.lat, circle.lng),
         radius: circle.radiusMeters,
         strokeWeight: 2,
-        strokeColor: '#e2592e',
+        strokeColor: '#6d4aff',
         strokeOpacity: 0.7,
         strokeStyle: 'solid',
-        fillColor: '#e2592e',
+        fillColor: '#6d4aff',
         fillOpacity: 0.06,
       });
       radiusCircle.setMap(map);
@@ -579,7 +568,7 @@ export function KakaoMap({
     for (const trail of trails) {
       if (trail.path.length < 2) continue;
       const kakaoPath = trail.path.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
-      const lineColor = trail.color ?? '#c04824';
+      const lineColor = trail.color ?? '#5636d6';
       const subtle = trail.emphasis === 'subtle';
 
       const polyline = new kakao.maps.Polyline({
@@ -597,7 +586,7 @@ export function KakaoMap({
       }
 
       const dot = document.createElement('div');
-      dot.className = 'size-2.5 rounded-full shadow';
+      dot.className = 'pointer-events-none size-2.5 rounded-full shadow';
       dot.style.backgroundColor = lineColor;
       const dotOverlay = new kakao.maps.CustomOverlay({
         position: kakaoPath[0],
@@ -778,9 +767,9 @@ export function KakaoMap({
 
   const placeholder = (message: string, detail: string) => (
     <div
-      className={`flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-slate-light/50 bg-mist-dim p-8 text-center ${className}`}
+      className={`flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-slate-light/50 bg-lilac-dim p-8 text-center ${className}`}
     >
-      <p className='font-medium text-marine'>{message}</p>
+      <p className='font-medium text-plum'>{message}</p>
       <p className='text-sm text-slate'>{detail}</p>
     </div>
   );

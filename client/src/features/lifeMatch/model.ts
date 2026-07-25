@@ -2,14 +2,7 @@ import type { HousingType, LifestylePreference } from '@shared';
 import { POI_ICON_CATEGORY_NAMES, type PoiIconKey } from '@constants/poi';
 
 export type RoutineKey =
-  | "commute"
-  | "focus"
-  | "cafe"
-  | "exercise"
-  | "dining"
-  | "culture"
-  | "walking"
-  | "homeRest";
+  'commute' | 'focus' | 'cafe' | 'exercise' | 'dining' | 'culture' | 'walking' | 'homeRest';
 
 export type WeeklyRoutine = Record<RoutineKey, number>;
 
@@ -19,7 +12,7 @@ export interface LifeProfile {
   minAreaM2: string;
   minRoomCount: string;
   district: string;
-  type: "" | HousingType;
+  type: '' | HousingType;
   elevatorRequired: boolean;
   parkingRequired: boolean;
   hasVehicle: boolean;
@@ -34,44 +27,80 @@ export interface LifeStats {
 }
 
 export const ROUTINE_KEYS: RoutineKey[] = [
-  "commute",
-  "focus",
-  "cafe",
-  "exercise",
-  "dining",
-  "culture",
-  "walking",
-  "homeRest",
+  'commute',
+  'focus',
+  'cafe',
+  'exercise',
+  'dining',
+  'culture',
+  'walking',
+  'homeRest',
 ];
 
 export const DEFAULT_LIFE_PROFILE: LifeProfile = {
-  depositMaxManwon: "3000",
-  rentMaxManwon: "35",
-  minAreaM2: "26",
-  minRoomCount: "1",
-  district: "",
-  type: "",
+  depositMaxManwon: '3000',
+  rentMaxManwon: '35',
+  minAreaM2: '26',
+  minRoomCount: '1',
+  district: '',
+  type: '',
   elevatorRequired: false,
   parkingRequired: false,
   hasVehicle: false,
-  destinationId: "cityHall",
-  destinationFrequency: "5",
+  destinationId: 'cityHall',
+  destinationFrequency: '5',
 };
 
 export const DESTINATIONS = {
-  cityHall: { ko: "부산시청", en: "Busan City Hall", lat: 35.1798, lng: 129.075 },
-  seomyeon: { ko: "서면역", en: "Seomyeon Station", lat: 35.1578, lng: 129.0592 },
-  centum: { ko: "센텀시티역", en: "Centum City Station", lat: 35.1691, lng: 129.1317 },
-  busanStation: { ko: "부산역", en: "Busan Station", lat: 35.1151, lng: 129.0414 },
+  cityHall: { ko: '부산시청', en: 'Busan City Hall', lat: 35.1798, lng: 129.075 },
+  seomyeon: { ko: '서면역', en: 'Seomyeon Station', lat: 35.1578, lng: 129.0592 },
+  centum: { ko: '센텀시티역', en: 'Centum City Station', lat: 35.1691, lng: 129.1317 },
+  busanStation: { ko: '부산역', en: 'Busan Station', lat: 35.1151, lng: 129.0414 },
 } as const;
 
 export type DestinationId = keyof typeof DESTINATIONS;
 
-export const ROUTINE_PRESETS: Record<"balanced" | "work" | "active" | "home", WeeklyRoutine> = {
-  balanced: { commute: 4, focus: 3, cafe: 2, exercise: 2, dining: 2, culture: 1, walking: 3, homeRest: 4 },
-  work: { commute: 5, focus: 5, cafe: 3, exercise: 1, dining: 2, culture: 0, walking: 1, homeRest: 2 },
-  active: { commute: 4, focus: 2, cafe: 3, exercise: 5, dining: 4, culture: 2, walking: 4, homeRest: 1 },
-  home: { commute: 2, focus: 4, cafe: 1, exercise: 1, dining: 1, culture: 1, walking: 3, homeRest: 6 },
+export const ROUTINE_PRESETS: Record<'balanced' | 'work' | 'active' | 'home', WeeklyRoutine> = {
+  balanced: {
+    commute: 4,
+    focus: 3,
+    cafe: 2,
+    exercise: 2,
+    dining: 2,
+    culture: 1,
+    walking: 3,
+    homeRest: 4,
+  },
+  work: {
+    commute: 5,
+    focus: 5,
+    cafe: 3,
+    exercise: 1,
+    dining: 2,
+    culture: 0,
+    walking: 1,
+    homeRest: 2,
+  },
+  active: {
+    commute: 4,
+    focus: 2,
+    cafe: 3,
+    exercise: 5,
+    dining: 4,
+    culture: 2,
+    walking: 4,
+    homeRest: 1,
+  },
+  home: {
+    commute: 2,
+    focus: 4,
+    cafe: 1,
+    exercise: 1,
+    dining: 1,
+    culture: 1,
+    walking: 3,
+    homeRest: 6,
+  },
 };
 
 export const DEFAULT_WEEKLY_ROUTINE = ROUTINE_PRESETS.balanced;

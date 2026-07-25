@@ -29,7 +29,7 @@ export type CategoryWeights = Record<string, number>;
 
 /** Generic anchor for any real category outside the 6 curated icon keys (most of the ~40 real values). */
 export const POI_FALLBACK_ICON: LucideIcon = MapPin;
-export const POI_FALLBACK_COLOR = '#8a969a'; // slate-light
+export const POI_FALLBACK_COLOR = '#948da6'; // slate-light
 
 export const FOOD_GROUP_CATEGORY_NAMES = [
   '백반/한정식',
@@ -54,14 +54,14 @@ export const POI_ICON_CATEGORY_NAMES: Record<PoiIconKey, string[]> = {
 };
 
 // A small qualitative "map pin" palette, distinct from (but harmonious
-// with) the core marine/mist/terracotta/gold/slate theme — these need to
+// with) the core plum/lilac/violet/gold/slate theme — these need to
 // stay visually distinguishable as dots on a map, which 5 shades of one
 // hue can't do. See docs/DESIGN.md.
 export const POI_ICON_COLORS: Record<PoiIconKey, string> = {
-  cafe: '#e2592e', // terracotta
+  cafe: '#e2592e', // coral
   food: '#d9a441', // gold
   convenienceStore: '#3f7fb0', // blue
-  gym: '#6b4fa0', // violet
+  gym: '#c2508a', // rose
   pharmacy: '#3f9d72', // green
   gasStation: '#a8642f', // amber
 };

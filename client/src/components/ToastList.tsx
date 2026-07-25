@@ -3,10 +3,10 @@ import { cn } from '@utils/cn';
 import { AnimatePresence, motion } from 'motion/react';
 
 const DOT_COLOR = {
-  error: 'bg-terracotta',
+  error: 'bg-violet',
   warning: 'bg-gold',
-  success: 'bg-mist/60',
-  info: 'bg-mist/60',
+  success: 'bg-lilac/60',
+  info: 'bg-lilac/60',
 };
 
 export function ToastList() {
@@ -25,7 +25,7 @@ export function ToastList() {
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.2 }}
             onClick={() => removeToast(toast.id)}
-            className='pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-marine px-4 py-3 text-sm text-mist shadow-lg'
+            className='pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-plum px-4 py-3 text-sm text-lilac shadow-lg'
           >
             <span
               aria-hidden

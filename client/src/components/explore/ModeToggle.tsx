@@ -28,7 +28,7 @@ export function ModeToggle({
   ];
 
   return (
-    <div className={cn('flex items-center gap-1 rounded-full bg-mist-dim p-1', className)}>
+    <div className={cn('flex items-center gap-1 rounded-full bg-lilac-dim p-1', className)}>
       {sides.map((side) => {
         const isActive = mode === side.value;
         return (
@@ -39,14 +39,14 @@ export function ModeToggle({
             onClick={() => onChange(side.value)}
             className={cn(
               'relative flex-1 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
-              isActive ? 'text-mist' : 'text-marine/70 hover:bg-marine/10',
+              isActive ? 'text-lilac' : 'text-plum/70 hover:bg-plum/10',
             )}
           >
             {isActive && (
               <motion.span
                 layoutId='mode-toggle-indicator'
                 transition={{ type: 'spring', bounce: 0.18, duration: 0.4 }}
-                className='absolute inset-0 rounded-full bg-marine'
+                className='absolute inset-0 rounded-full bg-plum'
               />
             )}
             <span className='relative z-10'>{side.label}</span>

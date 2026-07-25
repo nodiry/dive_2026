@@ -425,7 +425,7 @@ SQLModel 수정 후 Alembic revision을 추가한다. 공간 컬럼은 GeoAlchem
 
 ### UI 변경
 
-`STYLE_GUIDE.md`의 marine/mist/terracotta 팔레트, 반응형 규칙,
+`STYLE_GUIDE.md`의 plum/lilac/violet 팔레트, 반응형 규칙,
 `HousingCard`와 `TagStrip` 패턴을 우선 재사용한다.
 
 ## 13. 현재 제약과 기술 부채

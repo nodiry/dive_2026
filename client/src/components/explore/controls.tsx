@@ -11,7 +11,7 @@ import { PERSONAS } from '@constants/personas';
 import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
 
 export const inputClass =
-  'rounded-full border border-slate-light/40 bg-white px-3.5 py-1.5 text-sm text-marine placeholder:text-slate-light transition-colors hover:border-slate-light/70';
+  'rounded-full border border-slate-light/40 bg-white px-3.5 py-1.5 text-sm text-plum placeholder:text-slate-light transition-colors hover:border-slate-light/70';
 
 export function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -91,9 +91,7 @@ export function PersonaChips() {
             onClick={() => selectPersona(persona.key)}
             className={cn(
               'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all',
-              isActive
-                ? 'bg-marine text-mist shadow-sm'
-                : 'bg-marine/5 text-marine/80 hover:bg-marine/10',
+              isActive ? 'bg-plum text-lilac shadow-sm' : 'bg-plum/5 text-plum/80 hover:bg-plum/10',
             )}
           >
             <Icon className='size-4' />
@@ -136,8 +134,8 @@ export function CategoryChips() {
             className={cn(
               'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
               isSelected
-                ? 'border-terracotta/40 bg-terracotta/10 text-terracotta-dark shadow-sm'
-                : 'border-slate-light/40 bg-white text-slate hover:border-terracotta/40',
+                ? 'border-violet/40 bg-violet/10 text-violet-dark shadow-sm'
+                : 'border-slate-light/40 bg-white text-slate hover:border-violet/40',
             )}
           >
             <Icon
@@ -152,7 +150,7 @@ export function CategoryChips() {
         <button
           type='button'
           onClick={() => setExpanded((v) => !v)}
-          className='flex items-center gap-1 rounded-full border border-dashed border-slate-light/40 px-3 py-1.5 text-sm font-medium text-slate hover:border-terracotta/40 hover:text-terracotta-dark'
+          className='flex items-center gap-1 rounded-full border border-dashed border-slate-light/40 px-3 py-1.5 text-sm font-medium text-slate hover:border-violet/40 hover:text-violet-dark'
         >
           {expanded ? (
             <>
@@ -194,7 +192,7 @@ export function WeightSliders() {
               className='size-2 shrink-0 rounded-full'
               style={{ backgroundColor: poiColorForCategoryName(categoryName) }}
             />
-            <span className='w-16 shrink-0 truncate text-xs font-medium text-marine'>{label}</span>
+            <span className='w-16 shrink-0 truncate text-xs font-medium text-plum'>{label}</span>
             <input
               type='range'
               min={10}

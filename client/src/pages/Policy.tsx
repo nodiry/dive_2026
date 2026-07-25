@@ -1,7 +1,10 @@
-import { Building2, CircleParking, Database, MapPin, MoveUp, TriangleAlert } from "lucide-react";
 import type { HousingSummary, HousingType } from '@shared';
-import { useMemo } from "react";
-import { useLocale } from "../lib/i18n/localeContext";
+import { Database } from 'lucide-react';
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { CategoryBar } from '@components/CategoryBar';
+import { Reveal } from '@components/Reveal';
+import { StatTile } from '@components/StatTile';
 import { useHousingSearch } from '@hooks/useHousing';
 
 function percent(part: number, total: number) {
@@ -14,7 +17,7 @@ function yearOf(housing: HousingSummary) {
 }
 
 export function Policy() {
-  const { t } = useLocale();
+  const { t } = useTranslation();
   const housing = useHousingSearch({}, true);
   const metrics = useMemo(() => {
     const rows = housing.data ?? [];
@@ -35,99 +38,128 @@ export function Policy() {
     };
   }, [housing.data]);
 
-  if (housing.isPending) return <p className="mx-auto max-w-5xl px-6 py-16 text-slate">{t.policy.loading}</p>;
-  if (housing.isError) return <p className="mx-auto max-w-5xl px-6 py-16 text-terracotta-dark">{t.policy.error}</p>;
+  if (housing.isPending || housing.isError) {
+    return (
+      <div className='px-6 py-10 sm:px-8'>
+        <p className='rounded-2xl border-2 border-dashed border-slate-light/40 bg-lilac-dim p-8 text-center text-sm text-slate'>
+          {housing.isError ? t('policy.error') : t('policy.loading')}
+        </p>
+      </div>
+    );
+  }
 
   const total = metrics.rows.length;
-  const cards = [
-    [t.policy.totalProjects, total, Database],
-    [t.policy.geocodedCoverage, `${percent(metrics.geocoded, total)}%`, MapPin],
-    [t.policy.elevatorGap, metrics.elevatorGap, MoveUp],
-    [t.policy.parkingGap, metrics.parkingGap, CircleParking],
-  ] as const;
   const readiness = [
-    [t.policy.missingLocation, total - metrics.geocoded, "bg-terracotta"],
-    [t.policy.noElevator, metrics.elevatorGap, "bg-gold"],
-    [t.policy.noParking, metrics.parkingGap, "bg-marine-light"],
-    [t.policy.olderStock, metrics.olderStock, "bg-slate"],
+    [t('policy.missingLocation'), total - metrics.geocoded, 'bg-violet'],
+    [t('policy.noElevator'), metrics.elevatorGap, 'bg-gold'],
+    [t('policy.noParking'), metrics.parkingGap, 'bg-plum-light'],
+    [t('policy.olderStock'), metrics.olderStock, 'bg-slate'],
   ] as const;
+  const actions = [t('policy.action1'), t('policy.action2'), t('policy.action3')];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <header className="max-w-3xl">
-        <h1 className="text-4xl font-black tracking-tight text-marine sm:text-5xl">{t.policy.title}</h1>
-        <p className="mt-4 text-base leading-7 text-slate">{t.policy.intro}</p>
-        <p className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-light/30 bg-white/65 px-4 py-3 text-xs text-slate">
-          <Database className="h-4 w-4 text-terracotta" /> {t.policy.actualDataNote}
+    <div className='px-6 py-10 sm:px-8'>
+      <Reveal>
+        <p className='font-mono text-sm tracking-wide text-slate uppercase'>
+          {t('policy.navLabel')}
         </p>
-      </header>
+        <h1 className='mt-1 text-3xl font-extrabold tracking-tight text-plum'>
+          {t('policy.title')}
+        </h1>
+        <p className='mt-2 max-w-2xl text-sm text-slate'>{t('policy.intro')}</p>
+        <p className='mt-3 inline-flex items-center gap-2 rounded-full border border-slate-light/30 bg-white px-4 py-2 text-xs text-slate'>
+          <Database className='size-4 shrink-0 text-violet' />
+          {t('policy.actualDataNote')}
+        </p>
+      </Reveal>
 
-      <section className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map(([label, value, Icon]) => (
-          <article key={label} className="rounded-3xl border border-slate-light/30 bg-white/70 p-6 shadow-sm">
-            <Icon className="h-5 w-5 text-terracotta" />
-            <strong className="mt-6 block font-mono text-3xl text-marine">{value}</strong>
-            <span className="mt-1 block text-sm text-slate">{label}</span>
-          </article>
-        ))}
-      </section>
+      <Reveal delay={0.05}>
+        <div className='mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4'>
+          <StatTile
+            label={t('policy.totalProjects')}
+            value={String(total)}
+          />
+          <StatTile
+            label={t('policy.geocodedCoverage')}
+            value={`${percent(metrics.geocoded, total)}%`}
+            accent
+          />
+          <StatTile
+            label={t('policy.elevatorGap')}
+            value={String(metrics.elevatorGap)}
+          />
+          <StatTile
+            label={t('policy.parkingGap')}
+            value={String(metrics.parkingGap)}
+          />
+        </div>
+      </Reveal>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-3xl border border-slate-light/30 bg-white/70 p-6 sm:p-8">
-          <div className="flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-terracotta" />
-            <h2 className="text-xl font-bold text-marine">{t.policy.stockByType}</h2>
-          </div>
-          <div className="mt-7 space-y-5">
-            {(Object.entries(metrics.byType) as [HousingType, number][]).map(([type, count]) => (
-              <div key={type}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-marine">{t.housingType[type]}</span>
-                  <strong className="font-mono">{count}</strong>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-mist-dim">
-                  <div className="h-full rounded-full bg-terracotta" style={{ width: `${percent(count, total)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-3xl bg-marine p-6 text-mist sm:p-8">
-          <div className="flex items-start gap-3">
-            <TriangleAlert className="mt-1 h-5 w-5 text-gold" />
-            <div>
-              <h2 className="text-xl font-bold">{t.policy.readinessTitle}</h2>
-              <p className="mt-1 text-sm leading-6 text-mist/65">{t.policy.readinessDescription}</p>
+      <div className='mt-6 grid gap-6 lg:grid-cols-2'>
+        <Reveal delay={0.1}>
+          <div className='h-full rounded-2xl border border-slate-light/30 bg-white p-6'>
+            <div className='mb-3 flex items-baseline justify-between'>
+              <span className='font-mono text-xs tracking-wide text-slate uppercase'>
+                {t('policy.stockByType')}
+              </span>
+              <span className='font-mono text-xs text-slate'>{total}</span>
+            </div>
+            <div className='space-y-2.5'>
+              {(Object.entries(metrics.byType) as [HousingType, number][]).map(([type, count]) => (
+                <CategoryBar
+                  key={type}
+                  label={t(`housingType.${type}`)}
+                  count={count}
+                  max={total}
+                  labelClass='w-28'
+                />
+              ))}
             </div>
           </div>
-          <div className="mt-7 grid gap-3 sm:grid-cols-2">
-            {readiness.map(([label, count, color]) => (
-              <div key={label} className="rounded-2xl bg-white/8 p-4">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span>{label}</span>
-                  <strong className="font-mono">{count}</strong>
-                </div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <div className={`h-full rounded-full ${color}`} style={{ width: `${percent(count, total)}%` }} />
-                </div>
-              </div>
-            ))}
+        </Reveal>
+
+        <Reveal delay={0.15}>
+          <div className='h-full rounded-2xl border border-slate-light/30 bg-white p-6'>
+            <span className='font-mono text-xs tracking-wide text-slate uppercase'>
+              {t('policy.readinessTitle')}
+            </span>
+            <p className='mt-1.5 mb-3 text-xs text-slate-light'>
+              {t('policy.readinessDescription')}
+            </p>
+            <div className='space-y-2.5'>
+              {readiness.map(([label, count, color]) => (
+                <CategoryBar
+                  key={label}
+                  label={label}
+                  count={count}
+                  max={total}
+                  barClass={color}
+                  labelClass='w-36'
+                />
+              ))}
+            </div>
           </div>
-        </section>
+        </Reveal>
       </div>
 
-      <section className="mt-8 rounded-3xl border border-slate-light/30 bg-white/70 p-6 sm:p-8">
-        <h2 className="text-xl font-bold text-marine">{t.policy.actionTitle}</h2>
-        <ol className="mt-5 grid gap-4 md:grid-cols-3">
-          {t.policy.actions.map((action, index) => (
-            <li key={action} className="rounded-2xl bg-mist p-5 text-sm leading-6 text-slate">
-              <span className="mb-3 block font-mono text-xs text-terracotta">0{index + 1}</span>
-              {action}
-            </li>
-          ))}
-        </ol>
-      </section>
+      <Reveal delay={0.2}>
+        <div className='mt-6 rounded-2xl border border-slate-light/30 bg-white p-6'>
+          <span className='font-mono text-xs tracking-wide text-slate uppercase'>
+            {t('policy.actionTitle')}
+          </span>
+          <ol className='mt-3 grid gap-3 md:grid-cols-3'>
+            {actions.map((action, index) => (
+              <li
+                key={action}
+                className='rounded-2xl bg-lilac p-4 text-sm leading-6 text-slate'
+              >
+                <span className='mb-2 block font-mono text-xs text-violet'>0{index + 1}</span>
+                {action}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </Reveal>
     </div>
   );
 }

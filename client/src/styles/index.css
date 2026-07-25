@@ -2,34 +2,33 @@
 @import 'tailwindcss';
 
 /*
- * Palette grounded in Busan itself, not generic real-estate blue:
- * marine (harbor navy) + mist (pale sea-mist background) + terracotta
- * (Gamcheon-village rooftop orange, the signature accent) + gold (sparse
- * highlight) + slate (secondary text/borders). See PLAN.md for the full
- * design brief.
+ * Palette generated from the dark-purple brand color:
+ * plum (deep purple structure) + lilac (lavender-tinted off-white
+ * background) + violet (the vivid signature accent) + gold (sparse warm
+ * highlight) + slate (purple-grey secondary text/borders).
  */
 @theme {
   --font-sans: 'Pretendard', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
-  --color-marine: #0f2430;
-  --color-marine-light: #1c3a4a;
-  --color-mist: #f2f5f3;
-  --color-mist-dim: #e6ebe8;
-  --color-terracotta: #e2592e;
-  --color-terracotta-dark: #c04824;
+  --color-plum: #261c3b;
+  --color-plum-light: #38295a;
+  --color-lilac: #f5f3f8;
+  --color-lilac-dim: #e9e5f0;
+  --color-violet: #6d4aff;
+  --color-violet-dark: #5636d6;
   --color-gold: #d9a441;
-  --color-slate: #5b6b70;
-  --color-slate-light: #8a969a;
+  --color-slate: #625c72;
+  --color-slate-light: #948da6;
 }
 
 @layer base {
   body {
-    @apply bg-mist text-marine font-sans antialiased;
+    @apply bg-lilac text-plum font-sans antialiased;
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-terracotta;
+    @apply outline-2 outline-offset-2 outline-violet;
   }
 
   /* Thin, rounded scrollbars in theme colors — everywhere, both engines. */
@@ -61,13 +60,13 @@
 
 @layer components {
   .range {
-    @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-mist-dim;
+    @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-lilac-dim;
   }
   .range::-webkit-slider-thumb {
-    @apply size-4 appearance-none rounded-full border-2 border-white bg-terracotta shadow-sm;
+    @apply size-4 appearance-none rounded-full border-2 border-white bg-violet shadow-sm;
   }
   .range::-moz-range-thumb {
-    @apply size-4 rounded-full border-2 border-white bg-terracotta shadow-sm;
+    @apply size-4 rounded-full border-2 border-white bg-violet shadow-sm;
   }
   .range:disabled {
     @apply cursor-default opacity-40;

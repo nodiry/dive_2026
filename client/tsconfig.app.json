@@ -22,6 +22,7 @@
       "@api/*": ["./src/api/*"],
       "@components/*": ["./src/components/*"],
       "@constants/*": ["./src/constants/*"],
+      "@features/*": ["./src/features/*"],
       "@hooks/*": ["./src/hooks/*"],
       "@layout/*": ["./src/layout/*"],
       "@pages/*": ["./src/pages/*"],

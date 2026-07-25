@@ -53,7 +53,7 @@ export function UserMenu({ className }: UserMenuProps) {
       <Link
         to={ROUTES.Login}
         className={cn(
-          'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium text-marine/70 transition-colors hover:bg-marine/10',
+          'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium text-plum/70 transition-colors hover:bg-plum/10',
           className,
         )}
       >
@@ -81,7 +81,7 @@ export function UserMenu({ className }: UserMenuProps) {
         aria-expanded={open}
         aria-haspopup='menu'
         onClick={toggleOpen}
-        className='flex items-center gap-1.5 rounded-full border border-slate-light/40 bg-white px-3.5 py-1.5 text-sm font-medium text-marine transition-colors hover:border-terracotta/40'
+        className='flex items-center gap-1.5 rounded-full border border-slate-light/40 bg-white px-3.5 py-1.5 text-sm font-medium text-plum transition-colors hover:border-violet/40'
       >
         <UserIcon className='size-4 text-slate-light' />
         <span className='max-w-24 truncate'>{user.username}</span>
@@ -103,7 +103,7 @@ export function UserMenu({ className }: UserMenuProps) {
                 setOpen(false);
                 showSuccess(t('auth.logoutSuccess'));
               }}
-              className='flex w-full items-center gap-2 rounded-full px-3 py-1.5 text-left text-sm text-slate transition-colors hover:bg-mist hover:text-terracotta-dark'
+              className='flex w-full items-center gap-2 rounded-full px-3 py-1.5 text-left text-sm text-slate transition-colors hover:bg-lilac hover:text-violet-dark'
             >
               <LogOut className='size-4' />
               {t('nav.logout')}

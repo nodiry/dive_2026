@@ -104,6 +104,11 @@ export interface DensityRegion {
   centroidLng: number;
 }
 
+export interface DistrictBoundary {
+  sggCode: string;
+  rings: number[][][];
+}
+
 // Heat ramp (cool lavender -> violet -> hot gold), sampled into a 256-entry
 // lookup for colorizing the grayscale heat accumulation.
 const HEAT_STOPS: [number, string][] = [
@@ -148,6 +153,8 @@ interface KakaoMapProps {
   onBoundsChange?: (bounds: MapBounds) => void;
   /** Population-density choropleth polygons, drawn beneath all pins. */
   densityRegions?: DensityRegion[] | null;
+  /** Selected 구/군 outline, hidden when no district filter is active. */
+  districtBoundary?: DistrictBoundary | null;
   /** Bump this (e.g. on a fresh submit) to refit the viewport to `markers`. Hover-only changes should NOT bump it. */
   fitKey?: string | number;
   /**
@@ -258,6 +265,7 @@ export function KakaoMap({
   onClusterClick,
   onBoundsChange,
   densityRegions = null,
+  districtBoundary = null,
   activeClusterIds = null,
   fitKey,
   background = false,
@@ -771,6 +779,48 @@ export function KakaoMap({
     ctx.putImageData(image, 0, 0);
     canvas.style.opacity = '1';
   }, [status, densityRegions, viewVersion]);
+
+  // Selected 구/군 outline. A white casing keeps the violet line legible
+  // over both road labels and the optional density heat layer.
+  useEffect(() => {
+    const map = mapObjRef.current;
+    if (!map || status !== 'ready' || !districtBoundary) return;
+    const { kakao } = window;
+    const lines: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any -- Kakao doesn't publish official types.
+
+    for (const ring of districtBoundary.rings) {
+      const path = ring
+        .filter(
+          (point) => point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1]),
+        )
+        .map(([lat, lng]) => new kakao.maps.LatLng(lat, lng));
+      if (path.length < 3) continue;
+
+      const casing = new kakao.maps.Polyline({
+        path,
+        strokeWeight: 7,
+        strokeColor: '#ffffff',
+        strokeOpacity: 0.9,
+        strokeStyle: 'solid',
+      });
+      const outline = new kakao.maps.Polyline({
+        path,
+        strokeWeight: 4,
+        strokeColor: '#6d4aff',
+        strokeOpacity: 1,
+        strokeStyle: 'solid',
+      });
+      casing.setMap(map);
+      outline.setMap(map);
+      casing.setZIndex?.(7);
+      outline.setZIndex?.(8);
+      lines.push(casing, outline);
+    }
+
+    return () => {
+      for (const line of lines) line.setMap(null);
+    };
+  }, [status, districtBoundary]);
 
   // "You are here" indicator — its own effect (not folded into the
   // marker/cluster redraw) so a geolocation ping doesn't force clusters to

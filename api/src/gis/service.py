@@ -6,7 +6,7 @@ from sqlmodel import cast, col, func
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.gis.models import AdminBoundary
-from src.gis.schemas import DistrictDensity
+from src.gis.schemas import DistrictBoundary, DistrictDensity
 
 SIMPLIFY_TOLERANCE_DEG = 0.0004
 
@@ -21,6 +21,29 @@ def _rings_from_geojson(raw: str) -> list[list[list[float]]]:
         outer = polygon[0]
         rings.append([[lat, lng] for lng, lat in outer])
     return rings
+
+
+async def list_boundaries(session: AsyncSession) -> list[DistrictBoundary]:
+    geom_as_geometry = cast(col(AdminBoundary.geom), Geometry())
+    unified_geom = func.ST_UnaryUnion(func.ST_Collect(geom_as_geometry))
+    stmt = (
+        sa_select(
+            col(AdminBoundary.sgg_code),
+            func.ST_AsGeoJSON(
+                func.ST_SimplifyPreserveTopology(unified_geom, SIMPLIFY_TOLERANCE_DEG)
+            ).label("geojson"),
+        )
+        .where(col(AdminBoundary.sgg_code).is_not(None))
+        .group_by(col(AdminBoundary.sgg_code))
+        .order_by(col(AdminBoundary.sgg_code))
+    )
+
+    rows = (await session.execute(stmt)).all()  # ty: ignore[deprecated] -- Row tuples wanted, exec() would scalar-collapse
+    return [
+        DistrictBoundary(sgg_code=sgg_code, rings=_rings_from_geojson(geojson))
+        for sgg_code, geojson in rows
+        if sgg_code and geojson
+    ]
 
 
 async def list_density(session: AsyncSession) -> list[DistrictDensity]:

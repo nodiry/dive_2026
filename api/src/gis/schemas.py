@@ -10,3 +10,8 @@ class DistrictDensity(ApiModel):
     centroid_lat: float
     centroid_lng: float
     rings: list[list[list[float]]]
+
+
+class DistrictBoundary(ApiModel):
+    sgg_code: str
+    rings: list[list[list[float]]]

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   type DensityRegion,
+  type DistrictBoundary,
   KakaoMap,
   type MapBounds,
   type MapCircle,
@@ -21,6 +22,7 @@ interface MapShellProps {
   activeClusterIds?: number[] | null;
   onBoundsChange?: (bounds: MapBounds) => void;
   densityRegions?: DensityRegion[] | null;
+  districtBoundary?: DistrictBoundary | null;
   controlsRef?: React.RefObject<MapControls | null>;
   /** The visitor's own geolocated position — rendered as a pulsing "you are here" dot. */
   userLocation?: { lat: number; lng: number } | null;
@@ -46,6 +48,7 @@ export function MapShell({
   activeClusterIds,
   onBoundsChange,
   densityRegions,
+  districtBoundary,
   controlsRef,
   userLocation,
   fitKey,
@@ -66,6 +69,7 @@ export function MapShell({
         activeClusterIds={activeClusterIds}
         onBoundsChange={onBoundsChange}
         densityRegions={densityRegions}
+        districtBoundary={districtBoundary}
         controlsRef={controlsRef}
         userLocation={userLocation}
         fitKey={fitKey}

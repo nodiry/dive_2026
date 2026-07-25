@@ -234,6 +234,13 @@ export const DistrictDensity = z.object({
 });
 export type DistrictDensity = z.infer<typeof DistrictDensity>;
 
+/** A 구/군 outline dissolved from its 법정동 polygons. */
+export const DistrictBoundary = z.object({
+  sggCode: z.string(),
+  rings: z.array(z.array(z.array(z.number()))),
+});
+export type DistrictBoundary = z.infer<typeof DistrictBoundary>;
+
 export const User = z.object({
   id: z.number(),
   username: z.string(),

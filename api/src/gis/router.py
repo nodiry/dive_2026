@@ -2,9 +2,14 @@ from fastapi import APIRouter
 
 from src.database import SessionDep
 from src.gis import service as gis_service
-from src.gis.schemas import DistrictDensity
+from src.gis.schemas import DistrictBoundary, DistrictDensity
 
 router = APIRouter()
+
+
+@router.get("/boundaries", response_model=list[DistrictBoundary])
+async def get_district_boundaries(session: SessionDep) -> list[DistrictBoundary]:
+    return await gis_service.list_boundaries(session)
 
 
 @router.get("/density", response_model=list[DistrictDensity])

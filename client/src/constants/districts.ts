@@ -21,6 +21,26 @@ export const DISTRICT_CENTERS: Record<District, { lat: number; lng: number }> = 
   해운대구: { lat: 35.1631, lng: 129.1636 },
 };
 
+/** 시군구 코드 used to match a selected filter to the dissolved GIS boundary. */
+export const DISTRICT_CODES: Record<District, string> = {
+  강서구: '26440',
+  금정구: '26410',
+  기장군: '26710',
+  남구: '26290',
+  동구: '26170',
+  동래구: '26260',
+  부산진구: '26230',
+  북구: '26320',
+  사상구: '26530',
+  사하구: '26380',
+  서구: '26140',
+  수영구: '26500',
+  연제구: '26470',
+  영도구: '26200',
+  중구: '26110',
+  해운대구: '26350',
+};
+
 /** Focus point when the district filter is cleared back to "전체" — Seomyeon,
  * Busan's commercial core, reads better as a landing view than the
  * geographic center of Busan (mostly empty hillside). */

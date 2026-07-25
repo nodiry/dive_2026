@@ -19,10 +19,15 @@ import type {
   PoiMarker,
 } from '@components/KakaoMap';
 import { TagStrip } from '@components/TagStrip';
-import { ALL_DISTRICTS_FOCUS, DISTRICT_CENTERS, type District } from '@constants/districts';
+import {
+  ALL_DISTRICTS_FOCUS,
+  DISTRICT_CENTERS,
+  DISTRICT_CODES,
+  type District,
+} from '@constants/districts';
 import { poiCategoryLabel, poiColorForCategoryName, poiIconForCategoryName } from '@constants/poi';
 import { useDebouncedValue } from '@hooks/useDebouncedValue';
-import { useDistrictDensity } from '@hooks/useDistrictDensity';
+import { useDistrictBoundaries, useDistrictDensity } from '@hooks/useDistrictDensity';
 import { useHousingSearch } from '@hooks/useHousing';
 import { useLifestyleRecommendation } from '@hooks/useRecommendation';
 import { useSavedHousing } from '@hooks/useSaved';
@@ -94,6 +99,12 @@ export function Explore() {
   const densityMode = useExploreStore((s) => s.densityMode);
   const toggleDensityMode = useExploreStore((s) => s.toggleDensityMode);
   const { data: densityRegions } = useDistrictDensity(densityMode);
+  const { data: districtBoundaries } = useDistrictBoundaries(Boolean(filters.district));
+  const districtBoundary = filters.district
+    ? (districtBoundaries?.find(
+        (boundary) => boundary.sggCode === DISTRICT_CODES[filters.district as District],
+      ) ?? null)
+    : null;
 
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [clusterIds, setClusterIds] = useState<number[] | null>(null);
@@ -339,6 +350,7 @@ export function Explore() {
       activeClusterIds={clusterIds}
       onBoundsChange={setMapBounds}
       densityRegions={densityMode ? (densityRegions ?? null) : null}
+      districtBoundary={districtBoundary}
       controlsRef={mapControlsRef}
       userLocation={userLocation}
       fitKey={fitKey}

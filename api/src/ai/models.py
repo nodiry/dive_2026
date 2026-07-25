@@ -23,6 +23,9 @@ class AIMessage(Base, table=True):
     # Housing surfaced by this (model) reply — ids only, rehydrated to full
     # summaries on read so history restores its map widgets.
     housing_ids: list[int] | None = Field(default=None, sa_type=JSON)
+    # Deterministic result metadata from the executed search tool. The
+    # frontend restores alert actions from this instead of parsing AI prose.
+    search_context: dict | None = Field(default=None, sa_type=JSON)
     sent_date: datetime = Field(default_factory=utcnow, sa_type=DateTime(timezone=True), nullable=False)
 
     chat: "AIConversation" = Relationship(back_populates="messages")

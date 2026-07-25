@@ -9,7 +9,17 @@ import { useExploreStore } from '@stores/useExploreStore';
 import { cn } from '@utils/cn';
 
 /** Icon-only ghost nav link with a styled hover/focus tooltip beneath it. */
-function IconNavLink({ to, label, children }: { to: string; label: string; children: ReactNode }) {
+function IconNavLink({
+  to,
+  label,
+  children,
+  className,
+}: {
+  to: string;
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   const location = useLocation();
   const active = location.pathname === to;
 
@@ -19,8 +29,9 @@ function IconNavLink({ to, label, children }: { to: string; label: string; child
       aria-label={label}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'group relative rounded-full p-2 select-none transition-colors',
+        'group relative rounded-full p-1.5 select-none transition-colors sm:p-2',
         active ? 'text-violet' : 'text-slate-light hover:text-violet',
+        className,
       )}
     >
       {children}
@@ -59,13 +70,13 @@ export function NavActions() {
   };
 
   return (
-    <div className='flex shrink-0 items-center gap-2'>
+    <div className='flex min-w-0 shrink items-center gap-0.5 sm:shrink-0 sm:gap-2'>
       <button
         type='button'
         aria-pressed={savedActive}
         onClick={handleSaved}
         className={cn(
-          'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+          'flex items-center gap-1.5 rounded-full p-2 text-sm font-medium transition-colors sm:px-3 sm:py-1.5',
           savedActive ? 'bg-plum text-lilac' : 'text-plum/70 hover:bg-plum/10',
         )}
       >
@@ -76,7 +87,7 @@ export function NavActions() {
         to={ROUTES.LifeMatch}
         aria-current={location.pathname === ROUTES.LifeMatch ? 'page' : undefined}
         className={cn(
-          'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium select-none transition-colors',
+          'flex items-center gap-1.5 rounded-full p-2 text-sm font-medium select-none transition-colors sm:px-3 sm:py-1.5',
           location.pathname === ROUTES.LifeMatch
             ? 'bg-violet/20 text-violet-dark'
             : 'bg-violet/10 text-violet-dark hover:bg-violet/20',
@@ -104,11 +115,12 @@ export function NavActions() {
       <IconNavLink
         to={ROUTES.About}
         label={t('nav.aboutLabel')}
+        className='hidden sm:block'
       >
         <Info className='size-5' />
       </IconNavLink>
       <UserMenu />
-      <LanguageMenu />
+      <LanguageMenu className='hidden sm:block' />
     </div>
   );
 }

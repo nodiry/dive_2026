@@ -4,7 +4,10 @@ from typing import Any
 from google.genai import types
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from src.ai.criteria import criteria_key
+from src.ai.schemas import AlertCriteria, NoMatchContext
 from src.housing import service as housing_service
+from src.housing.districts import is_busan_wide, normalize_district
 from src.housing.schemas import HousingSearchQuery, HousingSummary
 from src.poi import service as poi_service
 from src.recommendation import service as recommendation_service
@@ -91,24 +94,77 @@ def _describe_housing(results: list[HousingSummary]) -> str:
     return f"Found {len(results)} result(s):\n" + "\n".join(lines)
 
 
-async def dispatch_tool(session: AsyncSession, name: str, args: dict[str, Any]) -> tuple[str, list[HousingSummary]]:
+async def dispatch_tool(
+    session: AsyncSession, name: str, args: dict[str, Any]
+) -> tuple[str, list[HousingSummary], NoMatchContext | None]:
     limit = min(int(args.get("limit") or DEFAULT_RESULT_LIMIT), MAX_RESULT_LIMIT)
 
     if name == "search_housing":
-        query = HousingSearchQuery(
+        requested_district = args.get("district")
+        district = normalize_district(requested_district)
+        if requested_district and district is None and not is_busan_wide(requested_district):
+            criteria = AlertCriteria(
+                district=str(requested_district),
+                deposit_max=args.get("depositMax"),
+                built_after=args.get("builtAfter"),
+                room_count=args.get("roomCount"),
+                type=args.get("type"),
+            )
+            context = NoMatchContext(reason="unsupported_region", criteria=criteria)
+            return (
+                f"{requested_district} is outside the supported Busan districts. "
+                "Do not present this as an empty Busan inventory search.",
+                [],
+                context,
+            )
+
+        criteria = AlertCriteria(
+            district=district,
             deposit_max=args.get("depositMax"),
             built_after=args.get("builtAfter"),
             room_count=args.get("roomCount"),
-            district=args.get("district"),
             type=args.get("type"),
         )
+        query = HousingSearchQuery(
+            deposit_max=criteria.deposit_max,
+            built_after=criteria.built_after,
+            room_count=criteria.room_count,
+            district=criteria.district,
+            type=criteria.type,
+        )
         results = (await housing_service.search_housing(session, query))[:limit]
-        return _describe_housing(results), results
+        if results:
+            return _describe_housing(results), results, None
+
+        district_inventory_count = (
+            await housing_service.count_housing_in_district(session, district) if district else None
+        )
+        reason = (
+            "district_inventory_empty"
+            if district is not None and district_inventory_count == 0
+            else "criteria_no_match"
+        )
+        context = NoMatchContext(
+            reason=reason,
+            criteria=criteria,
+            district_inventory_count=district_inventory_count,
+            criteria_key=criteria_key(criteria) if district else None,
+        )
+        if reason == "district_inventory_empty":
+            description = f"No housing inventory is currently registered in {district}."
+        elif district:
+            description = (
+                f"No housing matched all conditions. {district} has "
+                f"{district_inventory_count} registered project(s), so the requested conditions removed all results."
+            )
+        else:
+            description = "No housing matched all requested conditions."
+        return description, [], context
 
     if name == "recommend_lifestyle":
         category_names: list[str] = args.get("categories") or []
         if not category_names:
-            return "No categories given.", []
+            return "No categories given.", [], None
         preferences = [LifestylePreference(category_name=c, weight=1.0) for c in category_names]
         req = LifestyleRecommendationRequest(
             preferences=preferences,
@@ -118,6 +174,6 @@ async def dispatch_tool(session: AsyncSession, name: str, args: dict[str, Any]) 
         )
         ranked = await recommendation_service.recommend_lifestyle(session, req)
         results = [r.housing for r in ranked[:limit]]
-        return _describe_housing(results), results
+        return _describe_housing(results), results, None
 
-    return f"Unknown tool '{name}'.", []
+    return f"Unknown tool '{name}'.", [], None

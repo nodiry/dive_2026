@@ -53,12 +53,12 @@ export function UserMenu({ className }: UserMenuProps) {
       <Link
         to={ROUTES.Login}
         className={cn(
-          'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium text-plum/70 transition-colors hover:bg-plum/10',
+          'flex items-center gap-1.5 rounded-full p-2 text-sm font-medium text-plum/70 transition-colors hover:bg-plum/10 sm:px-3.5 sm:py-1.5',
           className,
         )}
       >
         <UserIcon className='size-4' />
-        {t('nav.login')}
+        <span className='hidden sm:inline'>{t('nav.login')}</span>
       </Link>
     );
   }
@@ -81,10 +81,10 @@ export function UserMenu({ className }: UserMenuProps) {
         aria-expanded={open}
         aria-haspopup='menu'
         onClick={toggleOpen}
-        className='flex items-center gap-1.5 rounded-full border border-slate-light/40 bg-white px-3.5 py-1.5 text-sm font-medium text-plum transition-colors hover:border-violet/40'
+        className='flex items-center gap-1.5 rounded-full border border-slate-light/40 bg-white p-2 text-sm font-medium text-plum transition-colors hover:border-violet/40 sm:px-3.5 sm:py-1.5'
       >
         <UserIcon className='size-4 text-slate-light' />
-        <span className='max-w-24 truncate'>{user.username}</span>
+        <span className='hidden max-w-24 truncate sm:inline'>{user.username}</span>
       </button>
 
       {createPortal(

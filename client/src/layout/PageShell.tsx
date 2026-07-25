@@ -34,7 +34,7 @@ export function PageShell() {
           </Link>
           <Link
             to='/'
-            className='flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-plum/70 select-none transition-colors hover:bg-plum/10'
+            className='hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-plum/70 select-none transition-colors hover:bg-plum/10 sm:flex'
           >
             <MapPinned className='size-4' />
             <span className='hidden sm:inline'>{t('nav.backToExplore')}</span>

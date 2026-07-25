@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from src.ai.router import router as ai_router
+from src.alerts.router import router as alerts_router
 from src.auth.router import router as auth_router
 from src.gis.router import router as gis_router
 from src.housing.router import router as housing_router
@@ -17,3 +18,4 @@ api_router.include_router(recommendation_router, prefix="/recommendations", tags
 api_router.include_router(auth_router, prefix="/auth", tags=["AUTH"])
 api_router.include_router(saved_router, prefix="/saved", tags=["SAVED"])
 api_router.include_router(ai_router, prefix="/ai", tags=["AI"])
+api_router.include_router(alerts_router, prefix="/alerts", tags=["ALERTS"])

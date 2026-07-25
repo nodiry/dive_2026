@@ -149,6 +149,15 @@ async def search_housing(session: AsyncSession, query: HousingSearchQuery) -> li
     return await to_summaries(session, list(result.all()))
 
 
+async def count_housing_in_district(session: AsyncSession, district: str) -> int:
+    result = await session.exec(
+        select(func.count())
+        .select_from(HousingProject)
+        .where(HousingProject.source_district == district)
+    )
+    return result.one()
+
+
 async def get_housing_id(session: AsyncSession, housing_id: int) -> HousingSummary | None:
     project = await session.get(HousingProject, housing_id)
     if project is None:

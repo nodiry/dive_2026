@@ -279,10 +279,41 @@ export const AiSearchRequest = z.object({
 });
 export type AiSearchRequest = z.infer<typeof AiSearchRequest>;
 
+export const AlertCriteria = z.object({
+  district: z.string().nullable().optional(),
+  depositMax: z.number().nullable().optional(),
+  builtAfter: z.number().int().nullable().optional(),
+  roomCount: z.number().nullable().optional(),
+  type: HousingType.nullable().optional(),
+});
+export type AlertCriteria = z.infer<typeof AlertCriteria>;
+
+export const NoMatchContext = z.object({
+  reason: z.enum([
+    'district_inventory_empty',
+    'criteria_no_match',
+    'unsupported_region',
+    'data_unavailable',
+  ]),
+  criteria: AlertCriteria,
+  districtInventoryCount: z.number().int().nullable().optional(),
+  matchingCount: z.literal(0),
+  criteriaKey: z.string().nullable().optional(),
+});
+export type NoMatchContext = z.infer<typeof NoMatchContext>;
+
+export const AiAction = z.object({
+  type: z.enum(['subscribe_housing_alert', 'relax_filters']),
+});
+export type AiAction = z.infer<typeof AiAction>;
+
 export const AiSearchResponse = z.object({
   reply: z.string(),
   housing: z.array(HousingSummary),
   conversationId: z.string().uuid(),
+  messageId: z.string().uuid(),
+  noMatch: NoMatchContext.nullable().optional(),
+  actions: z.array(AiAction).default([]),
 });
 export type AiSearchResponse = z.infer<typeof AiSearchResponse>;
 
@@ -294,7 +325,10 @@ export const AiConversationSummary = z.object({
 export type AiConversationSummary = z.infer<typeof AiConversationSummary>;
 
 export const AiConversationMessage = ChatMessage.extend({
+  id: z.string().uuid(),
   housing: z.array(HousingSummary).default([]),
+  noMatch: NoMatchContext.nullable().optional(),
+  actions: z.array(AiAction).default([]),
 });
 export type AiConversationMessage = z.infer<typeof AiConversationMessage>;
 
@@ -304,3 +338,21 @@ export const AiConversationDetail = z.object({
   messages: z.array(AiConversationMessage),
 });
 export type AiConversationDetail = z.infer<typeof AiConversationDetail>;
+
+export const HousingAlert = z.object({
+  id: z.number().int(),
+  criteria: AlertCriteria,
+  criteriaKey: z.string(),
+  sourceMessageId: z.string().uuid().nullable(),
+  createdAt: z.string(),
+});
+export type HousingAlert = z.infer<typeof HousingAlert>;
+
+export const HousingAlertStats = z.object({
+  activeAlerts: z.number().int(),
+  uniqueUsers: z.number().int(),
+  newLast7Days: z.number().int(),
+  topDistrict: z.string().nullable(),
+  topDistrictCount: z.number().int(),
+});
+export type HousingAlertStats = z.infer<typeof HousingAlertStats>;

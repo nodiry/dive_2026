@@ -1,8 +1,8 @@
 """
-BMC's sample CSVs are EUC-KR encoded; the 소상공인시장진흥공단 POI dataset is
-UTF-8 (its own read-me notes they switched away from EUC-KR because it was
-corrupting business names). Always read via `read_csv`, passing the right
-encoding — see docs/DATA_MODEL.md for which file uses which.
+The 2026-06-30 BMC handout mixes encodings file-by-file: five CSVs are
+UTF-8 with a BOM, but 매입임대 표준보증금 is CP949 — pass encoding="auto"
+and `read_csv` tries utf-8-sig first, then cp949. The 소상공인시장진흥공단
+POI dataset is plain UTF-8. See docs/DATA_MODEL.md for which file uses which.
 
 Python's csv module handles RFC4180 quoting (including embedded commas inside
 quoted fields) natively, unlike the hand-rolled parser the original TS version
@@ -15,9 +15,19 @@ from datetime import date, datetime
 from pathlib import Path
 
 
-def read_csv(path: Path, encoding: str = "euc-kr") -> list[dict[str, str]]:
+def _read_csv_with(path: Path, encoding: str) -> list[dict[str, str]]:
     with open(path, encoding=encoding, newline="") as f:
         return [{k: (v or "").strip() for k, v in row.items()} for row in csv.DictReader(f)]
+
+
+def read_csv(path: Path, encoding: str = "auto") -> list[dict[str, str]]:
+    encodings = ("utf-8-sig", "cp949") if encoding == "auto" else (encoding,)
+    for enc in encodings[:-1]:
+        try:
+            return _read_csv_with(path, enc)
+        except UnicodeDecodeError:
+            continue
+    return _read_csv_with(path, encodings[-1])
 
 
 def to_number(v: str | None) -> float | None:
@@ -32,22 +42,32 @@ def to_number(v: str | None) -> float | None:
         return None
 
 
-def date_from_yyyymmdd(v: str | None) -> date | None:
-    """asyncpg needs a real date object for date-typed columns, not a string."""
+def parse_date(v: str | None) -> date | None:
+    """
+    asyncpg needs a real date object for date-typed columns, not a string.
+    Accepts both date spellings seen across BMC exports: bare `YYYYMMDD`
+    (older cuts) and ISO `YYYY-MM-DD` (the 2026-06-30 handout).
+    """
     t = (v or "").strip()
-    if not re.fullmatch(r"\d{8}", t):
-        return None
-    return date(int(t[0:4]), int(t[4:6]), int(t[6:8]))
-
-
-def timestamp_from_mmddyyyy(v: str | None) -> datetime | None:
-    """asyncpg needs a real datetime object for timestamp-typed columns, not a string."""
-    t = (v or "").strip()
-    m = re.fullmatch(r"(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})", t)
+    m = re.fullmatch(r"(\d{4})-?(\d{2})-?(\d{2})", t)
     if not m:
         return None
-    mm, dd, yyyy, hh, mi, ss = (int(g) for g in m.groups())
-    return datetime(yyyy, mm, dd, hh, mi, ss)
+    return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+
+def parse_timestamp(v: str | None) -> datetime | None:
+    """
+    asyncpg needs a real datetime object for timestamp-typed columns, not a
+    string. 등록일 was `MM-DD-YYYY HH:MM:SS` in older BMC cuts and is a bare
+    ISO `YYYY-MM-DD` date in the 2026-06-30 handout — accept both.
+    """
+    t = (v or "").strip()
+    m = re.fullmatch(r"(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})", t)
+    if m:
+        mm, dd, yyyy, hh, mi, ss = (int(g) for g in m.groups())
+        return datetime(yyyy, mm, dd, hh, mi, ss)
+    d = parse_date(t)
+    return datetime(d.year, d.month, d.day) if d else None
 
 
 def strip_dong_suffix(address: str) -> str:

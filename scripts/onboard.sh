@@ -18,14 +18,30 @@ step "checking env files"
 [ -f client/.env ] || { cp client/.env.example client/.env; echo "created client/.env (add VITE_KAKAO_MAP_KEY when you have it)"; }
 
 step "checking sample data"
-if [ -f samples/housing/purchased_units.csv ]; then
+BMC_MARKER="samples/2026_DIVE_해커톤_제공데이터_부산도시공사/매입임대주택 상세 정보 및 평균보증금, 평균임대료/매입임대 주택정보_20260630.csv"
+if [ -f "$BMC_MARKER" ]; then
   echo "samples/ already present, skipping unzip"
 elif [ -f samples.zip ]; then
-  echo "unzipping samples.zip (~560MB, may take a minute)..."
+  echo "unzipping samples.zip (may take a minute)..."
   unzip -q -o samples.zip -d samples
 else
   echo "samples.zip not found at repo root — get it from a teammate and drop it here, then re-run this command." >&2
   exit 1
+fi
+
+# The pre-2026-06-30 layout kept renamed BMC CSVs in samples/housing/ —
+# superseded by the official handout folder above, drop it if still around.
+if [ -d samples/housing ]; then
+  echo "removing superseded samples/housing/ (replaced by the 2026-06-30 BMC handout)"
+  rm -rf samples/housing
+fi
+
+# Heavy, not-yet-ingested data stays out of samples.zip — flag if absent so
+# people know it's a manual drop-in, not something this script fetches.
+if [ ! -d "samples/2026_DIVE_해커톤_제공데이터_선도소프트/01. 상가-건물 융합데이터" ]; then
+  echo "note: 선도소프트 융합데이터 zips not present (optional — nothing ingests them yet)."
+  echo "      To add them, copy the handout's 01/02/03 folders into"
+  echo "      samples/2026_DIVE_해커톤_제공데이터_선도소프트/ — see docs/DATA_MODEL.md Part 5."
 fi
 
 step "installing dependencies (client bun install + api venv)"

@@ -11,7 +11,8 @@ see `docs/DATA_MODEL.md`; for how the UI must look see
 justfile                     # root task runner: onboard/install/up/down/migrate/seed/geocode/api/client
 docker-compose.yml           # db + api (+ client behind the "full" profile)
 scripts/onboard.sh           # full onboarding flow (prereq checks, env files, unzip, install, up, migrate, seed, geocode)
-samples.zip                  # committed (~98MB) — onboarding unzips to samples/ (gitignored)
+samples.zip                  # committed (~90MB) — onboarding unzips to samples/ (gitignored);
+                             #   excludes the 선도소프트 융합데이터 zips + population grid (manual drop-ins, docs/DATA_MODEL.md)
 
 api/
   justfile                   # install/dev/format/lint/typecheck/test/check/migration/migrate/downgrade/seed/geocode
@@ -21,7 +22,7 @@ api/
   scripts/                   # host-run ETL (asyncpg, NOT SQLModel — bulk executemany)
     db.py                    #   asyncpg pool for scripts, URL derived from src.database
     seed.py                  #   seed_housing -> seed_poi -> seed_gis
-    seed_housing.py          #   6 BMC CSVs -> housing_project/housing_unit/housing_price
+    seed_housing.py          #   6 BMC CSVs (2026-06-30 handout, Korean paths) -> housing_project/housing_unit/housing_price
     seed_poi.py              #   155k-row POI CSV -> commercial_poi (maps Korean 대분류 -> English slug)
     seed_gis.py              #   ogr2ogr for admin_boundary/commercial_zone/building
     geocode_housing.py       #   Kakao geocoding for housing_project rows with geom IS NULL

@@ -6,7 +6,6 @@ citizen's lifestyle/commercial-district preferences (or hard search
 conditions) against real Busan housing and commercial data.
 
 ## Docs map
-
 - **`docs/ARCHITECTURE.md`** — current product overview and end-to-end
   architecture: screens, services, data flow, recommendation scoring,
   deployment, and extension boundaries. Start here for the whole system.
@@ -98,10 +97,27 @@ setting, not a bug in this repo. Full detail in `docs/TECHNICAL.md`.
 files must stay blank placeholders. If a real key ever ends up in a
 committed file, rotate it in the Kakao console immediately.
 
-`samples.zip` (~98MB) is committed to this repo, no separate download step
-needed. To regenerate it after adding more sample data:
-`zip -r -X samples.zip samples -x samples/'*.DS_Store'` from the repo root,
-then re-commit.
+`samples.zip` (~90MB) is committed to this repo, no separate download step
+needed — it holds everything the seeds use (BMC housing CSVs, POI, GIS
+shapefiles, reference docs). Two heavy optional datasets are deliberately
+excluded and are manual drop-ins if you need them (nothing ingests them
+yet — see `docs/DATA_MODEL.md` Parts 4–5):
+
+- 선도소프트 융합데이터 year-zips → copy the handout's `01.`/`02.`/`03.`
+  folders into `samples/2026_DIVE_해커톤_제공데이터_선도소프트/`
+- SGIS population grid (unusable without its boundary file) →
+  `samples/population_grid_UNPLACEABLE/`
+
+To regenerate the zip after a data update, from the repo root:
+
+```sh
+cd samples && zip -r -X ../samples.zip . \
+  -x "population_grid_UNPLACEABLE/*" \
+  -x "2026_DIVE_해커톤_제공데이터_선도소프트/0*" \
+  -x "*.DS_Store"
+```
+
+then re-commit (keep it under GitHub's 100MB file limit).
 
 ## Current state (see `docs/PLAN.md` for what's next)
 
@@ -129,3 +145,6 @@ then re-commit.
 - Pending: compare view, AI prompt-to-filters (the navbar search pill is
   reserved for it), event-day city-wide dataset swap.
 
+
+# TODO:
+* add share button to share the kakao map link

@@ -139,7 +139,7 @@ VM의 프로젝트 루트에 압축을 푼 `samples/`를 둔다.
 ├── docker-compose.seed.yml
 ├── .env.azure
 └── samples/
-    ├── housing/
+    ├── 2026_DIVE_해커톤_제공데이터_부산도시공사/
     ├── poi/
     └── gis/
 ```
@@ -147,7 +147,8 @@ VM의 프로젝트 루트에 압축을 푼 `samples/`를 둔다.
 마커 파일과 이미지 내부 GDAL을 확인한다.
 
 ```bash
-test -f samples/housing/purchased_units.csv
+test -f \
+  "samples/2026_DIVE_해커톤_제공데이터_부산도시공사/매입임대주택 상세 정보 및 평균보증금, 평균임대료/매입임대 주택정보_20260630.csv"
 
 docker compose \
   --env-file .env.azure \

@@ -112,15 +112,17 @@ export function Explore() {
   const mapControlsRef = useRef<MapControls | null>(null);
   const showError = useToastStore((s) => s.showError);
 
-  // Picking a district filter focuses the map on that region right away;
-  // clearing back to "전체" lands on Seomyeon rather than wherever the map
-  // happened to be (or Busan's mostly-empty geographic center).
+  // Give immediate feedback with the approximate center while the GIS
+  // boundary is loading. Once the boundary arrives, KakaoMap fits its exact
+  // bounds and this effect deliberately stops overriding that viewport.
+  // Clearing back to "전체" still lands on Seomyeon.
   useEffect(() => {
+    if (filters.district && districtBoundary) return;
     const center = filters.district
       ? DISTRICT_CENTERS[filters.district as District]
       : ALL_DISTRICTS_FOCUS;
     if (center) mapControlsRef.current?.focusRegion(center.lat, center.lng);
-  }, [filters.district]);
+  }, [districtBoundary, filters.district]);
 
   function locateMe() {
     if (!navigator.geolocation) {
